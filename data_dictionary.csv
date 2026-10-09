@@ -1,0 +1,87 @@
+table,column,intended_type,description
+transactions,transaction_id,string,Intended transaction identifier; test uniqueness before joining.
+transactions,account_id,string,Intended internal account identifier; references accounts.
+transactions,security_id,string,Intended internal security identifier; references securities.
+transactions,cusip,string,Synthetic CUSIP-style matching attribute; not a guaranteed unique or valid identifier.
+transactions,transaction_type,string,BUY or SELL in this release; corporate actions are a separate table.
+transactions,trade_date,date,Agreement date; ISO or DD/MM/YYYY slash format.
+transactions,settlement_date,date,Scheduled settlement date; not a confirmation of actual settlement.
+transactions,quantity,decimal,"Position units, or intended trade magnitude; apply the Dataset Guide sign convention."
+transactions,price,decimal,"Reported price; quote basis and quantity denomination require validation, especially for bonds."
+transactions,currency,string,Stated currency code; validate consistency across related tables.
+transactions,gross_amount,decimal,Reported gross trade amount in transaction currency; test against magnitude times price.
+transactions,status,string,"BOOKED, CANCELLED or REVERSED; investigate linked records and distinguish state from offsetting-event interpretations."
+transactions,related_transaction_id,string,Reported related/original transaction reference; validate existence and semantics.
+transactions,source_system,string,"Reported source system label, not an accountable owner."
+transactions,event_timestamp,timestamp,Reported source-event time; common platform clock for this exercise.
+transactions,settlement_note,string,"Optional exception note; evidence for review, not automatic clearance."
+pipeline_events,transaction_id,string,Intended transaction identifier; test uniqueness before joining.
+pipeline_events,source_system,string,"Reported source system label, not an accountable owner."
+pipeline_events,event_timestamp,timestamp,Reported source-event time; common platform clock for this exercise.
+pipeline_events,received_timestamp,timestamp,Reported platform receipt time.
+pipeline_events,booked_timestamp,timestamp,Reported booking time.
+pipeline_events,batch_id,string,Reported source batch identifier; many records may share it.
+pipeline_events,published_timestamp,timestamp,Reported publication time.
+pipeline_events,cutoff_timestamp,timestamp,Applicable cutoff observation; compare booking and publication separately.
+positions,position_id,string,Reported row identifier.
+positions,account_id,string,Intended internal account identifier; references accounts.
+positions,security_id,string,Intended internal security identifier; references securities.
+positions,quantity,decimal,"Position units, or intended trade magnitude; apply the Dataset Guide sign convention."
+positions,transaction_count,integer,Reported number of contributing transactions; validate against a stated inclusion policy.
+positions,as_of_date,date,Snapshot date; expected format YYYY-MM-DD.
+positions,source,string,"Reported position source, normally BOOK_OF_RECORD."
+comparison_positions,comparison_id,string,Comparison-source row identifier.
+comparison_positions,account_id,string,Intended internal account identifier; references accounts.
+comparison_positions,security_id,string,Intended internal security identifier; references securities.
+comparison_positions,quantity,decimal,"Position units, or intended trade magnitude; apply the Dataset Guide sign convention."
+comparison_positions,as_of_date,date,Snapshot date; expected format YYYY-MM-DD.
+comparison_positions,source,string,"Reported comparison source, normally CUSTODIAN_FEED."
+accounts,account_id,string,Intended internal account identifier; references accounts.
+accounts,account_name,string,Synthetic account display name.
+accounts,fund_id,string,Fund grouping identifier; links account allocation to reported ledger.
+accounts,share_class,string,Share-class label within a fund; class analysis is optional.
+accounts,account_type,string,Reported account category.
+accounts,base_currency,string,Account reporting currency; not automatically the currency of every holding.
+accounts,domicile,string,Reported account domicile code.
+accounts,strategy,string,Reported investment strategy category.
+accounts,custodian,string,Custodian label.
+accounts,open_date,date,Account opening date.
+accounts,close_date,date,Account closing date; blank can mean no reported closure.
+accounts,status,string,"Reported account state, such as OPEN."
+securities,security_id,string,Intended internal security identifier; references securities.
+securities,cusip,string,Synthetic CUSIP-style matching attribute; not a guaranteed unique or valid identifier.
+securities,isin,string,Synthetic ISIN-style identifier; do not assume standards compliance.
+securities,ticker,string,Synthetic display ticker; not a unique join key.
+securities,security_name,string,Synthetic security display name.
+securities,asset_class,string,"Reported class, such as EQUITY or BOND."
+securities,currency,string,Stated currency code; validate consistency across related tables.
+securities,exchange_mic,string,Reported exchange code; synthetic attribute.
+securities,issuer_country,string,Reported issuer country code.
+securities,coupon_rate,decimal,Reported bond coupon; validate scale before using. May be inapplicable to equities.
+securities,maturity_date,date,Reported maturity date; may be inapplicable to equities.
+securities,par_value,decimal,Reported par attribute; use only under an explicit and supported quote and quantity convention.
+corporate_actions,action_id,string,Issuer-event identifier.
+corporate_actions,security_id,string,Intended internal security identifier; references securities.
+corporate_actions,action_type,string,"SPLIT, MERGER, SPINOFF, REDEMPTION or CASH_DIVIDEND."
+corporate_actions,ex_date,date,Reported entitlement-related event date; validate alongside effective_date.
+corporate_actions,effective_date,date,Reported implementation date; event chronology is subject to checks.
+corporate_actions,ratio,decimal,Event-dependent unit ratio; use guide conventions only for supported events.
+corporate_actions,cash_rate,decimal,Cash per eligible source unit in source security currency under case convention.
+corporate_actions,target_security_id,string,Reported resulting security for an applicable action; validate against securities.
+prices,security_id,string,Intended internal security identifier; references securities.
+prices,price_date,date,Price observation date.
+prices,vendor,string,"Synthetic vendor label, not a named real-world provider."
+prices,price,decimal,"Reported price; quote basis and quantity denomination require validation, especially for bonds."
+prices,currency,string,Stated currency code; validate consistency across related tables.
+prices,price_timestamp,timestamp,Quote timestamp; use in freshness and cutoff eligibility checks.
+prices,vendor_priority,integer,"Nominal preference; lower value has higher priority, subject to your eligibility rules."
+fx_rates,currency,string,Stated currency code; validate consistency across related tables.
+fx_rates,rate_date,date,Rate observation date.
+fx_rates,rate_to_usd,decimal,USD per one unit of currency; multiply local currency value by accepted rate.
+ledger_nav,ledger_id,string,Reported ledger snapshot row identifier.
+ledger_nav,fund_id,string,Fund grouping identifier; links account allocation to reported ledger.
+ledger_nav,share_class,string,Share-class label within a fund; class analysis is optional.
+ledger_nav,net_assets,decimal,"Reported net assets; interpreted as USD for the exercise, not an investment-only balance."
+ledger_nav,as_of_date,date,Snapshot date; expected format YYYY-MM-DD.
+ledger_nav,shares_outstanding,decimal,Reported fund share-class units outstanding.
+ledger_nav,nav_per_share,decimal,Reported NAV per share; test against net_assets divided by shares_outstanding.
