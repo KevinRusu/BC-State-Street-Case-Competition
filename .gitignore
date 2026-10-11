@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+.claude
+
+# Python / uv
+.venv/
+__pycache__/
+*.pyc
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Office lock files (created while a file is open in Excel/PowerPoint/Word)
+~$*
+
+# Personal Claude Code settings
+.claude/settings.local.json
+
+# Generated outputs — anything here can be rebuilt from data/ + code
+outputs/*
+!outputs/.gitkeep
+*.duckdb
+*.parquet
