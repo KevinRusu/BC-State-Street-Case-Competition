@@ -1,0 +1,478 @@
+{
+ "offices": [
+  {
+   "office": "Front office",
+   "who": "Portfolio managers and traders",
+   "does": "Decide what to buy and sell, and create the trade"
+  },
+  {
+   "office": "Middle office",
+   "who": "Trade operations, pricing and reconciliation analysts",
+   "does": "Book trades, value every holding, and check our records against the custodian"
+  },
+  {
+   "office": "Back office",
+   "who": "Fund accountants",
+   "does": "Keep the official books and calculate the NAV (price per fund share)"
+  }
+ ],
+ "outside": [
+  {
+   "source": "Custodian",
+   "gives": "Its own record of what each account holds (comparison_positions)"
+  },
+  {
+   "source": "Price vendors A, B, C",
+   "gives": "A daily price for every security (prices)"
+  },
+  {
+   "source": "FX provider",
+   "gives": "Daily currency rates to US dollars (fx_rates)"
+  }
+ ],
+ "reader": "Outside sources are not offices: the custodian, the price vendors and the FX provider send us data, and we check it.",
+ "stages": [
+  {
+   "stage": "Accounts",
+   "office": "Front office (set up), back office (fund mapping)",
+   "table": "accounts",
+   "exit": "Every account has its required fields, valid open/close dates, and a fund and share class"
+  },
+  {
+   "stage": "Securities",
+   "office": "Middle office",
+   "table": "securities",
+   "exit": "Every security exists once, has valid codes and currency, and is set up before anyone trades it"
+  },
+  {
+   "stage": "Transactions",
+   "office": "Front office creates, middle office books",
+   "table": "transactions, pipeline_events, corporate_actions",
+   "exit": "Every trade is unique, valid and on time; every corporate action is complete before its ex-date"
+  },
+  {
+   "stage": "Positions",
+   "office": "Middle office",
+   "table": "positions (custodian: comparison_positions)",
+   "exit": "Every holding equals its trades, matches the custodian, and has a fresh price"
+  },
+  {
+   "stage": "NAV and ledger",
+   "office": "Back office",
+   "table": "ledger_nav",
+   "exit": "Every fund NAV adds up and has no serious open problem feeding it"
+  }
+ ],
+ "handoffs": [
+  {
+   "n": 1,
+   "from": "Accounts",
+   "to": "Transactions",
+   "plain": "Account list to trades",
+   "what": "Every trade must belong to a known, open account"
+  },
+  {
+   "n": 2,
+   "from": "Securities",
+   "to": "Transactions",
+   "plain": "Security list to trades",
+   "what": "Every trade and corporate action must use a known security"
+  },
+  {
+   "n": 3,
+   "from": "Transactions",
+   "to": "Positions",
+   "plain": "Trades to positions",
+   "what": "Booked trades, on time, add up to each holding"
+  },
+  {
+   "n": 4,
+   "from": "Transactions",
+   "to": "Positions",
+   "plain": "Corporate actions to positions",
+   "what": "Events like splits and spin-offs adjust every holder correctly"
+  },
+  {
+   "n": 5,
+   "from": "Outside sources",
+   "to": "Positions",
+   "plain": "Custodian and prices to positions",
+   "what": "The custodian confirms quantities; vendors give prices and FX rates"
+  },
+  {
+   "n": 6,
+   "from": "Positions",
+   "to": "NAV and ledger",
+   "plain": "Positions to fund NAV",
+   "what": "Valued holdings roll up into each fund and share class"
+  }
+ ],
+ "checks": [
+  {
+   "n": 1,
+   "check": "Account check",
+   "stage": "Accounts to Transactions",
+   "handoff": 1,
+   "tests": "The account exists, is open on the trade date, and has a fund and share class",
+   "fail": "Hold the trade and send it to onboarding",
+   "type": "Preventive",
+   "owner": "Account onboarding lead",
+   "office": "Front office"
+  },
+  {
+   "n": 2,
+   "check": "Security check",
+   "stage": "Securities to Transactions",
+   "handoff": 2,
+   "tests": "The security exists in the security list, and the trade's code and currency match it",
+   "fail": "Hold the trade until the security is set up",
+   "type": "Preventive",
+   "owner": "Security master lead",
+   "office": "Middle office"
+  },
+  {
+   "n": 3,
+   "check": "Trade check",
+   "stage": "Transactions",
+   "handoff": 3,
+   "tests": "No duplicate trades; required fields filled; dates readable; settles 0 to 2 business days after the trade unless an extension is agreed; booked before cutoff",
+   "fail": "Reject, or hold for review",
+   "type": "Preventive",
+   "owner": "Trade operations lead",
+   "office": "Middle office"
+  },
+  {
+   "n": 4,
+   "check": "Corporate action check",
+   "stage": "Transactions",
+   "handoff": 4,
+   "tests": "Before the ex-date: the event's terms are complete for its type, and any new security is already set up",
+   "fail": "Quarantine the event until complete",
+   "type": "Preventive",
+   "owner": "Corporate actions lead",
+   "office": "Middle office"
+  },
+  {
+   "n": 5,
+   "check": "Position check",
+   "stage": "Positions",
+   "handoff": 5,
+   "tests": "Each holding equals the sum of its trades and matches the custodian; every difference is explained and aged",
+   "fail": "Flag a break and work it",
+   "type": "Detective",
+   "owner": "Reconciliation lead",
+   "office": "Middle office"
+  },
+  {
+   "n": 6,
+   "check": "Price check",
+   "stage": "Positions",
+   "handoff": 5,
+   "tests": "Every holding has a price from today; the three vendors agree within 0.5%; one valid FX rate per currency, USD = 1",
+   "fail": "Use the next vendor, or flag",
+   "type": "Preventive",
+   "owner": "Pricing lead",
+   "office": "Middle office"
+  },
+  {
+   "n": 7,
+   "check": "NAV check",
+   "stage": "NAV and ledger",
+   "handoff": 6,
+   "tests": "Net assets / shares = NAV per share; every account maps to a fund; no serious open break or price issue feeds the fund",
+   "fail": "Hold the NAV until resolved",
+   "type": "Preventive",
+   "owner": "Fund accounting lead",
+   "office": "Back office"
+  }
+ ],
+ "defects": [
+  {
+   "n": 1,
+   "defect": "Missing or unknown IDs",
+   "example": "A trade uses a security that is not in the security list",
+   "earliest": 1,
+   "check": "Security check",
+   "evidence": "Security list vs the IDs used in trades and corporate actions",
+   "missed": "Trades cannot be priced; every holder of that security is wrong at once",
+   "testable": "Yes",
+   "data": "15 unknown securities in 1,131 trades, 0 prices"
+  },
+  {
+   "n": 2,
+   "defect": "Duplicated trades",
+   "example": "The same trade is booked twice",
+   "earliest": 2,
+   "check": "Trade check",
+   "evidence": "Same trade ID twice, or same account, security, date, quantity and price",
+   "missed": "Holding overstated, so value and NAV overstated",
+   "testable": "Yes",
+   "data": "To measure at Check-in 2"
+  },
+  {
+   "n": 3,
+   "defect": "Late or invalid trade records",
+   "example": "A trade misses the cutoff or has impossible dates",
+   "earliest": 2,
+   "check": "Trade check",
+   "evidence": "Timestamps vs cutoff; trade and settlement dates",
+   "missed": "Today's NAV misses the trade; settlement goes wrong",
+   "testable": "Yes",
+   "data": "1,124 settle before trade date; 1,687 unreadable dates"
+  },
+  {
+   "n": 4,
+   "defect": "Corporate actions applied unevenly",
+   "example": "A spin-off reaches some holders but not others",
+   "earliest": 2,
+   "check": "Corporate action check",
+   "evidence": "Event terms, new security set up, list of holders",
+   "missed": "Some accounts right, others wrong; new shares cannot be priced",
+   "testable": "Partly",
+   "data": "All 23 spin-off targets missing from the security list"
+  },
+  {
+   "n": 5,
+   "defect": "Positions that don't match their history",
+   "example": "Our book says 2,028, the trades add up to 1,900",
+   "earliest": 3,
+   "check": "Position check",
+   "evidence": "Rebuild from trades vs our book vs the custodian",
+   "missed": "PM trades on wrong holdings; NAV built on wrong quantities",
+   "testable": "Yes",
+   "data": "Journey trade: book = rebuild = custodian (2,028)"
+  },
+  {
+   "n": 6,
+   "defect": "Stale or disputed prices",
+   "example": "Yesterday's price, or vendors disagree",
+   "earliest": 3,
+   "check": "Price check",
+   "evidence": "Price age, spread between vendors, FX rates",
+   "missed": "Wrong value goes straight into the NAV",
+   "testable": "Partly",
+   "data": "USD rate never exactly 1 in 30 days"
+  },
+  {
+   "n": 7,
+   "defect": "Account problems",
+   "example": "A closed account keeps trading",
+   "earliest": 0,
+   "check": "Account check",
+   "evidence": "Required fields, open and close dates vs trade dates",
+   "missed": "Holdings cannot be assigned to a fund, so they are missing from NAV",
+   "testable": "Yes",
+   "data": "To measure at Check-in 2"
+  },
+  {
+   "n": 8,
+   "defect": "NAV that doesn't add up",
+   "example": "Net assets / shares is not the published NAV",
+   "earliest": 4,
+   "check": "NAV check",
+   "evidence": "Net assets, shares outstanding, NAV per share",
+   "missed": "Investors buy and sell at a wrong price",
+   "testable": "Partly",
+   "data": "Journey fund adds up"
+  }
+ ],
+ "kpis": [
+  {
+   "n": 1,
+   "office": "Front office",
+   "kpi": "Trades with a valid account and security",
+   "formula": "100 x trades whose account is open and whose security exists / all trades",
+   "unit": "%",
+   "target": "100%",
+   "owner": "Trade operations lead",
+   "dimension": "Validity",
+   "kind": "Leading",
+   "decision": "Hold failing trades and fix the account or security first"
+  },
+  {
+   "n": 2,
+   "office": "Front office",
+   "kpi": "Trades booked before cutoff",
+   "formula": "100 x trades published by cutoff / trades with readable timestamps",
+   "unit": "%",
+   "target": "at least 99%",
+   "owner": "Trade operations lead",
+   "dimension": "Timeliness",
+   "kind": "Leading",
+   "decision": "Escalate a trade feed that misses cutoff two days in a row"
+  },
+  {
+   "n": 3,
+   "office": "Middle office",
+   "kpi": "Duplicate trade rate",
+   "formula": "100 x duplicate trades / all trades",
+   "unit": "%",
+   "target": "at most 0.01%",
+   "owner": "Trade operations lead",
+   "dimension": "Uniqueness",
+   "kind": "Leading",
+   "decision": "Stop and fix the feed that sends duplicates"
+  },
+  {
+   "n": 4,
+   "office": "Middle office",
+   "kpi": "Positions matching the custodian",
+   "formula": "100 x holdings where our book = custodian / holdings in both records",
+   "unit": "%",
+   "target": "at least 99.9%",
+   "owner": "Reconciliation lead",
+   "dimension": "Consistency",
+   "kind": "Lagging",
+   "decision": "Staff the break queue; escalate breaks older than 3 days"
+  },
+  {
+   "n": 5,
+   "office": "Middle office",
+   "kpi": "Holdings with a fresh, agreed price",
+   "formula": "100 x held securities priced today with vendors within 0.5% / held securities",
+   "unit": "%",
+   "target": "at least 99%",
+   "owner": "Pricing lead",
+   "dimension": "Completeness",
+   "kind": "Leading",
+   "decision": "Challenge vendors before the NAV is struck"
+  },
+  {
+   "n": 6,
+   "office": "Back office",
+   "kpi": "NAV rows that add up",
+   "formula": "100 x fund rows where net assets / shares = NAV / all fund rows",
+   "unit": "%",
+   "target": "100%",
+   "owner": "Fund accounting lead",
+   "dimension": "Accuracy",
+   "kind": "Lagging",
+   "decision": "Hold publication of any NAV that fails"
+  },
+  {
+   "n": 7,
+   "office": "Back office",
+   "kpi": "Funds released with no serious open issue",
+   "formula": "100 x funds whose NAV had no open break or price issue above threshold / funds",
+   "unit": "%",
+   "target": "100%",
+   "owner": "Fund accounting lead",
+   "dimension": "Consistency",
+   "kind": "Lagging",
+   "decision": "Hold or caveat the NAV of a fund with open issues"
+  }
+ ],
+ "excluded_dimensions": "Precision and accessibility are not scored: precision is handled by stated tolerances inside the checks (e.g. 0.5% vendor spread), and accessibility cannot be measured from a static data extract.",
+ "promises": [
+  {
+   "n": 1,
+   "handoff": "Account list to trades",
+   "promise": "Every trade's account exists, is open on the trade date, and has a fund and share class",
+   "breach": "Any failing trade",
+   "checked": "Every batch",
+   "check": "Account check",
+   "kpi": "Trades with a valid account and security"
+  },
+  {
+   "n": 2,
+   "handoff": "Security list to trades",
+   "promise": "Every security on a trade or corporate action exists once in the security list, with the same code and currency",
+   "breach": "Any failing trade or event",
+   "checked": "Every batch",
+   "check": "Security check",
+   "kpi": "Trades with a valid account and security"
+  },
+  {
+   "n": 3,
+   "handoff": "Trades to positions",
+   "promise": "Every trade is unique, complete, has readable dates, settles 0 to 2 business days later (unless agreed) and is booked before cutoff",
+   "breach": "Any failing trade; a feed is in breach above 0.5% of a batch",
+   "checked": "Every batch",
+   "check": "Trade check",
+   "kpi": "Duplicate trade rate; trades booked before cutoff"
+  },
+  {
+   "n": 4,
+   "handoff": "Corporate actions to positions",
+   "promise": "Each event has complete terms for its type, a written meaning for each date, and any new security set up at least 2 business days before the ex-date",
+   "breach": "Any incomplete event",
+   "checked": "Every event",
+   "check": "Corporate action check",
+   "kpi": "Overall data quality score (roll-up)"
+  },
+  {
+   "n": 5,
+   "handoff": "Custodian and prices to positions",
+   "promise": "The custodian sends one record per account and security each day; every held security has a price from today; one FX rate per currency per day, USD = 1",
+   "breach": "Any missing record, price or rate",
+   "checked": "Daily",
+   "check": "Position check; Price check",
+   "kpi": "Positions matching the custodian; holdings with a fresh, agreed price"
+  },
+  {
+   "n": 6,
+   "handoff": "Positions to fund NAV",
+   "promise": "Each fund and share class has one NAV row per day where net assets / shares = NAV, and no serious open break feeds it",
+   "breach": "Any failing fund row",
+   "checked": "Daily",
+   "check": "NAV check",
+   "kpi": "NAV rows that add up; funds released with no serious open issue"
+  }
+ ],
+ "missing": [
+  {
+   "what": "A log of which accounts received each corporate action",
+   "why": "We can check an event was set up correctly, but not that it reached every holder"
+  },
+  {
+   "what": "The custodian's confirmation that a trade actually settled",
+   "why": "settlement_date is only the planned date"
+  },
+  {
+   "what": "Cash, fees and accruals per fund",
+   "why": "We cannot rebuild a fund's net assets from its holdings"
+  },
+  {
+   "what": "A clear 'type of change' on each trade (new, cancel, reversal)",
+   "why": "A REVERSED trade could mean two different things"
+  }
+ ],
+ "operating_model": [
+  {
+   "q": "Ownership",
+   "a": "The corporate actions lead owns it, because it entered when the spin-off was set up. The security master lead creates the missing security; fund accounting is told for every affected fund."
+  },
+  {
+   "q": "Prioritisation",
+   "a": "Rank open problems by: will it reach a NAV, then how many accounts and funds, then how much money is exposed, then how cheap the fix is. This one is top priority: it already sits in held positions."
+  },
+  {
+   "q": "Remediation",
+   "a": "Both: set up the missing security and correct the affected holdings, and change the event intake so an incomplete event is quarantined, or it happens again."
+  },
+  {
+   "q": "Prevention",
+   "a": "Run the corporate action check at least 2 business days before the ex-date, with an automatic request to set up any new security. About 200 events a month: cheap to run."
+  },
+  {
+   "q": "Accountability",
+   "a": "One ticket per problem with owner, age and exposure, shown on the overall scorecard. Anything open past 2 business days is escalated to management; fund accounting holds or caveats an affected NAV."
+  }
+ ],
+ "scores": "Scores are produced daily after cutoff with one command and read by each owner every morning. A disputed score is re-run from the written rules with evidence; scores are never edited by hand.",
+ "maturity": [
+  {
+   "step": "1 Reactive",
+   "text": "Problems found after the fact, office by office, in spreadsheets; nobody owns them"
+  },
+  {
+   "step": "2 Defined",
+   "text": "Written checks with owners and targets at every handoff, a daily scorecard, problems ticketed"
+  },
+  {
+   "step": "3 Preventive",
+   "text": "Checks sit at the earliest stage and stop bad data before it moves; tested with injected errors"
+  }
+ ],
+ "rollup": "The 7 KPIs also combine into one overall data quality score for the whole platform, always shown next to its coverage (the share of records we could actually test)."
+}

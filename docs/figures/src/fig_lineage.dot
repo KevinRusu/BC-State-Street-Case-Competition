@@ -4,24 +4,24 @@ digraph lineage {
   node  [shape=plaintext, fontname="Helvetica", fontsize=12];
   edge  [fontname="Helvetica", fontsize=11, color="#2A7F75", penwidth=1.8, arrowsize=0.8];
 
-  subgraph cluster_master { label=<<b>Master data (S1, S2)</b>>; style="rounded,filled"; fillcolor="#E8F0F8"; color="#1F3A5F"; fontsize=13;
+  subgraph cluster_master { label=<<b>Master data: accounts and securities</b>>; style="rounded,filled"; fillcolor="#E8F0F8"; color="#1F3A5F"; fontsize=13;
     accounts   [label=<<table border="1" cellborder="0" cellpadding="4" bgcolor="white" color="#1F3A5F"><tr><td><b>accounts</b></td></tr><tr><td>100,000 rows</td></tr><tr><td><i>1 row = 1 account</i></td></tr><tr><td align="left">account_id · fund_id · share_class<br align="left"/>status · open/close_date</td></tr></table>>];
     securities [label=<<table border="1" cellborder="0" cellpadding="4" bgcolor="white" color="#1F3A5F"><tr><td><b>securities</b></td></tr><tr><td>6,012 rows</td></tr><tr><td><i>1 row = 1 security</i></td></tr><tr><td align="left">security_id · cusip · isin<br align="left"/>currency · asset_class</td></tr></table>>];
   }
-  subgraph cluster_txn { label=<<b>Transactions &amp; corporate actions (S3)</b>>; style="rounded,filled"; fillcolor="#EAF4F2"; color="#2A7F75"; fontsize=13;
+  subgraph cluster_txn { label=<<b>Transactions and corporate actions</b>>; style="rounded,filled"; fillcolor="#EAF4F2"; color="#2A7F75"; fontsize=13;
     transactions [label=<<table border="1" cellborder="0" cellpadding="4" bgcolor="white" color="#2A7F75"><tr><td><b>transactions</b></td></tr><tr><td>1,409,533 rows</td></tr><tr><td><i>1 row = 1 trade record</i></td></tr><tr><td align="left">transaction_id · account_id · security_id<br align="left"/>status · related_transaction_id<br align="left"/>trade/settlement_date · source_system</td></tr></table>>];
     pipeline [label=<<table border="1" cellborder="0" cellpadding="4" bgcolor="white" color="#2A7F75"><tr><td><b>pipeline_events</b></td></tr><tr><td>1,409,533 rows</td></tr><tr><td><i>1 row = timestamps of 1 trade</i></td></tr><tr><td align="left">event · received · booked<br align="left"/>published · cutoff · batch_id</td></tr></table>>];
     ca [label=<<table border="1" cellborder="0" cellpadding="4" bgcolor="white" color="#2A7F75"><tr><td><b>corporate_actions</b></td></tr><tr><td>200 rows</td></tr><tr><td><i>1 row = 1 issuer event (not per account)</i></td></tr><tr><td align="left">security_id · target_security_id<br align="left"/>action_type · ex/effective_date</td></tr></table>>];
   }
-  subgraph cluster_pos { label=<<b>Positions &amp; reconciliation (S4)</b>>; style="rounded,filled"; fillcolor="#EAF4F2"; color="#2A7F75"; fontsize=13;
+  subgraph cluster_pos { label=<<b>Positions and reconciliation</b>>; style="rounded,filled"; fillcolor="#EAF4F2"; color="#2A7F75"; fontsize=13;
     positions [label=<<table border="1" cellborder="0" cellpadding="4" bgcolor="white" color="#2A7F75"><tr><td><b>positions</b> (our book)</td></tr><tr><td>480,663 rows</td></tr><tr><td><i>1 row = account x security x date</i></td></tr><tr><td align="left">quantity · transaction_count<br align="left"/>as_of_date = 2026-07-10 only</td></tr></table>>];
-    cmp [label=<<table border="1" cellborder="0" cellpadding="4" bgcolor="white" color="#7D8797"><tr><td><b>comparison_positions</b></td></tr><tr><td>480,183 rows (F3 custodian)</td></tr><tr><td><i>1 row = account x security x date</i></td></tr></table>>];
+    cmp [label=<<table border="1" cellborder="0" cellpadding="4" bgcolor="white" color="#7D8797"><tr><td><b>comparison_positions</b></td></tr><tr><td>480,183 rows (custodian)</td></tr><tr><td><i>1 row = account x security x date</i></td></tr></table>>];
   }
-  subgraph cluster_feeds { label=<<b>External feeds (F1, F2)</b>>; style="rounded,filled"; fillcolor="#F2F4F7"; color="#7D8797"; fontsize=13;
+  subgraph cluster_feeds { label=<<b>Outside sources: prices and FX</b>>; style="rounded,filled"; fillcolor="#F2F4F7"; color="#7D8797"; fontsize=13;
     prices [label=<<table border="1" cellborder="0" cellpadding="4" bgcolor="white" color="#7D8797"><tr><td><b>prices</b></td></tr><tr><td>539,970 rows</td></tr><tr><td><i>1 row = security x date x vendor</i></td></tr><tr><td align="left">vendor_priority 1-3 · currency<br align="left"/>price_timestamp</td></tr></table>>];
     fx [label=<<table border="1" cellborder="0" cellpadding="4" bgcolor="white" color="#7D8797"><tr><td><b>fx_rates</b></td></tr><tr><td>180 rows</td></tr><tr><td><i>1 row = currency x date</i></td></tr></table>>];
   }
-  subgraph cluster_nav { label=<<b>NAV &amp; ledger (S5)</b>>; style="rounded,filled"; fillcolor="#FBF3E4"; color="#C98A10"; fontsize=13;
+  subgraph cluster_nav { label=<<b>NAV and ledger</b>>; style="rounded,filled"; fillcolor="#FBF3E4"; color="#C98A10"; fontsize=13;
     nav [label=<<table border="1" cellborder="0" cellpadding="4" bgcolor="white" color="#C98A10"><tr><td><b>ledger_nav</b></td></tr><tr><td>2,000 rows</td></tr><tr><td><i>1 row = fund x share class x date</i></td></tr><tr><td align="left">net_assets · shares_outstanding<br align="left"/>nav_per_share</td></tr></table>>];
   }
 
@@ -31,7 +31,7 @@ digraph lineage {
   transactions -> transactions [label="related_transaction_id\n(cancel / reversal link)", color="#C98A10"];
   securities -> ca [label="security_id /\ntarget_security_id"];
   transactions -> positions [label="signed sum by\naccount + security"];
-  ca -> positions [label="scenario only\n(no posting log: K11)", style=dashed, color="#C0392B", fontcolor="#C0392B"];
+  ca -> positions [label="scenario only\n(no per-account log)", style=dashed, color="#C0392B", fontcolor="#C0392B"];
   positions -> cmp [label="FULL OUTER on\naccount + security + date", dir=both];
   securities -> prices [label="security_id"];
   prices -> fx [label="currency + date"];

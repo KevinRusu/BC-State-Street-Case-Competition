@@ -1,0 +1,131 @@
+# Rules draft: the detailed rules under our 7 checks
+
+*Starting point for `config/rules.yaml` at Check-in 2 · built 12 Oct 2026 from the old spine workbook (`Spine_Checkin1_v0.3.xlsx`, still in git history)*
+
+## How to read this file
+
+- A **check** (or control) is one test at one handoff, with one owner. We explain 7 of them on the slides.
+- A **rule** is one exact condition the code tests. Each check has several rules underneath. Faculty see the checks; the code runs the rules.
+- **If it fails** says what happens to the record: **reject** (refuse it), **hold** (stop it until someone fixes it), **flag** (let it through but report it), **correct** (fix it automatically, and log the fix).
+- The **suggested id** is the name the rule could get in `rules.yaml`.
+- Thresholds marked as assumptions are our choices, not State Street numbers. Judges will change them live, so they must live in the config file, not in the code.
+
+## 1. Account check
+
+*Where: Accounts to Transactions · Owner: Account onboarding lead*
+
+| Suggested id | What it tests | If it fails | Notes |
+|---|---|---|---|
+| `ACC_NOT_OPEN_ON_TRADE_DATE` | account_id exists in accounts, status = OPEN, open_date ≤ trade_date and (close_date blank or trade_date ≤ close_date) | hold | Hold the trade; route to onboarding |
+| `ACC_REQUIRED_FIELDS` | Required fields populated and valid before an account can trade: fund_id, share_class, base_currency (ISO 4217), domicile (ISO 3166), custodian, open_date; close_date ≥ open_date; status consistent with close_date | reject | Account not activated until it passes |
+
+## 2. Security check
+
+*Where: Securities to Transactions · Owner: Security master lead*
+
+| Suggested id | What it tests | If it fails | Notes |
+|---|---|---|---|
+| `SEC_IDENTIFIER_VALID` | security_id unique; CUSIP/ISIN well-formed and not shared by two security_ids; ISIN embeds the CUSIP; currency is ISO 4217; BOND rows have coupon, maturity and par | reject | Runs on every new or changed security record |
+| `TXN_SECURITY_NOT_MASTERED` | Every transaction security_id exists in securities; trade cusip = master cusip; trade currency = security currency | hold | Hold the trade; ask security master to create or fix the record |
+
+## 3. Trade check
+
+*Where: Transactions · Owner: Trade operations lead*
+
+| Suggested id | What it tests | If it fails | Notes |
+|---|---|---|---|
+| `TXN_DUPLICATE` | transaction_id unique; no second record with the same account + security + trade_date + type + quantity + price unless linked through related_transaction_id | hold | Exact duplicates rejected, economic duplicates held for review |
+| `TXN_FIELDS_VALID` | Required fields not null; trade_date and settlement_date parse (ISO or DD/MM/YYYY, logged); settlement_date ≥ trade_date; lag ≤ 2 business days unless settlement_note = EXTENDED_SETTLEMENT_AGREED; quantity > 0; \|gross_amount − quantity × price\| ≤ 0.01 | reject | T+2 limit and amount tolerance are team assumptions. Lag is counted in BUSINESS days (calendar days flag every Friday trade). Data: T+1 913,711 · T+2 490,054 · T+5 to T+7 2,957 (845 with agreed-extension note) · 1,124 settle before trade · 1,687 unparseable. US standard is T+1 since 28 May 2024 (SEC Rule 15c6-1): split the limit by market / asset class at Check-in 2 |
+| `TXN_CORRECTION_LINK` | related_transaction_id points to an existing transaction, not to itself, with the same account and security; CANCELLED/REVERSED/BOOKED combinations follow the stated rule; no double offset | hold | REVERSED semantics unresolved until the data owner tells us what REVERSED means |
+| `TXN_TIMESTAMPS_IN_ORDER` | event ≤ received ≤ booked ≤ published; all timestamps present and parseable; received − event within the feed's latency limit (per source_system) | flag | Missing / out-of-order timestamps reported separately, never as on time |
+| `TXN_AFTER_CUTOFF` | booked_timestamp and published_timestamp ≤ cutoff_timestamp; late trades carried to the next cycle with a flag | flag |  |
+
+## 4. Corporate action check
+
+*Where: Transactions · Owner: Corporate actions lead*
+
+| Suggested id | What it tests | If it fails | Notes |
+|---|---|---|---|
+| `CA_TERMS_COMPLETE` | Before ex_date: action_type supported; required terms present AND only the terms the type needs (e.g. cash_rate only where cash is paid); target_security_id present AND mastered for MERGER / SPINOFF; date order valid for the type (definition still to agree with the data owner) | hold | Event quarantined until terms and target are complete. From the data: all 200 events carry a cash_rate (even splits) and 87 of 200 have ex_date after effective_date. Whether that is wrong depends on what effective_date means per type, so we must agree a definition first |
+| `CA_ALL_HOLDERS_ADJUSTED` | After effective_date: every account holding the source security on ex_date shows the adjustment (needs a per-account posting log, which we do not have) | flag | Not testable yet: no posting log |
+
+## 5. Position check
+
+*Where: Positions · Owner: Reconciliation lead*
+
+| Suggested id | What it tests | If it fails | Notes |
+|---|---|---|---|
+| `POS_REBUILD_MATCHES` | Reported positions.quantity = signed sum of BOOKED trades (BUY +, SELL −, zero opening); positions.transaction_count = contributing trades; trade-date and settlement-date variants | flag |  |
+| `POS_CUSTODIAN_BREAK` | Full outer join positions ↔ comparison_positions on account + security + as_of_date; differing, one-sided and unevaluable keys reported separately; breaks aged | flag |  |
+
+## 6. Price check
+
+*Where: Positions · Owner: Pricing lead*
+
+| Suggested id | What it tests | If it fails | Notes |
+|---|---|---|---|
+| `PRC_QUOTE_ELIGIBLE` | Every held security has a quote for the valuation date with price > 0, price currency = security currency, price_timestamp on price_date and before NAV cutoff; else fall back to next vendor_priority | correct | Correct = select next eligible vendor, logged |
+| `PRC_VENDOR_DISPERSION` | (max − min) / mean across vendor quotes ≤ 0.5%; a ~100× ratio flags percent-of-par vs per-unit | flag | 0.5% from brief App. A (illustrative) |
+| `FX_RATE_VALID` | Exactly one rate per currency per date; rate_to_usd > 0; USD = 1.000000; day-on-day move within band | hold | Added after journey found USD rate ≠ 1. Confirmed in the data: USD rate_to_usd ≠ 1 on 30 of 30 days (range 0.990 to 1.010) |
+
+## 7. NAV check
+
+*Where: NAV and ledger · Owner: Fund accounting lead*
+
+| Suggested id | What it tests | If it fails | Notes |
+|---|---|---|---|
+| `NAV_ARITHMETIC` | fund + share_class + as_of_date unique; shares_outstanding > 0; \|net_assets ÷ shares_outstanding − nav_per_share\| ≤ 0.000001 | hold | Do not publish NAV until it passes |
+| `NAV_SHARE_CLASS_MAPPING` | Every OPEN account's fund_id + share_class exists in ledger_nav; every ledger_nav fund + class has at least one account | hold |  |
+| `NAV_OPEN_ISSUES_BEFORE_RELEASE` | No unresolved break, price flag or quarantined corporate action above materiality on positions feeding the fund | hold | Materiality threshold TBD (external reference: CSSF 24/856) |
+
+**Dropped:** the old "PM position view stamp" rule. We have no data on what the portfolio manager sees, so we cannot test it.
+
+## Missing data: how each KPI treats records it cannot test
+
+The general rule: a record we cannot test is **reported separately and never raises a score**. Otherwise a broken feed (where nothing can be tested) would look perfect.
+
+| KPI | Treatment |
+|---|---|
+| Trades with a valid account and security | Unknown account or unreadable trade date reported separately; a blank security counts as a fail |
+| Trades booked before cutoff | Missing, unreadable or out-of-order timestamps reported separately, never counted as on time |
+| Duplicate trade rate | Rows with blank key fields reported separately |
+| Positions matching the custodian | A holding on only one side is reported separately, never counted as agreed; untestable keys reported separately |
+| Holdings with a fresh, agreed price | No quote at all reported separately; securities with a single quote reported separately (nothing to compare) |
+| NAV rows that add up | Missing or zero inputs reported separately |
+| Funds released with no serious open issue | Unpriced holdings disclosed; a fund is left out if less than 95% of its holdings can be valued |
+| Overall score | Untestable records lower the coverage figure; they never raise the score |
+
+## Things that look wrong but may be fine (look-alikes)
+
+Every rule needs a way to clear these, or we report false alarms:
+
+- **Short positions:** a negative holding can be a real short sale, not an error.
+- **Zero-opening rebuild:** we rebuild positions from zero because we have no opening balances, so a rebuild can dip below zero during the month and still end correct.
+- **Agreed late settlement:** a trade settling after T+2 is fine if `settlement_note = EXTENDED_SETTLEMENT_AGREED`.
+- **Flat prices:** a price that does not move for days can be a quiet security, not a stale feed.
+- **Rebooked trades:** a BOOKED trade linked to a CANCELLED original is a correction, not a duplicate.
+- **REVERSED is ambiguous:** it can mean "this trade is no longer active" or "this record offsets another one". We compute both readings and compare them until the data owner tells us which is right.
+
+## Evidence status for every finding
+
+- **Confirmed:** the data proves it (matching IDs, a failed test).
+- **Unresolved:** it fails a test, but we lack the data to prove it is a real error (for example a suspected resend without a source message ID).
+- **Cleared:** it looked wrong, but it is a look-alike from the list above.
+
+## Materiality reference for the NAV check
+
+We have no State Street threshold. As an outside reference only: Luxembourg CSSF Circular 24/856 uses 0.2%, 0.5% and 1% NAV error thresholds, depending on fund type.
+
+## What one rule looks like in `rules.yaml`
+
+```yaml
+- id: ACC_NOT_OPEN_ON_TRADE_DATE      # the rule's name
+  check: Account check                # which of the 7 checks it belongs to
+  stage: transactions                 # which table it runs on
+  test: trade_date outside [open_date, close_date] or account status != OPEN
+  owner: Account onboarding lead      # who fixes it
+  on_fail: hold                       # reject / hold / flag / correct
+  threshold: 0                        # how many failures we accept (0 = none)
+```
+
+Line by line: `id` is a unique name so we can count results per rule; `check` and `owner` tie the rule back to the slides; `test` is the condition in plain words (the code turns it into SQL); `on_fail` is the response; `threshold` is the number judges might change live, which is why it sits here and not inside the code.

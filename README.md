@@ -21,7 +21,7 @@ Add a package with `uv add <name>` (or `uv add --dev <name>` for tooling), then 
 data/            raw competition data (.csv.gz) — read-only, never write here
 etc/             competition brief, dataset guide, working guide
 notebooks/       analysis and evidence notebooks
-docs/            deliverables: reports, spine workbook, check-in decks
+docs/            deliverables: reports, Framework.xlsx, rules draft, check-in decks
   figures/       generated charts
     src/         scripts that produce them
 outputs/         intermediate results (gitignored — rebuildable from data/ + code)

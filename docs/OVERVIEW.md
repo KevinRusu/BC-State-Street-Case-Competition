@@ -1,3 +1,5 @@
+> **Note (12 Oct 2026):** this is our earlier team plan. For Check-in 1 we simplified the design to 3 offices, 6 handoffs, 7 checks and 7 KPIs, without ID codes, so the parts of this file about the "spine" workbook, IDs and 20 controls are out of date. Start with [`DELIVERABLES_GUIDE.md`](DELIVERABLES_GUIDE.md) for Check-in 1, and see [`RULES_DRAFT.md`](RULES_DRAFT.md) for the detailed rules. The Part Two plan below (code, rules file, timeline, why rules detect and AI explains) still applies.
+
 # State Street Case: Team Overview
 
 *BC Fall into BC Case Competition 2026 · "Data Quality in a Front-to-Back Investment Platform"*

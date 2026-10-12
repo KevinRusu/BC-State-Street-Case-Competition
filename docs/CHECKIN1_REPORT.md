@@ -1,235 +1,233 @@
-# Check-in 1 Team Report
+# Catch It Where It Enters
 
-*State Street case · BC Fall into BC Case Competition 2026 · prepared Sun 11 Oct 2026 for Check-in 1 on Mon 12 Oct*
-*Companion files: `docs/Checkin1_Pack.pptx` (slides), `docs/Spine_Checkin1_v0.3.xlsx` (updated spine), `notebooks/checkin1_evidence.ipynb` (every number below), `docs/figures/` (diagrams). Source of truth is always `etc/01_Student_Brief.pdf`.*
+**Data quality in a front-to-back fund platform · Check-in 1 report**
 
----
-
-## 0. In one minute
-
-- **We are in good shape for Monday.** The spine already covers every Check-in 1 item the brief lists (control map and table, journey, detection-point model, KPIs with decisions, contracts, operating model). All 18 coverage checks in the workbook are green in v0.3.
-- **I re-checked every number the spine quotes against the full data.** Most are exact. Three things changed, and they make our story *stronger*:
-  1. The spin-off target `SEC204363` **is held**: 63 positions in our book, 63 at the custodian, 64 trades, but **no price**. The draft said nobody held it.
-  2. Across the file, **15 securities that are not in the security master appear in 1,131 trades and 1,118 positions, and none has a price.** All 15 are spin-off targets. This is our best worked defect: it starts at corporate-action intake (D5), becomes an unmastered security (D1), and ends as holdings nobody can value (NAV risk).
-  3. Settlement lag must be counted in **business days**. In calendar days, every Friday trade looks late.
-- **New for the deck:** a short section on how State Street actually works (Section 1), so we speak the sponsor's language.
-- **Before you present:** read Section 6 (likely faculty questions) and decide the open items in Section 3.3.
+*State Street case · BC Fall into BC Case Competition 2026 · 12 October 2026*
 
 ---
 
-## 1. State Street: what they do and why this case is their business
+## Summary
 
-All facts below are from public sources (listed at the end). We use them as context, **not** as claims about State Street's internal systems.
+A fund platform turns millions of trades into one number that investors rely on every day: the price of a fund share, the **NAV**. That number is only as good as the data that reaches it. Data passes through three offices (front, middle and back) and five stages, and at every **handoff** it can be dropped, duplicated, delayed or changed. A problem that is not caught where it enters becomes a wrong holding, then a wrong valuation, then a wrong fund price, and fixing it gets more expensive at every step.
 
-### 1.1 The company in three lines
+Our approach is simple: **put one check at every handoff, give each check one owner and one clear response, and measure how often each office's data passes.** That gives 6 handoffs, 7 checks, 7 KPIs and 6 testable promises between offices.
 
-- State Street is one of the world's largest **custodian and asset-servicing banks**. In Q2 2026 it reported a record **$57.9 trillion in assets under custody and/or administration (AUC/A)** and **$6.3 trillion in assets under management** (State Street Global Advisors).
-- Its Investment Servicing business describes itself as offering *"a full range of back-, middle- and front-office solutions, including custody, accounting and fund administration"* (Q1 2026 10-Q).
-- Since buying **Charles River Development** (front-office order and portfolio management software, 2018, about $2.6 billion), it sells **State Street Alpha**, a *front-to-back* platform: Charles River for the front office, State Street's middle- and back-office servicing behind it, and the **Alpha Data Platform** (launched December 2020, built with Snowflake and Microsoft Azure) as the shared data layer.
+We already tested the design on the supplied data. Our main finding: **spin-offs created 15 new securities that were never set up in the security list. They were still traded (1,131 trades) and held (1,118 positions), and none of them has a price**, so nobody can value those holdings. A security check at the point where the security list feeds the trades would have stopped every one of those trades.
 
-### 1.2 How that maps onto our case
+---
 
-| Case concept | What it means at a firm like State Street (public description) | Our spine IDs |
+## 1. The business problem
+
+### 1.1 How a fund platform works
+
+An investment fund pools money from many investors. Each day it publishes the value of one fund share: the **net asset value (NAV) per share**, equal to the fund's assets minus its liabilities, divided by the number of shares. Investors buy and sell the fund at that price.
+
+Three offices handle the data on the way to that price:
+
+| Office | Who | What they do |
 |---|---|---|
-| Front office (PMs, traders) | Client's portfolio managers using an order management system such as Charles River | S1 account use, F4 `OMS_FRONT`, R6 |
-| Middle office | Trade capture and matching, pricing, reconciliation, corporate actions: often **outsourced to the custodian** | S2, S3, S4, R2 to R8 |
-| Back office | **Fund accounting**: the official books (ABOR) and the daily NAV | S5, R9 |
-| Custodian | The bank that holds the assets and reports positions | F3 `comparison_positions` |
-| "One data spine" | Alpha's pitch is one consistent data set from front to back, so IBOR (investment view) and ABOR (accounting view) agree | Our whole framework |
+| **Front office** | Portfolio managers and traders | Decide what to buy and sell, and create the trade |
+| **Middle office** | Trade operations, pricing and reconciliation analysts | Book the trade, value every holding, and compare our records with the custodian's |
+| **Back office** | Fund accountants | Keep the official books and calculate the NAV |
 
-**Why this matters for our pitch:** in a front-to-back model, one provider owns several handoffs that used to sit in different firms. That makes it *possible* to move controls upstream (our detection-point model), and it makes the cost of a defect that crosses offices *their* problem. Our case is a small model of exactly that business.
+Two outside sources feed the platform: the **custodian** (the bank that holds the assets and keeps its own record of what each account owns) and the **price vendors and FX provider** (daily prices and currency rates).
 
-### 1.3 Two market facts worth one sentence each in the deck
+### 1.2 Where it breaks, and why it matters
 
-- **T+1 settlement.** The US moved to one-business-day settlement on **28 May 2024** (SEC Rule 15c6-1). The EU, UK and Switzerland plan to follow on **11 October 2027**. Less time between trade and settlement means less time to catch a bad record before it costs money. That is our "detect early" argument in market terms.
-- **Operational risk is a disclosed risk.** State Street's own filing warns that *"errors or delays in our operational and transaction processing, or those of third parties, could have an adverse effect"*. We can quote this to show the problem is real, without claiming anything about their systems.
+Every time data moves from one stage to the next, it can be:
+
+- **dropped:** a trade never arrives
+- **duplicated:** the same trade is booked twice
+- **delayed:** it misses the deadline for today's NAV
+- **changed:** a wrong price, security or date
+
+A simple example (illustrative numbers). A fund holds $10,000 of stock and has 1,000 shares, so its NAV is $10.00. A $5,000 purchase is booked twice. The fund now thinks it holds $15,000, and the NAV becomes $15.00. Anyone who buys the fund that day pays 50% too much.
+
+The later a problem is caught, the more it costs. A common rule of thumb (Labovitz and Chang, 1992) is that preventing a bad record costs 1, correcting it later costs 10, and letting it cause a failure costs 100. The numbers are illustrative; the shape of the argument is the point.
+
+### 1.3 Why this is State Street's business
+
+State Street is one of the world's largest custodian and asset-servicing banks, with a record **$57.9 trillion** in assets under custody and/or administration in Q2 2026. It offers *"a full range of back-, middle- and front-office solutions, including custody, accounting and fund administration"* and, through **State Street Alpha**, a front-to-back platform that runs from the front-office software (Charles River) to fund accounting. When one provider runs several handoffs, it can move checks upstream, and a problem that crosses offices becomes its own cost. Settlement is also getting faster (the US moved to one-day settlement, T+1, in May 2024), which leaves less time to catch a bad record.
+
+*These are public facts used as context, not claims about State Street's internal systems.*
 
 ---
 
-## 2. Check-in 1 checklist: what the brief asks for and where we have it
+## 2. What the competition asks
 
-| Brief item (section 4 and 8) | Where it is | Status |
+The brief has two parts:
+
+- **Part One, the architecture** (Check-in 1, today): where checks sit, who owns them, what we measure, and what happens when a problem is found.
+- **Part Two, the demonstration** (Check-ins 2 and 3, final in November): code that loads the full data (100,000 accounts, 1.4 million trades), finds real problems, traces them to where they entered, and shows a dashboard.
+
+For Check-in 1 the brief asks for seven pieces. Each has a section below and a slide in our deck.
+
+| Brief asks for | This report | Slide |
 |---|---|---|
-| Control map: 1 diagram, 5 stages x 3 offices, every handoff marked | `figures/01_control_map.png`, slide 2 | Ready |
-| Control table: one row per control (checks, stage, failure response, owner) | Spine tab `C_Controls` (C01 to C20), slide 3 | Ready |
-| Per stage: what must be true to leave clean, which control, which owner | Spine tab `SX_StageExit`, slide 3 | Ready |
-| Journey: 1 trade + 1 master record, record IDs, observed vs inferred, gaps as missing contracts | `J_Journey`, `figures/04` and `05`, slides 5 and 6 | Ready, **corrected** |
-| Detection-point model (the core of Part One) | `DP_Detection`, `figures/03_detection_matrix.png`, slide 4 | Ready |
-| KPI table by office: formula, unit, owner, target, one sentence on the decision | `M_KPIs` (M01 to M20), slide 7 | Ready |
-| At least 6 quality dimensions, and why obvious ones are excluded | `Q_Dimensions`: 8 in scope, **3 exclusions added in v0.3** | Ready |
-| Data contracts as testable conditions | `K_Contracts` (K01 to K09 testable, K10 to K14 missing contracts), slide 8 | Ready |
-| Operating model (1 page, 5 questions, one worked defect) + maturity path | `OM_OperatingModel`, slide 9 | Ready, **numbers updated** |
+| Lifecycle and control map | 3.1, 3.2 | 3, 4 |
+| Detection-point model (the core of Part One) | 3.3 | 5 |
+| End-to-end journey of a trade and a master record | 3.4 | 6, 7 |
+| KPIs by office | 3.5 | 8 |
+| Data contracts between offices | 3.6 | 9 |
+| Operating model and maturity path | 3.7 | 10 |
 
 ---
 
-## 3. Review of the spine workbook
+## 3. Our approach
 
-### 3.1 Verdict: you are doing it correctly
+### 3.1 The control map: five stages, three offices, six handoffs
 
-The spine is the right idea and it is well built. What is especially good:
-
-- **One ID system for everything** (S, F, H, R, D, Q, C, K, M). Every control names its handoff, defect, contract and owner, so a gap is visible immediately.
-- **The Coverage tab turns the merge checklist into formulas.** This is exactly the kind of "testable, not aspirational" thinking the brief rewards.
-- **Owners are roles**, missing data becomes a **named missing contract** (K10 to K14), KPIs carry a **denominator and a missing-data rule**, and every KPI says which **decision** it supports. These are the four things the brief says most teams forget.
-- The journey is **already grounded in real record IDs**, which the brief only requires for the final submission.
-
-### 3.2 What I changed in v0.3 (every changed cell has a "v0.3:" note)
-
-v0.3 replaces the earlier v0.2 draft. Every changed cell carries a "v0.3:" note, so the table below can be traced cell by cell.
-
-| # | Tab | Change | Why |
-|---|---|---|---|
-| 1 | `J_Journey` hop 5 | Target `SEC204363` **is** held (63 book, 63 custodian positions, 64 trades, 0 prices) | Draft said no account holds it. Data says otherwise (notebook step 10). |
-| 2 | `OM_OperatingModel` | Worked defect rewritten as a **D5 to D1 cascade** with verified numbers: 15 unmastered targets held in 1,118 positions and 1,131 trades, 0 prices; 1,896 accounts in 494 funds hold a spin-off source | 1,893 in the draft was close; the exact count is 1,896 |
-| 3 | `Change_Requests` | Approved CR 1 (D4 now includes FX) and CR 2 (D5 covers incomplete events); added CR 3 and CR 4 | The only red cell in Coverage was "2 change requests pending" |
-| 4 | `D_Defects` | D1 renamed to stress "securities held or traded but never mastered" | It is now our headline defect |
-| 5 | `C_Controls` C06 | Settlement lag in **business days**, limit 2 unless note = `EXTENDED_SETTLEMENT_AGREED` | Calendar days make every Friday trade look late. See 3.4. |
-| 6 | `C_Controls` C11 + `K_Contracts` K05 | Terms must be **type-conditional**, and `effective_date` must be **defined per action type** | All 200 events carry a `cash_rate` (even splits), and 87 of 200 have `ex_date` after `effective_date`. Whether that is wrong depends on the definition, so the contract must say it. |
-| 7 | `M_KPIs` M04 | Office FO changed to **MO** | Its owner R5 (platform operations) sits in MO |
-| 8 | `Q_Dimensions` | Added Q9 Precision, Q10 Accessibility, Q11 Lineage as **excluded with a reason** | Brief: "say why you excluded any obvious ones". Before, nothing was excluded, so that sentence had nothing to point at. |
-| 9 | `DP_Detection`, `C16` notes | First evidence from the data added to D1, D4, D5, D10 | Gives each detection row one real number |
-
-### 3.3 Open decisions for the team (5 minutes before Check-in)
-
-1. **Spine statuses** are all still `draft`. Agree them as v1 so we can say "frozen spine" to faculty.
-2. **REVERSED semantics (D8, K13):** state or offsetting event? Bring both readings; the brief wants us to compare them, not pick silently.
-3. **NAV materiality threshold (C19):** use CSSF 24/856 (0.2% money market, 0.5% bond/mixed, 1% equity) as an *external reference*, clearly labelled as not State Street policy?
-4. **Who presents what** (Section 5). Faculty may ask anyone about any part.
-
-### 3.4 Smaller observations (no change made, worth knowing)
-
-- **Settlement lag profile (business days):** T+1 913,711 · T+2 490,054 · T+5 to T+7 2,957, of which only 845 have the agreed-extension note · 1,124 settle *before* the trade date · 1,687 have an unparseable date. So we already have look-alikes (845 with a note) and confirmed-looking breaches (2,112 long lags without a note, 1,124 negative lags) for Check-in 2.
-- **Date formats:** 9,398 trade dates use `DD/MM/YYYY`; settlement dates are all ISO. Good evidence for M09 (date-format conformity).
-- **USD `rate_to_usd` is never exactly 1** (0.990 to 1.010 over all 30 days). Either a defect or a convention we have not understood. Keep it **unresolved** until Check-in 2, and say so.
-- **Vendor timestamps:** for `SEC937640` on 10 Jul, VENDOR_C's quote is stamped 19:00, after the 18:00 pipeline cutoff. Worth a freshness rule in C14.
-- **Zero-opening dip:** the journey trade's rebuilt holding goes to -2,422 on 9 Jun. That is the brief's zero-opening convention, not proof of a short. A good candidate for one of our two **cleared look-alikes**.
-
----
-
-## 4. Verified numbers (all from `notebooks/checkin1_evidence.ipynb`, full data, runs in about 15 seconds)
-
-| Claim | Spine said | Data shows | Status |
-|---|---|---|---|
-| All 10 tables match `manifest.csv` row counts | yes | yes | Confirmed |
-| `TXN100000380` is unique; qty x price = gross | yes | 1 row; difference 0.0008 | Confirmed |
-| Rebuild = book = custodian for the journey position | 2,028 | 2,028 / 2,028 / 2,028 | Confirmed |
-| Lowest running total (zero opening) | -2,422 | -2,422 | Confirmed |
-| `SEC937640`: trades / accounts | 309 / 107 | 309 / 107 | Confirmed |
-| `SEC937640`: positions / funds on 10 Jul | 107 / 94 | 107 / 94 | Confirmed |
-| Spin-offs with unmastered target | 23 of 23 | 23 of 23 | Confirmed |
-| Mergers with no target | 31 of 31 | 31 of 31 | Confirmed |
-| Holdings / funds in spin-off source securities | 1,893 / 494 | **1,896 / 494** | Corrected |
-| `SEC204363` held by any account | not held | **63 book, 63 custodian, 64 trades, 0 prices** | **Corrected** |
-| Unmastered securities anywhere in trades or positions | not stated | **15 securities, 1,131 trades, 1,118 positions, 0 prices** | New |
-| Corporate actions with `ex_date` after `effective_date` | not stated | **87 of 200** | New |
-| Corporate actions carrying a `cash_rate` | "unusual for a spin-off" | **200 of 200** | Corrected |
-| USD `rate_to_usd` range | 0.990 to 1.010 | 0.990 to 1.010, never 1 | Confirmed |
-| Journey NAV arithmetic | holds | 40,777,112.07 / 3,594,046.98 = 11.345737 | Confirmed |
-
-**How to rerun:** open the notebook from the repo, choose a Python 3 kernel with `duckdb` and `pandas` (`pip install duckdb pandas`), and Run All. Each step has a plain-language explanation of what the SQL does.
-
----
-
-## 5. Suggested 15-minute talk track
-
-The slide pack follows the brief's order. Since roles are not split yet, here is a natural split for five people (everyone speaks, as the final presentation requires).
-
-| Slide | Content | Time | Suggested speaker |
-|---|---|---|---|
-| 1 | Title + our thesis: catch it where it enters | 0:30 | A |
-| 2 | Control map | 2:00 | A |
-| 3 | Control table + stage exit criteria | 1:30 | A |
-| 4 | Detection-point model (the core) | 2:30 | B |
-| 5 | Journey 1: one trade | 1:30 | C |
-| 6 | Journey 2: one security and the spin-off | 2:00 | C |
-| 7 | KPIs by office | 1:30 | D |
-| 8 | Data contracts + missing contracts | 1:30 | E |
-| 9 | Operating model, worked defect, maturity path | 2:00 | E |
-| 10 | What we want feedback on | 0:30 | A |
-| A1 to A7 | Appendix: State Street context, full control table, full KPI table, table joins, verified numbers | as needed | anyone |
-
----
-
-## 6. Questions faculty are likely to ask (with short answers)
-
-1. **"Why does S3 span front and middle office?"** Trades are *created* in the front office (OMS) but *captured, validated and booked* in the middle office. The handoff inside S3 (H3) is where most of our capture controls sit.
-2. **"How can a security be held if it was never mastered?"** Because nothing stopped it. 1,131 trades in 15 unmastered securities were booked. Control C04 (trade reference-data gate at H2) would have held every one of them. That is the detection-point argument in one sentence.
-3. **"How do you tell a duplicate from two genuine identical trades?"** Unique `transaction_id` first, then an economic key (account, security, date, type, quantity, price), then `related_transaction_id` and `batch_id`. Without a source message ID we cannot *prove* a resend, so that is a missing contract, and such cases stay **unresolved**, not confirmed.
-4. **"Isn't a negative running position an error?"** Not by itself. The brief's benchmark starts from zero, and negatives can be shorts. We will clear or confirm it with independent evidence (the custodian agrees at the end).
-5. **"Why business days for settlement?"** A Friday trade settling Monday is T+1, not "3 days late". Counting calendar days would flag hundreds of thousands of valid trades (false positives).
-6. **"Why do the defect owner and the control owner sometimes differ?"** The brief asks exactly this. The stage where a defect *enters* names its owner; the control that *should have caught it* may sit one handoff later. For the spin-off, R4 owns the event (entry), R2 must master the target, and R9 is told about every affected fund.
-7. **"What is material for a NAV?"** We have no sponsor threshold. As an external reference only: Luxembourg CSSF Circular 24/856 uses 0.2% (money market), 0.5% (bond and mixed) and 1% (equity).
-8. **"How do you stop a KPI from being gamed?"** Every score shows its coverage; missing or unevaluable records are reported separately and can never raise a score; thresholds live in a versioned rule file, not edited by hand.
-9. **"Why not use AI to detect defects?"** Rules detect, AI explains. Judges will rerun our code and change thresholds live, which needs deterministic rules. AI can summarise and suggest hypotheses on top.
-
----
-
-## 7. Housekeeping
-
-1. **Rename "Jane Street" to "State Street".** I could not rename the parent folder from this session, because it sits above the folder you connected and renaming it would break the link. After this session:
-   - Finder: rename `Jane_Street_Case_Competition` to `State_Street_Case_Competition`.
-   - GitHub: repo Settings, Repository name: `BC-State-Street-Case-Competition`. Then in Terminal, inside the repo folder:
-     `git remote set-url origin https://github.com/KevinRusu/BC-State-Street-Case-Competition.git`
-     (GitHub also redirects the old URL, so nothing breaks in the meantime.)
-2. **The data is committed to git.** `data/*.csv.gz` is in your first commit and on GitHub. That is fine **only if the repo is private** (the brief forbids public repos). Please double-check it is private, add teammates as collaborators only, and add a `.gitignore` with `data/`, `.DS_Store` and `.claude/` before the next commit.
-3. **AI log.** The brief requires the prompts and responses that shaped the work. Export this conversation and keep it in an `ai_log/` folder.
-4. **Confidentiality.** Nothing here was published online. The slides and report are local files only.
-
----
-
-## 8. Tools: Cowork or Claude Code in VS Code?
-
-**Use both, by phase.**
-
-| Phase | Best tool | Why |
-|---|---|---|
-| Part One (now): research, spine, diagrams, slides, report | **Claude Cowork** (this app) | Works across your folder, the web and Office files; good at documents and decks; you review outputs, not code |
-| Part Two (Check-in 2 onward): `src/`, `run_all.py`, rule catalog, tests, Streamlit dashboard | **Claude Code in VS Code** | Lives inside the repo, edits many files at once, runs tests and git, and you see every diff, which helps you learn the code |
-| Final deck and report | **Cowork** again | Pulls numbers from the code outputs into slides |
-
-**Plugins.** You already have the most useful ones enabled:
-
-- **Data** (`explore-data`, `validate-data`, `sql-queries`, `statistical-analysis`, `build-dashboard`): profiling tables, checking an analysis before you present it, and the executive dashboard.
-- **Finance** (`reconciliation`, `sox-testing`, `audit-support`): reconciliation break categories and control-testing language, which matches our position recon and control table.
-- **Engineering** (`testing-strategy`, `documentation`, `architecture`): the stress test, row-shuffle test and README for the code package.
-- Worth adding: Anthropic's **Operations** plugin (`process-doc`, `runbook`, `risk-assessment`) for the operating model.
-- **Avoid** third-party plugins that send content to outside servers (for example generic "make me slides" services). The brief only allows approved tools for the data.
-
----
-
-## 9. Next steps toward Check-in 2 (week of 19 Oct)
-
-1. Freeze spine v1 and export the spine tabs to `config/spine/*.csv` so code uses the same IDs.
-2. Turn the notebook queries into `src/ingest.py` with a row ledger (rows in and out of every step).
-3. Full transaction rebuild: BOOKED-only baseline, then trade-date vs settlement-date, then the two REVERSED readings side by side.
-4. Full outer reconciliation: rebuild vs `positions`, and `positions` vs `comparison_positions`.
-5. First defect catalog using the 7-field template (Working Guide section 6), starting with D1/D5 (unmastered spin-off targets), D10 (settlement dates) and D4 (USD rate).
-
----
-
-## Appendix: the diagrams
-
-All five are in `docs/figures/` as PNG files. The scripts that draw them are in `docs/figures/src/` (matplotlib and Graphviz), so you can edit a label and redraw.
+Data moves through the five stages the brief names: **Accounts, Securities, Transactions, Positions, NAV and ledger.** Accounts and securities are the **master data**, the reference lists of *who* and *what* that everything else looks up. We place each stage in the office that owns it and mark the six handoffs where data moves on.
 
 ![Control map](figures/01_control_map.png)
 
-![Table lineage](figures/02_table_lineage.png)
+| # | Handoff | What must hold |
+|---|---|---|
+| 1 | Account list → trades | Every trade belongs to a known, open account |
+| 2 | Security list → trades | Every trade and corporate action uses a known security |
+| 3 | Trades → positions | Booked trades, on time, add up to each holding |
+| 4 | Corporate actions → positions | Events such as splits and spin-offs adjust every holder correctly |
+| 5 | Custodian and prices → positions | The custodian confirms quantities; vendors give prices and FX rates |
+| 6 | Positions → fund NAV | Valued holdings roll up into each fund and share class |
 
-![Detection-point matrix](figures/03_detection_matrix.png)
+### 3.2 The seven checks
 
-![Journey 1: trade](figures/04_journey_trade.png)
+Each handoff has one check (handoff 5 has two, one for each outside source). Every check says what it tests, what happens when it fails, and which role owns it. Owners are roles, never people's names.
 
-![Journey 2: security](figures/05_journey_security.png)
+| Check | What it tests | If it fails | Owner |
+|---|---|---|---|
+| Account check | The account exists, is open on the trade date, and has a fund and share class | Hold the trade | Account onboarding lead |
+| Security check | The security exists in the security list; the trade's code and currency match | Hold the trade | Security master lead |
+| Trade check | No duplicates; required fields filled; dates readable; settles within 2 business days unless agreed; booked before cutoff | Reject, or hold for review | Trade operations lead |
+| Corporate action check | Before the ex-date: terms complete for the event type; any new security already set up | Quarantine the event | Corporate actions lead |
+| Position check | Each holding equals the sum of its trades and matches the custodian | Flag a break and work it | Reconciliation lead |
+| Price check | A price from today; the three vendors agree within 0.5%; a valid FX rate | Use the next vendor, or flag | Pricing lead |
+| NAV check | Net assets / shares = NAV; no serious open problem feeds the fund | Hold the NAV | Fund accounting lead |
+
+Six of the seven checks are **preventive**: they stop bad data before it moves. The position check is **detective**: it finds differences after the fact, because the custodian's record only arrives afterwards.
+
+### 3.3 The detection-point model
+
+For each type of problem, the brief asks for the earliest stage that could catch it, the evidence that needs, and the consequence of missing it. We cover the six problem families the brief names, plus account problems and NAV arithmetic.
+
+![Detection-point model](figures/03_detection_matrix.png)
+
+How to read a row: *missing or unknown IDs* (for example, a trade that uses a security we do not know) can be caught at the **Securities** stage by the **security check**. If it slips into the trades, the cost multiplies by 10; once it reaches positions and the NAV, by 100, because every holder of that security is now wrong.
+
+Two of the eight problem types are only **partly** testable with the data we have. We name the missing data in section 3.6 instead of guessing.
+
+### 3.4 Two journeys through the data
+
+The brief asks us to follow one real trade and one master record through the tables. *Observed* means we saw the link in the data (matching IDs); *inferred* means our reasoning.
+
+**Journey 1: a clean trade.** Trade `TXN100000380` buys 1,612 shares on 1 June. Quantity times price equals the amount, it settles the next business day, and it was booked four minutes after it arrived, well before the cutoff. The account was open and the security known. Rebuilding the holding from its four trades gives **2,028 shares**, exactly what our book and the custodian say. The evidence stops at two points: nothing confirms the trade actually settled, and there is no cash or fee data to rebuild the fund's net assets.
+
+![Journey 1](figures/04_journey_trade.png)
+
+**Journey 2: the spin-off nobody set up.** Security `SEC937640` is used by 309 trades in 107 accounts and feeds 94 fund NAVs: one master record with a large blast radius. On 11 June it had a **spin-off** (event `CA00093`): the company split off part of itself, and holders received shares of a new security, `SEC204363`. That new security was **never added to the security list**. It was still traded 64 times and is held in 63 accounts (the custodian agrees), but it has **no price**, so those holdings cannot be valued.
+
+![Journey 2](figures/05_journey_security.png)
+
+### 3.5 KPIs by office
+
+Each KPI has a formula with its denominator, a unit, an owner, a target and the decision it supports. Two or three per office:
+
+| Office | KPI | Target | Decision it supports |
+|---|---|---|---|
+| Front office | Trades with a valid account and security | 100% | Hold failing trades and fix the account or security first |
+| Front office | Trades booked before cutoff | at least 99% | Escalate a trade feed that misses cutoff two days in a row |
+| Middle office | Duplicate trade rate | at most 0.01% | Stop and fix the feed that sends duplicates |
+| Middle office | Positions matching the custodian | at least 99.9% | Staff the break queue; escalate breaks older than 3 days |
+| Middle office | Holdings with a fresh, agreed price | at least 99% | Challenge vendors before the NAV is struck |
+| Back office | NAV rows that add up | 100% | Hold publication of any NAV that fails |
+| Back office | Funds released with no serious open issue | 100% | Hold or caveat the NAV of a fund with open issues |
+
+Together they cover six quality dimensions: **validity, timeliness, uniqueness, consistency, completeness and accuracy.** Precision is not scored on its own (it appears as tolerances inside the checks), and accessibility cannot be measured from a static data extract. Four of the seven KPIs are **leading** (they warn before damage); three are **lagging** (they confirm damage after). The seven combine into one overall data quality score, always shown next to its coverage, and records we cannot test are reported separately so they never make a score look better. Targets are our proposals.
+
+### 3.6 Promises between offices (data contracts)
+
+A data contract is what one office can demand from the one before it, written so a computer can test it. "Data should be accurate" is a wish. "Every security on a trade exists once in the security list, with the same code and currency" is a promise: a breach is a measurable event.
+
+| Handoff | Promise | Tested by |
+|---|---|---|
+| Account list → trades | Every trade's account exists, is open on the trade date and belongs to a fund | Account check |
+| Security list → trades | Every security on a trade or corporate action exists once in the security list, with the same code and currency | Security check |
+| Trades → positions | Every trade is unique, complete, correctly dated, settles within 2 business days unless agreed, and is booked before cutoff | Trade check |
+| Corporate actions → positions | Every event has complete terms for its type, a written meaning for each date, and any new security set up 2 business days before the ex-date | Corporate action check |
+| Custodian and prices → positions | One custodian record per holding each day; a price from today for every held security; one FX rate per currency, USD = 1 | Position and price checks |
+| Positions → fund NAV | One NAV row per fund and day that adds up, with no serious open break feeding it | NAV check |
+
+**Data we would need but do not have:**
+
+1. a log of which accounts received each corporate action
+2. the custodian's confirmation that a trade actually settled
+3. cash, fees and accruals per fund
+4. a clear "type of change" on each trade (new, cancel, reversal)
+
+### 3.7 Operating model: what happens after a problem is found
+
+Finding a problem is the start. We walk our real example (the spin-off security that was never set up) through the five questions in the brief:
+
+- **Ownership.** The corporate actions lead owns it, because it entered when the spin-off was set up. The security master lead creates the missing security, and fund accounting is told for every affected fund.
+- **Prioritisation.** Rank open problems by: will it reach a NAV, then how many accounts and funds it touches, then how much money is exposed, then how cheap the fix is. This one is top priority, because it already sits in held positions.
+- **Remediation.** Fix both the records and the cause: set up the missing security and correct the holdings, and change the event intake so an incomplete event is quarantined. Otherwise it happens again.
+- **Prevention.** Run the corporate action check at least 2 business days before the ex-date, with an automatic request to set up any new security. About 200 events a month: cheap to run.
+- **Accountability.** One ticket per problem with owner, age and exposure, shown on the overall scorecard. Anything open past 2 business days is escalated to management, and fund accounting holds or caveats an affected NAV.
+
+Scores are produced daily after cutoff with one command and read by each owner every morning. A disputed score is re-run from the written rules with evidence; scores are never edited by hand.
+
+**Maturity path:**
+
+1. **Reactive:** problems found after the fact, office by office, in spreadsheets; nobody owns them.
+2. **Defined:** written checks with owners and targets at every handoff, a daily scorecard, problems ticketed.
+3. **Preventive:** checks sit at the earliest stage and stop bad data before it moves, tested with deliberately injected errors.
+
+---
+
+## 4. What we found so far
+
+We ran every number in this report on the full data (`notebooks/checkin1_evidence.ipynb`, about 15 seconds). All ten tables match the published row counts.
+
+| What we checked | What the data shows | What it means |
+|---|---|---|
+| Securities used but missing from the security list | 15 securities, 1,131 trades, 1,118 positions, 0 prices | Holdings nobody can value. All 15 are new securities from spin-offs |
+| Spin-offs whose new security was set up | 0 of 23 | The corporate action check and security check are both missing |
+| Accounts holding a security that had a spin-off | 1,896 accounts in 494 funds | The exposure of uneven corporate actions |
+| Corporate actions with the ex-date after the effective date | 87 of 200 | We need a definition of each date per event type |
+| Settlement time (business days) | 913,711 at T+1 · 490,054 at T+2 · 2,957 at T+5 to T+7 (845 with an agreed extension) | Most trades are normal; the agreed extensions are legitimate look-alikes |
+| Trades that settle before they were traded | 1,124 | Impossible dates: a trade check failure |
+| Unreadable dates | 1,687 | Kept and reported separately, never silently fixed |
+| USD exchange rate to USD | 0.990 to 1.010, never exactly 1 | Either a data error or a convention: an open question |
+
+These counts are **exposure** (what could be affected), not proven losses.
+
+---
+
+## 5. Open questions and next steps
+
+**Questions for faculty:**
+
+1. Should a REVERSED trade be read as an inactive record or as an offsetting trade? We plan to show both readings side by side.
+2. May we use a public regulator threshold (Luxembourg CSSF Circular 24/856: 0.2% money market, 0.5% bond and mixed, 1% equity funds) as a clearly labelled outside reference for NAV materiality?
+3. Is the USD rate that is never exactly 1 a data error, or a convention we should infer?
+4. How should the ex-date and effective date be read for each corporate action type?
+
+**Next, for Check-in 2 (week of 19 October):**
+
+1. Rebuild every position from its trades and compare it with our book and the custodian.
+2. Build the first list of real problems, starting with the unknown spin-off securities, impossible settlement dates and the USD rate.
+3. Turn each check into code that anyone on the team can rerun with one command.
 
 ---
 
 ## Sources
 
-- State Street, [Q2 2026 earnings press release (Form 8-K)](https://www.sec.gov/Archives/edgar/data/0000093751/000009375126000387/a2q26earningspressrelease.htm): AUC/A $57.9tn, AUM $6.3tn.
-- State Street, [Form 10-Q for Q1 2026](https://www.sec.gov/Archives/edgar/data/0000093751/000009375126000196/stt-20260331.htm): Investment Servicing description, CRD as the foundation of Alpha, operational risk language.
-- Business Wire, [State Street Expands State Street Alpha with New Front to Back ETF Capabilities (June 2023)](https://www.businesswire.com/news/home/20230613568016/en/State-Street-Expands-State-Street-Alpha℠-with-New-Front-to-Back-ETF-Capabilities).
-- The TRADE, [State Street launches cloud-native Alpha data platform (Dec 2020)](https://www.thetradenews.com/state-street-launches-cloud-native-alpha-data-platform/).
-- FinanzaOnline, [State Street acquista Charles River Development per $2,6 miliardi](https://www.finanzaonline.com/?p=534600).
-- Davis Polk, [SEC adopts T+1 settlement effective May 2024](https://www.davispolk.com/insights/client-update/sec-adopts-t-1-settlement-effective-may-2024).
-- The TRADE, [ESMA names 11 October 2027 for co-ordinated T+1 switch with UK](https://www.thetradenews.com/esma-names-t1-lead-as-11-october-2027-earmarked-for-co-ordinated-switch-with-uk/).
-- Case documents: `etc/01_Student_Brief.pdf`, `etc/02_Dataset_Guide.pdf`, `docs/OVERVIEW.md` (CSSF 24/856 and 1-10-100 references are cited there).
+- State Street, [Q2 2026 earnings press release](https://www.sec.gov/Archives/edgar/data/0000093751/000009375126000387/a2q26earningspressrelease.htm)
+- State Street, [Form 10-Q for Q1 2026](https://www.sec.gov/Archives/edgar/data/0000093751/000009375126000196/stt-20260331.htm)
+- Business Wire, [State Street Expands State Street Alpha with New Front to Back ETF Capabilities](https://www.businesswire.com/news/home/20230613568016/en/State-Street-Expands-State-Street-Alpha℠-with-New-Front-to-Back-ETF-Capabilities)
+- The TRADE, [State Street launches cloud-native Alpha data platform](https://www.thetradenews.com/state-street-launches-cloud-native-alpha-data-platform/)
+- FinanzaOnline, [State Street acquista Charles River Development per $2,6 miliardi](https://www.finanzaonline.com/?p=534600)
+- Davis Polk, [SEC adopts T+1 settlement effective May 2024](https://www.davispolk.com/insights/client-update/sec-adopts-t-1-settlement-effective-may-2024)
+- The TRADE, [ESMA names 11 October 2027 for co-ordinated T+1 switch with UK](https://www.thetradenews.com/esma-names-t1-lead-as-11-october-2027-earmarked-for-co-ordinated-switch-with-uk/)
+- Labovitz, G. and Chang, Y. (1992), the 1-10-100 rule, as summarised in [Loqate, "The 1-10-100 rule"](https://loqate.com/en-gb/blog/the-1-10-100-rule-the-real-impact-of-poor-data)
+- Case documents: `etc/01_Student_Brief.pdf`, `etc/02_Dataset_Guide.pdf`
