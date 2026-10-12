@@ -4,7 +4,7 @@
 
 ## Start here (about 45 minutes)
 
-1. **`CHECKIN1_REPORT.pdf`** (10 pages): the problem, our approach and what we found, in plain words. Read this first. **20 min**
+1. **`CHECKIN1_REPORT.pdf`** (9 pages): the problem, our approach and what we found, in plain words. Read this first. **20 min**
 2. **`Explainer_Deck.pptx`** (25 slides): the same story built up from zero, with simple examples. Use it if anything in the report is unclear. **15 min**
 3. **Section 3 of this guide:** each faculty slide with one sentence to say. **10 min**
 

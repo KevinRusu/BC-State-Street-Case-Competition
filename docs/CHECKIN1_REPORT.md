@@ -122,11 +122,11 @@ The brief asks us to follow one real trade and one master record through the tab
 
 **Journey 1: a clean trade.** Trade `TXN100000380` buys 1,612 shares on 1 June. Quantity times price equals the amount, it settles the next business day, and it was booked four minutes after it arrived, well before the cutoff. The account was open and the security known. Rebuilding the holding from its four trades gives **2,028 shares**, exactly what our book and the custodian say. The evidence stops at two points: nothing confirms the trade actually settled, and there is no cash or fee data to rebuild the fund's net assets.
 
-![Journey 1](figures/04_journey_trade.png)
+![Journey 1](figures/06_journey_trade_simple.png)
 
 **Journey 2: the spin-off nobody set up.** Security `SEC937640` is used by 309 trades in 107 accounts and feeds 94 fund NAVs: one master record with a large blast radius. On 11 June it had a **spin-off** (event `CA00093`): the company split off part of itself, and holders received shares of a new security, `SEC204363`. That new security was **never added to the security list**. It was still traded 64 times and is held in 63 accounts (the custodian agrees), but it has **no price**, so those holdings cannot be valued.
 
-![Journey 2](figures/05_journey_security.png)
+![Journey 2](figures/07_journey_security_simple.png)
 
 ### 3.5 KPIs by office
 
@@ -200,23 +200,6 @@ We ran every number in this report on the full data (`notebooks/checkin1_evidenc
 | USD exchange rate to USD | 0.990 to 1.010, never exactly 1 | Either a data error or a convention: an open question |
 
 These counts are **exposure** (what could be affected), not proven losses.
-
----
-
-## 5. Open questions and next steps
-
-**Questions for faculty:**
-
-1. Should a REVERSED trade be read as an inactive record or as an offsetting trade? We plan to show both readings side by side.
-2. May we use a public regulator threshold (Luxembourg CSSF Circular 24/856: 0.2% money market, 0.5% bond and mixed, 1% equity funds) as a clearly labelled outside reference for NAV materiality?
-3. Is the USD rate that is never exactly 1 a data error, or a convention we should infer?
-4. How should the ex-date and effective date be read for each corporate action type?
-
-**Next, for Check-in 2 (week of 19 October):**
-
-1. Rebuild every position from its trades and compare it with our book and the custodian.
-2. Build the first list of real problems, starting with the unknown spin-off securities, impossible settlement dates and the USD rate.
-3. Turn each check into code that anyone on the team can rerun with one command.
 
 ---
 
