@@ -3,7 +3,7 @@
 # State Street Case: Team Overview
 
 *BC Fall into BC Case Competition 2026 · "Data Quality in a Front-to-Back Investment Platform"*
-*Written 9 Oct 2026 · Source of truth is always [`etc/01_Student_Brief.pdf`](../etc/01_Student_Brief.pdf). If this file and the brief disagree, the brief wins.*
+*Written 9 Oct 2026 · Source of truth is always [`reference/01_Student_Brief.md`](../../reference/01_Student_Brief.md). If this file and the brief disagree, the brief wins.*
 
 ---
 
@@ -455,7 +455,7 @@ deterministic engine (DuckDB + rules.yaml)  →  outputs/defects.json  (rule id,
 
 ## 12. Resources
 
-**Case documents (read in this order):** [Student Brief](../etc/01_Student_Brief.pdf) · [Dataset Guide](../etc/02_Dataset_Guide.pdf) · [Working Guide](../etc/03_Student_Working_Guide.pdf) · [data_dictionary.csv](../data_dictionary.csv) · [load_data.ipynb](../load_data.ipynb)
+**Case documents (read in this order):** [Student Brief](../../reference/01_Student_Brief.md) · [Dataset Guide](../../reference/02_Dataset_Guide.md) · [Working Guide](../../reference/03_Student_Working_Guide.md) · [data_dictionary.csv](../data_dictionary.csv) · [load_data.ipynb](../load_data.ipynb)
 
 **Industry practice**
 - ISDA: [Portfolio Reconciliation Best Operational Practice](https://www.isda.org/attachment/MjIyNw==/Portfolio_Reconciliation_Best_Operational_Practic)

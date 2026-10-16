@@ -1,23 +1,39 @@
 # macOS
 .DS_Store
-.claude
+Thumbs.db
 
 # Python / uv
 .venv/
 __pycache__/
 *.pyc
+.ruff_cache/
+.pytest_cache/
 
 # Jupyter
 .ipynb_checkpoints/
 
+# Secrets and editor settings
+.env
+.vscode/
+.idea/
+
 # Office lock files (created while a file is open in Excel/PowerPoint/Word)
 ~$*
+.~lock.*
 
-# Personal Claude Code settings
+# File-system leftovers
+.fuse_hidden*
+
+# Claude Code: only personal settings stay local
 .claude/settings.local.json
 
-# Generated outputs — anything here can be rebuilt from data/ + code
+# Generated results, rebuildable from data/ + code
 outputs/*
 !outputs/.gitkeep
 *.duckdb
 *.parquet
+*.log
+*.tmp
+
+# Competition originals (PDF/Word). We commit the Markdown copies in reference/ instead.
+reference/official/

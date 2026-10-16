@@ -3,7 +3,7 @@ import json, sys
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
-F = json.load(open("framework.json"))
+F = json.load(open(__import__("os").path.join(__import__("os").path.dirname(__file__), "framework.json")))
 OUT = sys.argv[1]
 NAVY, PALE, GRID = "1F3A5F", "EEF2F6", "D5DAE1"
 HFONT = Font(name="Arial", bold=True, color="FFFFFF", size=11)

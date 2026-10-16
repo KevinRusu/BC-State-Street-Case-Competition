@@ -9,7 +9,7 @@ INK, NAVY = "#1B1F24", "#1F3A5F"
 C1, C10, C100 = "#2A7F75", "#E3B04B", "#C0392B"   # catch early (x1), next stage (x10), later (x100)
 
 import json
-FW = json.load(open("framework.json"))
+FW = json.load(open(__import__("os").path.join(__import__("os").path.dirname(__file__), "framework.json")))
 stages = ["Accounts", "Securities", "Transactions", "Positions", "NAV and\nledger"]
 rows = [(d["defect"], d["earliest"], d["check"], d["testable"], d["data"]) for d in FW["defects"]]
 fig, ax = plt.subplots(figsize=(16, 8.4), dpi=150)

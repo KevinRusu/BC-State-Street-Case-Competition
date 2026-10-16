@@ -213,4 +213,4 @@ These counts are **exposure** (what could be affected), not proven losses.
 - Davis Polk, [SEC adopts T+1 settlement effective May 2024](https://www.davispolk.com/insights/client-update/sec-adopts-t-1-settlement-effective-may-2024)
 - The TRADE, [ESMA names 11 October 2027 for co-ordinated T+1 switch with UK](https://www.thetradenews.com/esma-names-t1-lead-as-11-october-2027-earmarked-for-co-ordinated-switch-with-uk/)
 - Labovitz, G. and Chang, Y. (1992), the 1-10-100 rule, as summarised in [Loqate, "The 1-10-100 rule"](https://loqate.com/en-gb/blog/the-1-10-100-rule-the-real-impact-of-poor-data)
-- Case documents: `etc/01_Student_Brief.pdf`, `etc/02_Dataset_Guide.pdf`
+- Case documents: `reference/01_Student_Brief.md`, `reference/02_Dataset_Guide.md`

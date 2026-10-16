@@ -1,6 +1,6 @@
 # State Street Case Competition — Team Workspace
 
-4th Annual Fall into BC Case Competition. Competition materials and the original package README are in [etc/](etc/README.md).
+4th Annual Fall into BC Case Competition. Competition materials and the original package README are in [reference/](reference/README.md).
 
 > **Confidential data.** The dataset may not be shared through public repositories, dashboards or AI links. Keep this repo **private**: `data/` is committed, so making it public would expose the data, and deleting it afterwards would not remove it from git history.
 
@@ -18,19 +18,27 @@ Add a package with `uv add <name>` (or `uv add --dev <name>` for tooling), then 
 ## Layout
 
 ```
-data/            raw competition data (.csv.gz) — read-only, never write here
-etc/             competition brief, dataset guide, working guide
-notebooks/       analysis and evidence notebooks
-docs/            deliverables: reports, Framework.xlsx, rules draft, check-in decks
-  figures/       generated charts
-    src/         scripts that produce them
-outputs/         intermediate results (gitignored — rebuildable from data/ + code)
-load_data.ipynb  provided loader/integrity checker; must stay beside manifest.csv
-manifest.csv     row counts and checksums for data/
+data/              raw competition data (.csv.gz): read-only, never write here
+reference/         brief, dataset guide, working guide as Markdown (tracked)
+  official/        original PDF and Word files (NOT committed, copy them in from the package)
+config/            thresholds and rule settings (never hard-code these in code)
+src/               shared Python code (add once the same code appears in two notebooks)
+scripts/           scripts that build figures, the framework workbook and slides
+notebooks/         analysis and evidence notebooks
+outputs/           intermediate results (gitignored, rebuildable from data/ + code)
+docs/
+  notes/           project summary, rules draft, deliverables guide, team notes
+  checkin1/        Check-in 1 report (md + pdf) and the faculty deck
+  presentations/   main presentation and explainer deck
+  figures/         generated charts (built by scripts/)
+  Framework.xlsx
+load_data.ipynb    provided loader/integrity checker; must stay beside manifest.csv
+manifest.csv       row counts and checksums for data/
 data_dictionary.csv
 ```
 
-Add a `src/` folder for shared Python once the same code shows up in more than one notebook.
+To rebuild a figure, run its script with an output path, for example
+`uv run python scripts/fig_detection.py docs/figures/03_detection_matrix.png`.
 
 ## Working conventions
 
