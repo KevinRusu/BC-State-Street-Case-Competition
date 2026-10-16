@@ -10,8 +10,11 @@ Requires [uv](https://docs.astral.sh/uv/) (`brew install uv`). Graphviz is neede
 
 ```bash
 uv sync                       # creates .venv with Python 3.12 + all dependencies
+uv run nbstripout --install   # once per clone: strips notebook outputs when you commit
 uv run jupyter lab            # or open a notebook in VS Code and pick the .venv kernel
 ```
+
+Run notebooks in place in `notebooks/`. Your local file keeps its outputs; nbstripout removes them from what goes into Git, so data rows never reach the repo and diffs stay small. Keep one copy of each notebook (no executed duplicates).
 
 Add a package with `uv add <name>` (or `uv add --dev <name>` for tooling), then commit `pyproject.toml` and `uv.lock` together.
 
