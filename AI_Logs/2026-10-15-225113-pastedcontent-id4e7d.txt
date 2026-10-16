@@ -1,0 +1,975 @@
+
+❯ <ide_opened_file>The user opened the file /Users/oansen/code/projects/State_S
+  treet_Case_Competition/State_Street_Case_Student_Package/load_data.ipynb in
+  the IDE. This may or may not be related to the current
+  task.</ide_opened_file>
+
+❯ Create a teaching notebook at notebooks/01_explore_tables.ipynb. Read
+  CLAUDE.md and
+  docs/notes/PROJECT_SUMMARY.md first and follow the repo rules.
+
+  Show me your plan (sections and what each one will do) and wait for my
+  approval
+  before writing the notebook.
+
+  WHO IT IS FOR
+  I am a beginner coder (Python basics) and a master's student in applied
+  economics. The notebook should teach me the dataset while I read it top to
+  bottom. Before every code cell, add a short markdown cell that says what the
+  next cell does and why, in plain English. After every result, add a short
+  "What this tells us" markdown cell. Keep the code simple: pandas, small
+  steps,
+  clear variable names, and a comment on any line that is not obvious. Do not
+  use
+  em dashes anywhere in the text.
+
+  RULES
+  - Never modify anything in data/ and do not touch load_data.ipynb.
+  - Read every CSV as text first (dtype=str, keep_default_na=False), as
+    load_data.ipynb does, and convert types explicitly only where needed.
+  - Dates come as YYYY-MM-DD or DD/MM/YYYY. Normalise them with a small helper
+    function and explain why.
+  - Never hard-code defect record IDs. Pick examples with code (for example
+  "the
+    first ID that repeats").
+  - No version suffixes in file names. Use uv (uv run jupyter ...).
+  - Write any saved results to outputs/, nothing else.
+  - Make the notebook find the repo root from notebooks/ (the parent folder
+    contains manifest.csv and data/).
+
+  STRUCTURE (one section per heading, with a summary at the top)
+  0. Summary at the top: a "What we found so far" box (fill it in at the end
+  from
+     the real results) and a table of contents.
+  1. Setup: find the repo root, define read_table (text-first) and a helper
+  that
+     prints a table's column descriptions from data_dictionary.csv.
+  2. Integrity check: reuse the logic of verify() from load_data.ipynb (import
+  or
+     copy it) and show that all ten files pass.
+  3. Peek at each table, one at a time: dictionary descriptions, 5 raw rows,
+  and
+     one sentence on what a single row means. Order: accounts, securities,
+     transactions, pipeline_events, positions, comparison_positions, then
+     corporate_actions, prices, fx_rates, ledger_nav.
+  4. Keys and joins: is transaction_id unique? Check counts both ways between
+     transactions and pipeline_events (distinct IDs, isin in both directions,
+     duplicated().sum()). Explain many-to-many expansion with a tiny example
+  and
+     show the row count before and after a join.
+  5. The repeated transaction IDs: group sizes, exact copies versus differing
+     copies, normalise the two date formats, then count REAL conflicts per
+     column. Show one example per kind of conflict (blank value, sign flip,
+     currency difference) chosen by code. Show how the pipeline_events copies
+     differ (published_timestamp, booked_timestamp, received_timestamp).
+  6. Positions versus comparison_positions: full outer merge on account_id and
+     security_id with indicator=True, then inspect the book-only rows (quantity
+     summary, how many are zero). Also check which account_ids and security_ids
+  in
+     positions are missing from accounts and securities.
+  7. Placeholder sections, clearly marked TODO, for: transaction statuses
+  (BOOKED,
+     CANCELLED, REVERSED and related_transaction_id), a dry-run position
+     reconstruction for one account (BUY adds, SELL subtracts, zero opening
+     balance, as in reference/02_Dataset_Guide.md), and price/FX/ledger checks.
+     Do not implement them yet.
+  8. Defect log: a small table at the end (defect, table, how many rows, how we
+     detected it, evidence status) that I can copy into the defect catalog.
+  9. Cross-check table (see VERIFICATION below).
+
+  VERIFICATION (the notebook is the source of truth)
+  Compute every number in the notebook from the data. Do NOT hard-code any
+  expected result into the analysis code and do NOT change code to make a
+  number
+  match something I wrote.
+
+  1. Official checks: compare row and column counts with manifest.csv (this
+  comes
+     from the jury) and show PASS/FAIL per table.
+  2. Second method: compute these with DuckDB (all_varchar=true) as well as
+     pandas and show that both agree: number of distinct transaction_ids,
+  number
+     of repeated IDs, and the full outer merge counts for positions.
+  3. Cross-check table (section 9): columns "check", "our manual result", "this
+     notebook", "match?". Our manual results from a chat session are listed
+     below. They are only a second opinion. A mismatch is not an error to hide
+  or
+     fix: show it and write one sentence on which side might be wrong and how
+  to
+     find out.
+
+  Manual results to cross-check:
+  - Row counts: transactions 1,409,533; pipeline_events 1,409,533; positions
+    480,663; comparison_positions 480,183; accounts 100,000; securities 6,012;
+    corporate_actions 200; prices 539,970; fx_rates 180; ledger_nav 2,000.
+  - Transaction statuses: BOOKED 1,403,784; CANCELLED 4,347; REVERSED 1,402.
+  - 1,407,428 distinct transaction_ids; 2,105 repeated IDs, each exactly twice,
+  in
+    adjacent rows, at the same row positions in both tables. Every ID in one
+  table
+    exists in the other.
+  - 4,064 rows are exact full-row copies; trade_date and event_timestamp never
+    differ between copies after normalising date formats; 45 pairs have real
+    conflicts; by column (pairs can overlap): settlement_date 21, price 14,
+    quantity 6, currency 4, settlement_note 3. Among repeated rows: 4,206
+  BOOKED
+    and 4 CANCELLED.
+  - pipeline_events copies differ in published_timestamp for 1,987 pairs,
+    booked_timestamp 20, received_timestamp 7, and never in source_system,
+    batch_id, event_timestamp or cutoff_timestamp.
+  - Positions: both tables have one as_of_date (2026-07-10), 100,195 distinct
+    account_ids and 6,015 distinct security_ids. Outer merge: 480,183 in both,
+  480
+    only in positions, 0 only in comparison_positions. None of the 480 is zero
+    (min -12,322, max 17,690, median about 1,231.5, mean about 870.26).
+
+  Measured only by this notebook (we only estimated these, report what you
+  find):
+  - How many repeated pairs differ ONLY by date format (we guessed about 28).
+  - How many account_ids and security_ids in positions have no row in accounts
+  and
+    securities (we guessed at least 195 and 3).
+
+  OUTPUT HANDLING
+  After I approve the plan, run the whole notebook once to confirm it works (it
+  needs about 1.5 GB of memory; if memory is tight, load only the columns
+  needed).
+  Notebook outputs contain confidential data rows, so tell me how you will keep
+  them out of Git (for example nbstripout via uv add --dev nbstripout and uv
+  run
+  nbstripout --install) and ask before changing any Git setting. Do not commit.
+  Show me git status when done.
+
+⏺ I'll start by reading the repo context the brief points to.
+
+  Read 3 files, listed 1 directory, ran 3 shell commands (ctrl+o to expand)
+
+⏺ I have what I need for the plan. One decision changes how I run and save the
+  notebook, so I'll ask it before writing the plan.
+
+⏺ User answered Claude's questions:
+  ⎿  · How should I keep notebook outputs (which contain confidential rows) out
+     of Git? → Executed copy in outputs/ (Recommended)
+
+⏺ Updated plan
+  ⎿  /plan to preview
+
+⏺ User approved Claude's plan
+  ⎿  Plan saved to:
+     ~/.claude/plans/pasted-content-id-4e7d-create-a-snuggly-kay.md · /plan to
+     edit
+     Plan: teaching notebook notebooks/01_explore_tables.ipynb
+
+     Context
+
+     You (applied-economics master's student, Python basics) want one notebook
+     that teaches the ten tables top to bottom and recomputes, from the raw
+     data, the facts we found by hand in a chat session. The notebook is the
+     source of truth: the chat numbers only appear in the final cross-check
+     table (section 9), never in the analysis code. I read CLAUDE.md,
+     docs/notes/PROJECT_SUMMARY.md, reference/02_Dataset_Guide.md,
+     load_data.ipynb, data_dictionary.csv and manifest.csv. (The guide lives in
+     reference/, not etc/md/; I follow the files as they are now.)
+
+     Style rules applied to every cell
+
+     - Before each code cell: a markdown cell saying what the cell does and why,
+       in plain English. After each result: a "What this tells us" markdown
+       cell (written after the run, from the actual output).
+     - pandas, small steps, clear names (repeated_rows, copy_a, copy_b), a
+       comment on any non-obvious line. DuckDB only for the second-method
+       checks.
+     - No em dashes anywhere. No record IDs typed by hand: every example ID is
+       picked by code (for example "first repeated ID in file order").
+     - Every CSV read with dtype=str, keep_default_na=False; types converted
+       only where needed, with failed conversions counted and shown, not
+       dropped.
+
+     Sections
+
+     0. Summary. "What we found so far" box plus a linked table of contents. I
+     fill the box in after the run with the real numbers. Section 9 ends with a
+     code cell that prints the same headline numbers live, so the box can be
+     checked against a fresh run.
+
+     1. Setup. Find the repo root by walking up from the current folder until
+     one contains manifest.csv and data/ (works from notebooks/ and from the
+     repo root). Copy manifest(), table_path(), read_table() from
+     load_data.ipynb (a notebook cannot be imported, so copying is the honest
+     option; a note says where it came from). Add describe_columns(table) that
+     prints each column's intended type and description from
+     data_dictionary.csv. Add normalise_date(series): parse YYYY-MM-DD, then
+     DD/MM/YYYY for whatever failed, return ISO text; values that fit neither
+     stay visible as missing and get counted. Markdown explains why: 01/06/2026
+     vs 2026-06-01 are the same day but unequal as text, and guessing the locale
+     is forbidden by the guide.
+
+     2. Integrity check. Copy verify() unchanged and run it (checksum, rows,
+     columns, bytes for all ten files, PASS per table). Then load all ten tables
+     with read_table and print a table of loaded rows and columns vs
+     manifest.csv with PASS/FAIL per table (official check 1).
+
+     3. Peek at each table (accounts, securities, transactions, pipeline_events,
+     positions, comparison_positions, corporate_actions, prices, fx_rates,
+     ledger_nav). For each: describe_columns, head(5), and one sentence on what
+     one row means (the grain from the guide).
+
+     4. Keys and joins.
+     - transaction_id uniqueness in both tables: rows, distinct IDs,
+       duplicated().sum(), number of IDs that repeat.
+     - Coverage both ways with isin: transaction IDs missing from
+       pipeline_events and the reverse.
+     - Many-to-many expansion: a 3-row toy example (an ID twice on each side
+       becomes 4 rows), then the real transactions to pipeline_events merge with
+       row counts before and after, and the extra rows explained by the
+       repeated IDs.
+
+     5. The repeated transaction IDs.
+     - Group sizes (value_counts of copies per ID). Adjacent rows check
+       (row-number gap between copies) and same row positions in both tables.
+     - Exact full-row copies vs differing copies.
+     - Number the copies with groupby().cumcount() into copy_a / copy_b side by
+       side (code checks the largest group size and says so if any ID has more
+       than two copies).
+     - Normalise trade_date, settlement_date and the date part of
+       event_timestamp, then count pairs that differ ONLY by date format
+       (measured, not estimated) and REAL conflicts per column (pairs can
+       overlap) plus total pairs with any real conflict.
+     - Classify each conflict as blank vs value, sign flip (same number,
+       opposite sign), currency difference, or other change; show one example
+       pair per kind, picked by code.
+     - Status mix among repeated rows.
+     - pipeline_events copies: same pairing, count differing pairs per column
+       (published, booked, received timestamps, and source_system, batch_id,
+       event_timestamp, cutoff_timestamp).
+
+     6. Positions vs comparison_positions.
+     - as_of_date values, distinct account_ids and security_ids in each; key
+       uniqueness (grain check) before merging.
+     - Full outer merge on account_id, security_id, as_of_date (the guide's key;
+       with one snapshot date this equals merging on account and security) with
+       indicator=True; counts of both / book only / custodian only.
+     - Book-only rows: quantity converted to numbers (failures counted),
+       describe(), how many are zero.
+     - Orphans: distinct account_ids in positions with no row in accounts, and
+       security_ids with no row in securities, plus how many position rows they
+       touch.
+
+     7. TODO placeholders (markdown only, clearly marked, no code): transaction
+     statuses and related_transaction_id; dry-run position rebuild for one
+     account (zero opening balance, BUY adds, SELL subtracts, BOOKED only, per
+     the guide); price, FX and ledger checks.
+
+     8. Defect log. Small DataFrame built from variables computed above: defect,
+     table, rows affected, how detected, evidence status (confirmed /
+     unresolved / cleared, per the guide). Saved to outputs/01_defect_log.csv.
+
+     9. Verification and cross-check.
+     - Second method: DuckDB read_csv(..., all_varchar=true) computes distinct
+       transaction_ids, repeated IDs, and the FULL OUTER JOIN counts for
+       positions; a table shows pandas vs DuckDB and "agree?".
+     - Cross-check table with columns check, our manual result, this notebook,
+       match?. The manual numbers live only in this section, in one clearly
+       labelled dict. The two estimates (date-format-only pairs, orphan IDs) are
+       shown as "estimate" rows. For any mismatch I write one sentence on which
+       side might be wrong and how to find out; nothing is changed to force a
+       match. Saved to outputs/01_cross_check.csv.
+
+     Running and output handling (your choice: executed copy in outputs/)
+
+     1. I build the notebook with a small nbformat script kept in my scratchpad
+        (not in the repo), so the JSON is valid.
+     2. Execute once: uv run jupyter nbconvert --to notebook --execute
+        notebooks/01_explore_tables.ipynb --output-dir outputs producing
+        outputs/01_explore_tables.ipynb with outputs. outputs/* is already in
+        .gitignore. Memory is not a concern (32 GB machine; full load is about
+        1.5 GB).
+     3. I read the executed outputs, then write the "What this tells us" cells
+        and the summary box from the real numbers into
+        notebooks/01_explore_tables.ipynb, re-execute into outputs/ to confirm
+        it still runs, and leave the notebook in notebooks/ with no outputs.
+     4. No Git settings changed, nothing added to pyproject.toml, no commit. I
+        finish by showing git status.
+
+     Files
+
+     - New: notebooks/01_explore_tables.ipynb (no outputs)
+     - New, gitignored: outputs/01_explore_tables.ipynb,
+       outputs/01_defect_log.csv, outputs/01_cross_check.csv
+     - Untouched: data/, load_data.ipynb, Git config
+
+     Two things I noticed (not changing them, just flagging)
+
+     - data/*.csv.gz are tracked in Git and the repo has a GitHub remote. If
+       that repo is ever public, the confidential data is public. Worth checking
+       it is private, or untracking data/.
+     - notebooks/checkin1_evidence.ipynb is committed with outputs in 19 cells.
+       If they show data rows, they are in Git history too.
+
+     Verification
+
+     - Notebook executes end to end with no errors via the nbconvert command
+       above.
+     - Section 2 shows PASS for all ten tables (checksums and loaded shapes).
+     - Section 9 shows pandas and DuckDB agreeing; every cross-check row has a
+       match flag, and every mismatch has an explanation sentence.
+     - grep the notebook for the em dash character and for hand-typed
+       TXN/ACC/SEC IDs in code cells: none.
+     - git status shows only the new notebook under notebooks/ (outputs
+       ignored).
+
+⏺ Plan approved. I'll prototype the trickier analysis (repeated-ID pairing,
+  conflict kinds) in a scratch script before building the notebook, so the
+  notebook code is right the first time.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+⏺ The prototype confirms 2,105 IDs appearing twice each, plus a fourth conflict
+  kind—settlement date moved—which I'll label "other change." Now I'll write the
+  notebook builder in the scratchpad.
+
+  Made 1 scratchpad edit +976 (ctrl+o to expand)
+
+⏺ Now a placeholder tells.py for the first run, then build and execute.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Bash(cd /private/tmp/claude-501/-Users-oansen-code-projects-State-Street-Case-
+      Competition-State-Street-Case-Student-Package/2f645a82-90fc-445d-a660-476d
+      ba4a5887/scra…)
+  ⎿  1 file changed (binary, mode only or too large to show)
+
+⏺ It ran end to end in about 20 seconds. Now I'll read every output so the
+  interpretation cells come from the real numbers.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Everything ran and all 51 scored checks match the manual results. Before
+  writing the interpretation text, I want to see the table peeks and the full
+  conflict list so the wording is accurate.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+⏺ All 51 scored checks match. I'll add two small code cells: one showing the
+  factor-of-100 ratio behind the 4 non-blank price conflicts, and another
+  checking the 15 orphan security_ids (affecting 1,118 position rows) against
+  corporate_actions.target_security_id to confirm the spin-off link.
+
+  Made 2 scratchpad edits +27 -4 (ctrl+o to expand)
+
+⏺ Bash(S=/private/tmp/claude-501/-Users-oansen-code-projects-State-Street-Case-C
+      ompetition-State-Street-Case-Student-Package/2f645a82-90fc-445d-a660-476db
+      a4a5887/scrat…)
+  ⎿  1 file changed (binary, mode only or too large to show)
+
+⏺ Price conflicts show a clear ×100/×0.01 scale error, and the 15 orphan
+  security_ids all match SPINOFF targets in corporate_actions, confirming the
+  spin-off finding independently. I'll log this evidence in the defect row and
+  write up the interpretation.
+
+  Made 2 scratchpad edits +205 -1 (ctrl+o to expand)
+
+⏺ A few sentences claim more than the outputs show (the price-vendor count, the
+  merger target, which pairs overlap). I'll tighten those, then rebuild and
+  re-execute.
+
+⏺ Bash(cd /private/tmp/claude-501/-Users-oansen-code-projects-State-Street-Case-
+      Competition-State-Street-Case-Student-Package/2f645a82-90fc-445d-a660-476d
+      ba4a5887/scra…)
+  ⎿  1 file changed (binary, mode only or too large to show)
+
+⏺ Clean second run. Now the final verification checks: no em/en dashes, no
+  hand-typed record IDs in code, no outputs in the committed notebook, data/
+  untouched, and git status.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ I've built notebooks/01_explore_tables.ipynb to your plan and run it twice
+  from start to finish with no errors (about 20 seconds per run). Every number
+  the notebook reports is computed from the raw files.
+
+  Results
+  - Integrity: all 10 files pass verify(), and the loaded row and column counts
+    match manifest.csv (10 of 10 PASS).
+  - Second method: DuckDB gives the same answer as pandas on all 5 checks
+    (distinct IDs, repeated IDs, and the three positions merge counts).
+  - Cross-check: all 51 of your manual results match the notebook. There are no
+    mismatches.
+  - The numbers you had only estimated:
+    - 28 repeated pairs differ only by date format, as you guessed.
+    - 195 account_ids in positions are missing from accounts, exactly your lower
+      bound (699 position rows).
+    - 15 security_ids are missing from securities, not 3 (1,118 position rows).
+      Your guess subtracted distinct counts (6,015 minus 6,012), which misses
+      the 12 securities in the master that nobody holds.
+
+  Two findings you didn't have before (I added one small cell for each)
+  - All 15 missing security_ids are spin-off targets in corporate_actions, and
+    they cover 1,118 position rows. That matches our main spin-off finding
+    (1,118 positions), and this time the evidence comes from a second table.
+  - The 4 price conflicts that aren't blanks are exactly ×100 or ×0.01. One copy
+    of each pair has a scale error, which looks like a price in cents instead
+    of units.
+
+  Conflicts fall into four kinds rather than three. Besides blank vs value, sign
+  flip and currency difference, there is "other change": 14 settlement dates
+  that moved to a different date, and those 4 prices.
+
+  Where things are
+  - notebooks/01_explore_tables.ipynb has 126 cells and no outputs. It is the
+    only new file Git sees.
+  - outputs/01_explore_tables.ipynb is the executed copy to read. It sits next
+    to outputs/01_defect_log.csv and outputs/01_cross_check.csv, and Git ignores
+    all three.
+  - The notebook has no em or en dashes and no record IDs typed into the code.
+    Nothing in data/ or load_data.ipynb changed.
+  - The "What this tells us" cells and the summary box were written from the
+    real outputs. Section 9.3 prints the headline numbers again on every run, so
+    you can tell if the box ever goes out of date.
+  - The script that generated the notebook is outside the repo, at
+    /private/tmp/claude-501/-Users-oansen-code-projects-State-Street-Case-Compet
+    ition-State-Street-Case-Student-Package/2f645a82-90fc-445d-a660-476dba4a5887
+    /scratchpad/build_notebook.py. You don't need it; edit the notebook directly
+    from now on.
+
+  I changed no Git settings, added no packages and made no commit. git status:
+  On branch main
+  Your branch is up to date with 'origin/main'.
+  Untracked files:
+          notebooks/01_explore_tables.ipynb
+
+  Two confidentiality risks were already in the repo before this work. I left
+  both alone:
+  - The data is in Git. data/*.csv.gz is tracked and pushed to the GitHub
+    remote, so please make sure that repo is private.
+  - notebooks/checkin1_evidence.ipynb was committed with saved outputs in 19
+    cells. If those show data rows, the rows are in the Git history too.
+
+❯ the repository is private, so I think it is fine to commit the notebook with
+  outputs or not?
+
+  Searched for 1 pattern (ctrl+o to expand)
+⏺ You're right that confidentiality isn't the problem. The brief only forbids
+  exposing the data "through public repositories, public dashboards or public AI
+  links" (reference/01_Student_Brief.md:261). And because data/ is already
+  committed, a notebook's outputs add almost nothing the repo doesn't already
+  hold.
+
+  I'd still commit it without outputs, for practical reasons:
+
+  - Noisy diffs. Each run rewrites about 250 KB of output. A one-word markdown
+    fix then shows up as a huge change.
+  - Merge conflicts. Outputs conflict badly in .ipynb JSON. If two teammates run
+    the notebook and commit, someone has to fix the merge by hand.
+  - Out-of-date results. A committed output can stop matching the code or data
+    without anyone noticing. Reproducibility is 10% of the rubric, and judges
+    rerun the code. "Run it and get these numbers" is a better story than "trust
+    the saved outputs."
+  - Easy to recreate. The full run takes about 20 seconds.
+
+  There's one good reason to keep outputs: teammates who can't or won't run
+  Python could read the results on GitHub. If that matters to your team, commit
+  with outputs. The risk is low given a private repo. Just try to have one
+  person own the reruns, to avoid merge conflicts.
+
+  A middle option: commit the notebook clean, and put the key results in the
+  committed Markdown. The summary box at the top and section 9.3 already show
+  the headline numbers, and outputs/01_defect_log.csv holds the defect log.
+
+  Should I commit notebooks/01_explore_tables.ipynb as it is now (clean), or
+  swap in the executed copy first?
+
+❯ I am just worried about making changes in one notebook, but then not making
+  them in the other one. Then we would have two different notebooks. What would
+  you recommend?
+
+⏺ That worry is a good reason to change the setup. Keep exactly one notebook:
+  notebooks/01_explore_tables.ipynb. Run it in place in VS Code or Jupyter, and
+  let nbstripout remove the outputs automatically when you commit.
+
+  - One file. You edit and run the same notebook. The executed copy in outputs/
+    goes away, so the two can't drift apart.
+  - You keep your outputs. nbstripout only strips them from what goes into Git.
+    The file on your disk keeps them, so you can still scroll through results
+    after closing VS Code.
+  - No discipline needed. It runs on every git add or commit, for every notebook
+    in the repo, so nobody has to remember to "Clear All Outputs" first. It
+    would also cover checkin1_evidence.ipynb the next time someone commits it.
+  - Teammates are covered. Everyone runs uv sync and then uv run nbstripout
+    --install once on their own clone. I'd add that line to the README setup
+    section.
+
+  Setting it up changes things you asked me to check with you first:
+
+  1. uv add --dev nbstripout, which edits pyproject.toml and uv.lock.
+  2. uv run nbstripout --install --attributes .gitattributes, which adds a
+     filter to your local .git/config and creates a committed .gitattributes.
+     That file tells teammates' clones which files to strip.
+  3. Delete outputs/01_explore_tables.ipynb, the second copy. It's ignored by
+     Git, so nothing is lost.
+  4. Add the one-line setup step to README.md.
+
+  There's one catch. The filter only works on a clone where someone has run the
+  install step. If a teammate skips it, their commits will include outputs. That
+  isn't a confidentiality problem in your private repo, just noise.
+
+  Do you want me to go ahead with steps 1 to 4? I won't commit anything.
+
+❯ yes, let's make these changes so we can keep it simple.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ nbstripout is installed and the filter is set. Now the README setup step.
+
+⏺ Update(README.md)
+  ⎿  Added 3 lines
+      10  
+      11  ```bash
+      12  uv sync                       # creates .venv with Python 3.12 
+          + all dependencies
+      13 +uv run nbstripout --install   # once per clone: strips notebook
+         + outputs when you commit                                       
+      14  uv run jupyter lab            # or open a notebook in VS Code a
+          nd pick the .venv kernel
+      15  ```
+      16  
+      17 +Run notebooks in place in `notebooks/`. Your local file keeps i
+         +ts outputs; nbstripout removes them from what goes into Git, so
+         + data rows never reach the repo and diffs stay small. Keep one 
+         +copy of each notebook (no executed duplicates).                
+      18 +                                                               
+      19  Add a package with `uv add <name>` (or `uv add --dev <name>` fo
+          r tooling), then commit `pyproject.toml` and `uv.lock` together
+          .
+      20  
+      21  ## Layout
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+⏺ nbstripout is set up. You now have one notebook, and its outputs stay out of
+  Git automatically.
+
+  To use it, open notebooks/01_explore_tables.ipynb in VS Code, pick the .venv
+  kernel and click Run All. The outputs stay on your disk; Git only sees the
+  code and text.
+
+  What changed
+  - pyproject.toml and uv.lock: nbstripout 0.9.1 is now a dev package.
+  - .gitattributes (new file, to commit): tells Git to strip outputs from every
+    .ipynb file.
+  - Your local .git/config: now holds the stripping filter. This part isn't
+    committed, so each teammate runs uv run nbstripout --install once on their
+    own copy of the repo.
+  - README.md: has that setup step, plus one line on running notebooks in place
+    and keeping one copy of each.
+  - The duplicate outputs/01_explore_tables.ipynb is deleted. The two CSVs stay
+    in outputs/.
+
+  I ran the filter on checkin1_evidence.ipynb: 19 cells have outputs on your
+  disk, and 0 would go into a commit. Git doesn't list that notebook as modified
+  yet. Once it does, committing it will remove the outputs from the repo from
+  then on, but older commits keep them.
+
+  Nothing is committed. git status:
+  modified:   README.md
+  modified:   pyproject.toml
+  modified:   uv.lock
+  Untracked:  .gitattributes
+              notebooks/01_explore_tables.ipynb
+
+  When you commit, include .gitattributes.
+
+❯ <ide_opened_file>The user opened the file
+  /Users/oansen/code/projects/State_Street_Case_Competition/State_Street_Case_S
+  tudent_Package/notebooks/01_explore_tables.ipynb in the IDE. This may or may
+  not be related to the current task.</ide_opened_file>
+
+❯ Improve this prompt to match what we found already:
+  Extend notebooks/01_explore_tables.ipynb. Read CLAUDE.md,
+  docs/notes/PROJECT_SUMMARY.md
+  (section 7b), reference/02_Dataset_Guide.md in full and the existing
+  notebook's
+  summary box and defect log first. Follow the same teaching style and rules as
+  the
+  existing sections: a markdown cell before each code cell saying what it does
+  and
+  why, a "What this tells us" cell after each result, simple pandas code,
+  comments on
+  non-obvious lines, no em dashes, text-first reading, no hard-coded defect
+  record
+  IDs (choose examples with code), never modify data/ or load_data.ipynb.
+
+  Show me your plan for the new sections and wait for my approval before
+  writing.
+
+  GOAL
+  This is EXPLORATION to understand the data, not the Check-in 2 deliverable.
+  Do not
+  build the final reconciliation tool. Replace the TODO placeholders in section
+  7
+  with the sections below, then update the summary box, the defect log and the
+  cross-check table.
+
+  NEW SECTIONS
+  A. The four small tables: corporate_actions, prices, fx_rates, ledger_nav.
+     For each: dictionary descriptions, what one row means, key columns,
+  whether the
+     intended key is unique (report duplicates), date formats, missing values,
+  and
+     how it should link to other tables according to the Dataset Guide join
+  table.
+     For prices: how many dates and vendors exist per security (the Guide says
+  to
+     select date and vendor before joining). For corporate_actions: which
+  security
+     and account fields it has and whether the security exists in securities.
+  For
+     ledger_nav: what level it reports (fund or account) and how it should link
+  to
+     accounts via fund_id. Do not design checks yet; list what looks
+  suspicious.
+
+  B. Statuses and linked records in transactions: counts of BOOKED, CANCELLED
+  and
+     REVERSED; for CANCELLED and REVERSED rows, whether related_transaction_id
+  is
+     filled, whether the referenced original exists, whether the original is in
+  the
+     same account and security, how quantity and amount compare with the
+  original,
+     and the time gap. Show the dictionary hint ("distinguish state from
+     offsetting-event interpretations") and report which interpretation the
+  data
+     supports, with evidence. If the data does not settle it, say so and list
+  the
+     options. Do not choose a treatment.
+
+  C. Dry-run reconstruction, in steps, following the Guide exactly (zero
+  opening
+     balance, BUY adds, SELL subtracts, negative raw quantities investigated):
+     1. Raw benchmark: sum signed quantity per account_id and security_id over
+  ALL
+        transaction rows, and compare with positions and comparison_positions
+        (match rate, number of differences). This is the "raw benchmark".
+     2. Then show, one at a time, the effect of each transformation on the
+  match
+        rate: remove exact duplicate rows; handle conflicting duplicates (show
+  both
+        options, do not pick silently); treat CANCELLED and REVERSED rows;
+  handle
+        negative raw quantities; apply the as-of date cut-off (positions are as
+  of
+        2026-07-10; show the result with trade_date and with settlement_date,
+  and
+        report how many transactions fall after the date).
+     3. For the 480 positions that are missing from comparison_positions: does
+  the
+        transaction history support the book quantity?
+     4. Pick one account by code (one with several securities and at least one
+        difference) and show its full trace: its trades, the reconstruction and
+  the
+        reported positions side by side, in a readable table.
+     Use transaction_count from positions as an extra check where it helps.
+     Report row counts before and after every join and every filter.
+
+  D. Update section 8 (defect log) and the summary box with every new finding,
+     and add the new numbers to the cross-check table with "no manual result"
+     where we have none.
+
+  VERIFICATION
+  Compute everything from the data. Do not hard-code expected results. For the
+  main
+  reconstruction numbers (match rate with the raw benchmark and after each
+  transformation), compute them a second way with DuckDB (all_varchar=true) and
+  show
+  that both agree. If they do not, stop and tell me. Whenever the Dataset Guide
+  is
+  ambiguous, or I would have to make a judgment call, stop and list the options
+  with
+  the evidence for each instead of choosing.
+
+  OUTPUT HANDLING
+  Run the notebook end to end once. Keep outputs out of Git (nbstripout, as set
+  up
+  before). Write any saved tables to outputs/ only. Do not commit. Show git
+  status
+  at the end.
+
+⏺ I'll check a few facts first, so the revised prompt asks the right questions
+  (for example, which rows actually carry related_transaction_id).
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Written for: Claude Code in a new session, as the next instruction for this
+  repo (you paste it in).
+
+  I made the prompt match what the notebook already has, and I checked a few
+  facts with read-only DuckDB queries. The data contradicts some assumptions in
+  your draft:
+  - Links point the other way. related_transaction_id is filled on all 1,402
+    REVERSED rows (each points to a BOOKED original) and on 3,511 BOOKED rows
+    (each points to a CANCELLED original). Only 842 of the 4,347 CANCELLED rows
+    have a link, and every one of those points to an ID that doesn't exist.
+  - Quantities need care. 2,819 quantities are blank, and 655 are negative, all
+    on BUY trades.
+  - The two cut-offs behave differently. No trade_date falls after 10 July, so
+    the trade-date cut-off removes nothing. 64,065 settlement dates fall after
+    it.
+  - Only spin-offs name a target. All 23 SPINOFF actions have a
+    target_security_id; none of the 31 MERGER actions do.
+  - Section 3 already peeks at the four small tables, so section A should build
+    on it, not repeat it.
+
+  Extend notebooks/01_explore_tables.ipynb. First read CLAUDE.md, section 7b of
+  docs/notes/PROJECT_SUMMARY.md, all of reference/02_Dataset_Guide.md, and in
+  the
+  notebook: the summary box, sections 1 (helpers), 5 (repeated IDs), 6
+  (positions),
+  7 (TODO placeholders), 8 (defect log) and 9 (verification).
+
+  Show me your plan for the new sections and wait for my approval before
+  writing.
+
+  GOAL
+  This is EXPLORATION to understand the data before Check-in 2, not the final
+  reconciliation tool. Replace the TODO section 7 with three new sections (A, B,
+  C
+  below), renumber the defect log and verification sections after them, and
+  update
+  the table of contents, summary box, defect log and cross-check table.
+
+  STYLE AND RULES (same as the existing sections)
+  - A markdown cell before each code cell (what it does and why, in plain
+  English),
+    and a "What this tells us" cell after each result, written from the actual
+    output. Simple pandas, small steps, clear names, comments on non-obvious
+  lines.
+    No em dashes.
+  - Edit the notebook itself; there is no generator script. Reuse the existing
+    helpers and variables (read_table, describe_columns, normalise_date,
+    normalise_timestamp, date_format_counts, id_summary, repeated_rows, copy_a,
+    copy_b, conflicts, position_compare, book_only, orphan_account_ids,
+    orphan_security_ids) instead of rewriting them.
+  - Text-first reading. Convert types explicitly; count and show values that
+  fail
+    (blank or unreadable), never drop them silently.
+  - Normalise every trade_date with normalise_date before comparing it with
+  another
+    date (9,398 values are DD/MM/YYYY).
+  - No hard-coded record IDs. Pick examples by code with a rule written down
+  before
+    you look (for example "first in sorted order that meets X").
+  - Any numeric tolerance or threshold goes in a file in config/, not in the
+  code.
+  - Never modify data/ or load_data.ipynb. Saved tables go to outputs/ only.
+  - Report row counts before and after every join and every filter. Keep orphans
+    visible (no inner joins that make rows disappear).
+
+  NEW SECTIONS
+
+  A. The four small tables: corporate_actions, prices, fx_rates, ledger_nav.
+     Section 3 already shows their dictionary descriptions and first rows, so do
+  not
+     repeat that. For each table: the intended key (from the Dataset Guide
+  grain) and
+     whether it is unique; date formats with date_format_counts; blanks per
+  column;
+     and how it should link to other tables according to the Guide's join table,
+     with coverage counted in both directions.
+     - corporate_actions: counts by action_type; which rows have
+  target_security_id;
+       whether security_id and target_security_id exist in securities; ex_date
+       versus effective_date order; whether cash_rate and ratio are filled for
+  event
+       types where they make no sense. Confirm that the table has no account
+  field
+       (the Guide says it does not say which accounts received an event).
+     - prices: dates and vendors per security (the Guide says to choose date and
+       vendor before joining); which securities in positions have no price at
+  all;
+       whether the price currency matches the securities currency.
+     - fx_rates: currencies and dates covered; whether every currency used in
+       prices and transactions has a rate; the USD rate.
+     - ledger_nav: the level it reports (fund_id + share_class + as_of_date),
+  and
+       how it links to accounts via fund_id and share_class (coverage both
+  ways).
+       Do not test net_assets / shares_outstanding yet.
+     Do not design checks. End with a list of what looks suspicious.
+
+  B. Statuses and linked records in transactions.
+     - Counts by status. For each status: how often related_transaction_id is
+       filled, whether the referenced ID exists, and the status of the
+  referenced
+       record. The link can point from a replacement to its original, so look at
+       every status, not only CANCELLED and REVERSED.
+     - Referenced IDs can be repeated IDs (section 5). Join with that in mind
+  and
+       report the row counts.
+     - For each kind of link (for example REVERSED -> BOOKED, BOOKED ->
+  CANCELLED):
+       same account? same security? same transaction_type? how quantity and
+       gross_amount compare (equal, opposite sign, different)? the gap between
+       trade dates and between event_timestamps?
+     - Show the dictionary hint ("distinguish state from offsetting-event
+       interpretations") and the Guide's wording. Report which interpretation
+  the
+       evidence supports. If it does not settle the question, say so and list
+  the
+       options with the evidence for each. Do not choose a treatment.
+
+  C. Dry-run reconstruction (trade-only: apply no corporate actions, as the
+  Guide
+     says), comparing against positions and against comparison_positions.
+     Definitions to show first: signed quantity = +quantity for BUY and
+  -quantity
+     for SELL, using the raw quantity as it is; key = account_id + security_id;
+     match = equal quantity after converting to numbers. Report each comparison
+  in
+     separate groups: matched, different, only in the rebuild, only in the
+  reported
+     table, and not evaluable (for example a blank quantity). State the
+  denominator
+     of every match rate. A rebuilt key that nets to zero and is absent from
+     positions is its own group: do not count it as a match or a break without
+     asking me.
+     1. Raw benchmark: all transaction rows, as described above.
+     2. Then one transformation at a time, in a stated order, showing the change
+  in
+        each group after every step. Also show each step applied alone to the
+  raw
+        benchmark, because order can change the effect of a step:
+        a. remove exact duplicate rows (show it both with and without the 28
+  pairs
+           that differ only by date format counted as exact);
+        b. conflicting duplicates (45 pairs): show the options (keep the first
+  copy,
+           keep the second, drop both, mark the key not evaluable), do not pick
+  one;
+        c. CANCELLED rows, then REVERSED rows under each interpretation from B,
+  while
+           avoiding double offsets; BOOKED-only is the Guide's shared benchmark,
+  so
+           make sure it appears as one of the variants;
+        d. negative raw quantities: investigate them first (which type, whether
+  they
+           are among the duplicate sign flips, whether gross_amount is also
+           negative), then show the options; never take absolute values
+  silently;
+        e. blank quantities: count them and the keys they touch; those keys are
+  not
+           evaluable unless we decide otherwise;
+        f. as-of cut-off at 2026-07-10: trade-date version and settlement-date
+           version, with how many trades fall after the date in each. A blank
+           settlement_date cannot be placed: report those trades as not
+  evaluable
+           in the settlement-date version.
+     3. Use positions.transaction_count as an extra check: compare it with the
+        number of contributing trades under each variant and say which inclusion
+        policy it fits best, if any.
+     4. The 480 positions missing from comparison_positions: does the
+  transaction
+        history support the book quantity (under each variant)?
+     5. Orphans: keep the 195 account_ids and 15 security_ids missing from the
+        master tables in the rebuild, and report them as a group.
+     6. One account trace, picked by code with a rule written before looking
+  (for
+        example "most securities among accounts with at least one difference
+  under
+        the BOOKED-only variant; ties by sorted account_id"): its trades, the
+  rebuilt
+        quantity under each variant, positions and comparison_positions, side by
+        side in one readable table.
+     Save the step-by-step table to outputs/.
+
+  D. Update the defect log, the summary box (including the live headline cell)
+  and
+     the cross-check table with every new finding. New numbers without a manual
+     result get "no manual result".
+
+  JUDGMENT CALLS
+  Before writing, list in your plan each place where the Guide is ambiguous or a
+  choice is needed (at least: raw benchmark versus BOOKED-only, order of steps,
+  format-only duplicates, conflicting duplicates, REVERSED meaning, negative and
+  blank quantities, rebuilt zero keys absent from positions, match tolerance and
+  denominator, blank settlement dates), with the options and evidence for each.
+  In
+  the notebook, show the results under each option instead of choosing. If a new
+  judgment call comes up while building, stop and ask me.
+
+  VERIFICATION
+  Compute everything from the data; never hard-code an expected result or change
+  code to make a number match. Compute the main reconstruction numbers (the
+  group
+  counts and match rates for the raw benchmark and for each cumulative step) a
+  second way in DuckDB (all_varchar=true) and show a pandas versus DuckDB table.
+  If
+  they do not agree, stop and tell me.
+
+  Add these to the cross-check table as "our manual result". They are a second
+  opinion only (from PROJECT_SUMMARY section 5 and a quick DuckDB check); show
+  mismatches with one sentence on which side might be wrong:
+  - corporate_actions: 23 SPINOFF rows, all with target_security_id, all targets
+    missing from securities; 15 of these targets are traded and held: 1,131
+  trades,
+    1,118 positions, 0 prices. 31 MERGER rows, none with target_security_id.
+  - 87 of 200 corporate actions have ex_date after effective_date; all 200 have
+  a
+    cash_rate.
+  - prices: 3 vendors, 30 dates, 6,000 distinct securities.
+  - fx_rates: 6 currencies x 30 dates; the USD rate is never exactly 1 (0.990 to
+    1.010).
+  - ledger_nav: 500 funds x 4 share classes x 1 date.
+  - related_transaction_id filled: REVERSED 1,402 of 1,402 (all point to a
+  BOOKED
+    record); BOOKED 3,511 (all point to a CANCELLED record); CANCELLED 842 of
+  4,347
+    (all point to an ID that does not exist in transactions).
+  - quantity: 655 negative (all BUY); 2,819 blank (BUY 1,579, SELL 1,240).
+  - trade_date after 2026-07-10: 0. settlement_date after 2026-07-10: 64,065.
+  - 1,124 trades have settlement_date before trade_date.
+  PROJECT_SUMMARY names a worked example and a clean example by record ID: do
+  not
+  use those IDs in code.
+
+  OUTPUT HANDLING
+  Run the notebook end to end once, in place:
+  uv run jupyter nbconvert --to notebook --execute --inplace
+  notebooks/01_explore_tables.ipynb
+  nbstripout keeps outputs out of Git. Do not create an executed copy elsewhere.
+  Write saved tables to outputs/ only. Do not commit. Show git status at the
+  end.
+
+  What I changed and why
+  - Section A builds on section 3 instead of repeating it, and asks for the
+    coverage gaps we already suspect: unpriced spin-off securities, mergers
+    without a target, the USD rate.
+  - Section B looks at links from every status, because the data shows them
+    pointing from the replacement back to the original. It also flags the 842
+    links that point to IDs that don't exist, and repeated IDs among the linked
+    records.
+  - Section C:
+    - Groups instead of one match rate. Results are split into groups with a
+      stated denominator, so missing records and blank quantities aren't hidden
+      inside a single rate.
+    - Each step alone and in sequence, because the order of steps changes their
+      effect.
+    - Blank quantities get their own step (2,819 rows).
+    - BOOKED-only appears as a variant, because the Guide calls it the shared
+      benchmark.
+    - Cut-off counts: the prompt says up front that no trade falls after 10 July
+      and 64,065 settlement dates do.
+    - Trade-only, no corporate actions, as the Guide requires.
+  - Judgment calls are listed upfront, so the plan has to answer them before any
+    code is written, instead of stopping halfway through.
+  - The cross-check now includes the project summary's numbers and today's
+    checks. The summary said 1,687 settlement dates "can't be read", but the
+    notebook shows they are blank, so the prompt doesn't repeat that.
+  - The run command changed to in-place execution, to match the nbstripout setup
+    with no second copy.
+
+  One suggestion: section C is big enough for its own notebook,
+  02_reconstruction.ipynb. That would keep 01 readable. The cost is that 02
+  would need its own copy of the loading and date helpers until there's a shared
+  src/ module. If you want that, change the first line of the prompt and keep
+  sections A, B and D in 01.

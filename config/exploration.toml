@@ -1,0 +1,9 @@
+# Thresholds for notebooks/01_explore_tables.ipynb (exploration only, not the final rules).
+# Change a value here and rerun the notebook; no number below is repeated in the code.
+
+[snapshot]
+as_of_date = "2026-07-10"            # Dataset Guide valuation snapshot; cut-off for both rebuild versions
+
+[reconstruction]
+quantity_match_tolerance = 1e-6      # absolute units; only absorbs float noise in stored quantities
+gross_amount_tolerance = 0.01        # currency units; gross_amount is stored to the cent
