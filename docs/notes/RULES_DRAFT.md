@@ -37,6 +37,8 @@
 | `TXN_DUPLICATE` | transaction_id unique; no second record with the same account + security + trade_date + type + quantity + price unless linked through related_transaction_id | hold | Exact duplicates rejected, economic duplicates held for review |
 | `TXN_FIELDS_VALID` | Required fields not null; trade_date and settlement_date parse (ISO or DD/MM/YYYY, logged); settlement_date ≥ trade_date; lag ≤ 2 business days unless settlement_note = EXTENDED_SETTLEMENT_AGREED; quantity > 0; \|gross_amount − quantity × price\| ≤ 0.01 | reject | T+2 limit and amount tolerance are team assumptions. Lag is counted in BUSINESS days (calendar days flag every Friday trade). Data: T+1 913,711 · T+2 490,054 · T+5 to T+7 2,957 (845 with agreed-extension note) · 1,124 settle before trade · 1,687 unparseable. US standard is T+1 since 28 May 2024 (SEC Rule 15c6-1): split the limit by market / asset class at Check-in 2 |
 | `TXN_CORRECTION_LINK` | related_transaction_id points to an existing transaction, not to itself, with the same account and security; CANCELLED/REVERSED/BOOKED combinations follow the stated rule; no double offset | hold | REVERSED semantics unresolved until the data owner tells us what REVERSED means |
+| `TXN_ONE_REVERSAL_PER_ORIGINAL` | At most one REVERSED row points to each BOOKED original | hold | Added 16 Oct (Check-in 2 register): 1,402 REVERSED rows, two per original (701 originals) |
+| `TXN_PIPELINE_ONE_TO_ONE` | Every transaction_id has exactly one pipeline_events record and every pipeline record has one transaction | hold | Added 16 Oct (Check-in 2 register): 2,105 IDs repeated in both tables (4,210 pipeline rows) |
 | `TXN_TIMESTAMPS_IN_ORDER` | event ≤ received ≤ booked ≤ published; all timestamps present and parseable; received − event within the feed's latency limit (per source_system) | flag | Missing / out-of-order timestamps reported separately, never as on time |
 | `TXN_AFTER_CUTOFF` | booked_timestamp and published_timestamp ≤ cutoff_timestamp; late trades carried to the next cycle with a flag | flag |  |
 
@@ -57,6 +59,7 @@
 |---|---|---|---|
 | `POS_REBUILD_MATCHES` | Reported positions.quantity = signed sum of BOOKED trades (BUY +, SELL −, zero opening); positions.transaction_count = contributing trades; trade-date and settlement-date variants | flag |  |
 | `POS_CUSTODIAN_BREAK` | Full outer join positions ↔ comparison_positions on account + security + as_of_date; differing, one-sided and unevaluable keys reported separately; breaks aged | flag |  |
+| `POS_KEYS_MASTERED` | Every positions.account_id exists in accounts and every positions.security_id exists in securities | flag | Added 16 Oct (Check-in 2 register): 699 position rows on 195 unknown accounts; 1,118 on 15 unmastered securities (all spin-off targets) |
 
 ## 6. Price check
 
@@ -67,6 +70,7 @@
 | `PRC_QUOTE_ELIGIBLE` | Every held security has a quote for the valuation date with price > 0, price currency = security currency, price_timestamp on price_date and before NAV cutoff; else fall back to next vendor_priority | correct | Correct = select next eligible vendor, logged |
 | `PRC_VENDOR_DISPERSION` | (max − min) / mean across vendor quotes ≤ 0.5%; a ~100× ratio flags percent-of-par vs per-unit | flag | 0.5% from brief App. A (illustrative) |
 | `FX_RATE_VALID` | Exactly one rate per currency per date; rate_to_usd > 0; USD = 1.000000; day-on-day move within band | hold | Added after journey found USD rate ≠ 1. Confirmed in the data: USD rate_to_usd ≠ 1 on 30 of 30 days (range 0.990 to 1.010) |
+| `FX_RATE_COVERAGE` | Every currency used in prices has a rate in fx_rates for the price date | hold | Added 16 Oct (Check-in 2 register): currency XYZ on 1,080 price rows has no rate |
 
 ## 7. NAV check
 

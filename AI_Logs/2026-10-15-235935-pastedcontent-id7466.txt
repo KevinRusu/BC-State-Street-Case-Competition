@@ -1,0 +1,1172 @@
+
+❯ <ide_opened_file>The user opened the file
+  /Users/oansen/code/projects/State_Street_Case_Competition/State_Street_Case_S
+  tudent_Package/notebooks/01_explore_tables.ipynb in the IDE. This may or may
+  not be related to the current task.</ide_opened_file>
+
+❯ Extend notebooks/01_explore_tables.ipynb. First read CLAUDE.md, section 7b of
+  docs/notes/PROJECT_SUMMARY.md, all of reference/02_Dataset_Guide.md, and in
+  the
+  notebook: the summary box, sections 1 (helpers), 5 (repeated IDs), 6
+  (positions),
+  7 (TODO placeholders), 8 (defect log) and 9 (verification).
+
+  Show me your plan for the new sections and wait for my approval before
+  writing.
+
+  GOAL
+  This is EXPLORATION to understand the data before Check-in 2, not the final
+  reconciliation tool. Replace the TODO section 7 with three new sections (A,
+  B, C
+  below), renumber the defect log and verification sections after them, and
+  update
+  the table of contents, summary box, defect log and cross-check table.
+
+  STYLE AND RULES (same as the existing sections)
+  - A markdown cell before each code cell (what it does and why, in plain
+  English),
+    and a "What this tells us" cell after each result, written from the actual
+    output. Simple pandas, small steps, clear names, comments on non-obvious
+  lines.
+    No em dashes.
+  - Edit the notebook itself; there is no generator script. Reuse the existing
+    helpers and variables (read_table, describe_columns, normalise_date,
+    normalise_timestamp, date_format_counts, id_summary, repeated_rows, copy_a,
+    copy_b, conflicts, position_compare, book_only, orphan_account_ids,
+    orphan_security_ids) instead of rewriting them.
+  - Text-first reading. Convert types explicitly; count and show values that
+  fail
+    (blank or unreadable), never drop them silently.
+  - Normalise every trade_date with normalise_date before comparing it with
+  another
+    date (9,398 values are DD/MM/YYYY).
+  - No hard-coded record IDs. Pick examples by code with a rule written down
+  before
+    you look (for example "first in sorted order that meets X").
+  - Any numeric tolerance or threshold goes in a file in config/, not in the
+  code.
+  - Never modify data/ or load_data.ipynb. Saved tables go to outputs/ only.
+  - Report row counts before and after every join and every filter. Keep
+  orphans
+    visible (no inner joins that make rows disappear).
+
+  NEW SECTIONS
+
+  A. The four small tables: corporate_actions, prices, fx_rates, ledger_nav.
+     Section 3 already shows their dictionary descriptions and first rows, so
+  do not
+     repeat that. For each table: the intended key (from the Dataset Guide
+  grain) and
+     whether it is unique; date formats with date_format_counts; blanks per
+  column;
+     and how it should link to other tables according to the Guide's join
+  table,
+     with coverage counted in both directions.
+     - c
+  ──── (77 lines hidden) ──────────────────────────────────────────────────────
+
+
+  JUDGMENT CALLS
+  Before writing, list in your plan each place where the Guide is ambiguous or
+  a
+  choice is needed (at least: raw benchmark versus BOOKED-only, order of steps,
+  format-only duplicates, conflicting duplicates, REVERSED meaning, negative
+  and
+  blank quantities, rebuilt zero keys absent from positions, match tolerance
+  and
+  denominator, blank settlement dates), with the options and evidence for each.
+  In
+  the notebook, show the results under each option instead of choosing. If a
+  new
+  judgment call comes up while building, stop and ask me.
+
+  VERIFICATION
+  Compute everything from the data; never hard-code an expected result or
+  change
+  code to make a number match. Compute the main reconstruction numbers (the
+  group
+  counts and match rates for the raw benchmark and for each cumulative step) a
+  second way in DuckDB (all_varchar=true) and show a pandas versus DuckDB
+  table. If
+  they do not agree, stop and tell me.
+
+  Add these to the cross-check table as "our manual result". They are a second
+  opinion only (from PROJECT_SUMMARY section 5 and a quick DuckDB check); show
+  mismatches with one sentence on which side might be wrong:
+  - corporate_actions: 23 SPINOFF rows, all with target_security_id, all
+  targets
+    missing from securities; 15 of these targets are traded and held: 1,131
+  trades,
+    1,118 positions, 0 prices. 31 MERGER rows, none with target_security_id.
+  - 87 of 200 corporate actions have ex_date after effective_date; all 200 have
+  a
+    cash_rate.
+  - prices: 3 vendors, 30 dates, 6,000 distinct securities.
+  - fx_rates: 6 currencies x 30 dates; the USD rate is never exactly 1 (0.990
+  to
+    1.010).
+  - ledger_nav: 500 funds x 4 share classes x 1 date.
+  - related_transaction_id filled: REVERSED 1,402 of 1,402 (all point to a
+  BOOKED
+    record); BOOKED 3,511 (all point to a CANCELLED record); CANCELLED 842 of
+  4,347
+    (all point to an ID that does not exist in transactions).
+  - quantity: 655 negative (all BUY); 2,819 blank (BUY 1,579, SELL 1,240).
+  - trade_date after 2026-07-10: 0. settlement_date after 2026-07-10: 64,065.
+  - 1,124 trades have settlement_date before trade_date.
+  PROJECT_SUMMARY names a worked example and a clean example by record ID: do
+  not
+  use those IDs in code.
+
+  OUTPUT HANDLING
+  Run the notebook end to end once, in place:
+  uv run jupyter nbconvert --to notebook --execute --inplace
+  notebooks/01_explore_tables.ipynb
+  nbstripout keeps outputs out of Git. Do not create an executed copy
+  elsewhere.
+  Write saved tables to outputs/ only. Do not commit. Show git status at the
+  end.
+
+⏺ I'll start by reading the files you listed.
+
+  Read 2 files, listed 1 directory (ctrl+o to expand)
+
+⏺ Now the notebook. Let me get its cell structure first.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Let me dump the cells you named (summary, TOC, helpers, sections 5 through 9)
+  in full.
+
+  Read 1 file, ran 1 shell command (ctrl+o to expand)
+
+⏺ I have the notebook structure. Now let me read the data dictionary for the
+  relevant tables and do some read-only profiling with DuckDB so the judgment
+  calls in the plan rest on evidence.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Now some read-only DuckDB profiling of the key questions (status links,
+  reconstruction variants, transaction_count) so the plan's options are grounded
+  in evidence.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ DuckDB treats blank fields as NULL rather than empty strings, so I'll need to
+  check IS NULL instead of = '' in verification. I also noticed each reversed
+  BOOKED original is referenced by exactly two REVERSED rows—now I'll test
+  reconstruction variants against positions and transaction_count.
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+⏺ Interesting finding: BOOKED-only data without dedup fits positions better, and
+  transaction_count actually matches best when REVERSED rows are included. I'll
+  dig into keys with reversals and check how duplicates affect both reported
+  tables.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Found two consistent patterns: positions double-offsets by subtracting both
+  BOOKED and REVERSED rows, while transaction_count simply sums BOOKED plus
+  REVERSED rows across all keys. Now checking the custodian side, negatives, and
+  the 384 positions with no trades.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Key evidence is in. Now a quick profile of the four small tables to ground
+  section A.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+⏺ I have enough evidence. One last quick check: how many decimals the quantities
+  carry, since that decides how float sums should be compared.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+⏺ 869 trade quantities carry 12 to 15 decimals, which affects the match
+  tolerance call. Quick look at what they are:
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ I've confirmed the matching logic: positions and transaction_count both count
+  duplicate rows rather than deduplicating, deduplication actually worsens the
+  match, 869 quantities have float noise requiring a tolerance, and DuckDB
+  treats blanks as NULL rather than empty strings. Before writing the plan, I
+  need three decisions from you.
+
+⏺ User answered Claude's questions:
+  ⎿  · The cumulative step-by-step chain needs one option carried forward at
+     steps that have several (conflicting duplicates, REVERSED, negatives,
+     blanks). Which carried path should the chain use? Every alternative is
+     still shown as a labelled branch off the chain and applied alone to the raw
+     benchmark. → No-repair path (Recommended)
+     · Quantities carry float noise in the text (869 trades like
+     3551.2200000000003; positions too). How should 'equal quantity' be defined
+     for the match group? → Tolerance + exact column (Recommended)
+     · Thresholds must live in config/. The project has no YAML library. Which
+     format? → TOML, no new package (Recommended)
+
+⏺ Thanks. Those three answers are fixed. Now I'll write the plan.
+
+⏺ Updated plan
+  ⎿  /plan to preview
+
+⏺ User approved Claude's plan
+  ⎿  Plan saved to:
+     ~/.claude/plans/pasted-content-id-7466-extend-notebooks-mighty-spring.md ·
+     /plan to edit
+     Plan: extend notebooks/01_explore_tables.ipynb (sections A, B, C, D)
+
+     Context
+
+     Before Check-in 2 we need to understand the four small tables, the meaning
+     of the transaction status links, and how a trade-only rebuild compares with
+     positions and comparison_positions. This is exploration, not the final
+     tool. The TODO section 7 (cell 112) is replaced by three new sections. The
+     defect log and verification sections are renumbered after them, and the
+     summary, TOC, defect log, cross-check and live headline cells are updated.
+
+     Decisions already made (your answers):
+     - Chain path: no-repair path. At each step the chain carries the option
+       that repairs nothing. Every other option is shown as a labelled branch,
+       and also applied alone to the raw benchmark.
+     - Match rule: |rebuilt − reported| ≤ tolerance from config (1e-6). Every
+       table also shows how many matches are exact and how many are only within
+       tolerance.
+     - Config: config/exploration.toml, read with the built-in tomllib. No new
+       package.
+
+     What the read-only probes already showed (DuckDB, run in the scratchpad;
+     nothing written to the repo)
+
+     These shape the judgment calls. The notebook recomputes all of them; none
+     is typed in.
+     1. REVERSED: 1,402 rows point to 701 BOOKED originals, exactly two REVERSED
+        rows per original. Both rows have the same account, security, type and
+        sign as the original (quantity equal in 1,394 of 1,404 join rows), and
+        the same trade date and event_timestamp (gap 0).
+     2. BOOKED → CANCELLED: 3,511 rows point to 3,500 CANCELLED originals.
+        Quantity differs in most pairs (162 of 3,513 equal), yet gross_amount is
+        equal in all 3,513. CANCELLED → (missing): 842 rows, all pointing to
+        IDs that do not exist.
+     3. On all 699 keys with a reversal, positions = BOOKED (both duplicate
+        copies) − each REVERSED row. That is a double offset. transaction_count
+        = BOOKED + REVERSED rows, duplicates counted, on 480,279 of 480,279
+        keys.
+     4. Removing duplicates makes the match with positions worse (476,014 →
+        473,947). The custodian file also counts both copies (2,078 of 2,099
+        duplicate keys).
+     5. 384 positions have transaction_count 0 and no trades at all. 207 rebuilt
+        keys are absent from positions, and all of them net to zero under the
+        book's apparent policy.
+     6. 869 trade quantities are stored with float noise (3551.2200000000003).
+        DuckDB reads blank fields as NULL, so the DuckDB check must test IS
+        NULL.
+     7. Prices: 12 securities priced in currency XYZ, which is not in fx_rates.
+        VENDOR_A has 30 fewer rows than the other vendors. 15 held securities
+        have no price.
+
+     Structure after the change
+
+     ┌──────┬───────────────┬──────────────────────────────────────────────────┐
+     │ New  │    Anchor     │                     Content                      │
+     │  #   │               │                                                  │
+     ├──────┼───────────────┼──────────────────────────────────────────────────┤
+     │ 7    │ #small-tables │ A. The four small tables                         │
+     ├──────┼───────────────┼──────────────────────────────────────────────────┤
+     │ 8    │ #statuses     │ B. Statuses and linked records                   │
+     ├──────┼───────────────┼──────────────────────────────────────────────────┤
+     │ 9    │ #rebuild      │ C. Dry-run reconstruction                        │
+     ├──────┼───────────────┼──────────────────────────────────────────────────┤
+     │ 10   │ #defects      │ Defect log (was 8)                               │
+     ├──────┼───────────────┼──────────────────────────────────────────────────┤
+     │ 11   │ #verification │ 11.1 DuckDB (existing + rebuild check), 11.2     │
+     │      │               │ cross-check, 11.3 live headlines                 │
+     └──────┴───────────────┴──────────────────────────────────────────────────┘
+
+     Each code cell has a plain-English markdown cell before it and a "What this
+     tells us" cell after it, written from the real output. No em dashes. The
+     notebook reuses read_table, describe_columns, normalise_date,
+     normalise_timestamp, date_format_counts, id_summary, repeated_rows,
+     copy_a/copy_b, pair_has_raw_difference, pair_differs_only_by_format,
+     pair_has_real_conflict, conflicts, position_key, position_compare,
+     book_only, orphan_account_ids, orphan_security_ids, as_number, duck_source,
+     con, OUTPUTS.
+
+     How cells get in: I insert them directly into the .ipynb. For bulk
+     insertion I use a throwaway helper in the scratchpad that writes cell JSON;
+     nothing is added to the repo. To write the "What this tells us" cells from
+     real output, I first run the new code as a plain script in the scratchpad,
+     never as a notebook copy. Then nbconvert runs the notebook once, in place,
+     and I correct any text that the final run contradicts.
+
+     Config: config/exploration.toml (new)
+
+     # Thresholds for notebooks/01_explore_tables.ipynb (exploration only).
+     [snapshot]
+     as_of_date = "2026-07-10"            # Dataset Guide valuation snapshot;
+     cut-off for both rebuild versions
+     [reconstruction]
+     quantity_match_tolerance = 1e-6      # absolute units; only absorbs float
+     noise in stored quantities
+     It is loaded once in the section 7 intro cell (tomllib) as CONFIG, then
+     used by pandas and DuckDB alike.
+
+     Section 7 (A): the four small tables
+
+     For each table, without repeating section 3:
+     - Intended key and uniqueness (id_summary style; key from the Guide's grain
+       table).
+     - Date formats (date_format_counts on every date column).
+     - Blanks per column (== '' count per column).
+     - Links from the Guide's join table, coverage both ways (how many of A are
+       found in B, and how many of B in A).
+
+     Per table:
+     - corporate_actions (key action_id): counts by action_type. Which rows have
+       target_security_id. security_id/target_security_id found in securities.
+       ex_date vs effective_date after normalise_date: before / same / after /
+       not readable. A crosstab of which of ratio, cash_rate, target_security_id
+       are filled per type. That crosstab is set against a table of what the
+       Guide's conventions use per type, written in markdown before the crosstab
+       is run (split: ratio; merger: ratio + target; spin-off: ratio + target;
+       redemption: needs terms; cash dividend: cash_rate). The trades, positions
+       and prices on spin-off targets that are missing from securities. A check
+       that no column contains "account".
+     - prices (key security_id + price_date + vendor): dates and vendors per
+       security, and the vendor ↔ vendor_priority mapping. Securities with fewer
+       than vendors × dates rows. Held securities with no price. Prices whose
+       security is missing from securities. Price currency vs securities
+       currency.
+     - fx_rates (key currency + rate_date): currencies × dates covered. Every
+       currency used in prices and in transactions checked for a rate on every
+       date it is used. The USD rate: min, max, rows exactly 1.
+     - ledger_nav (key fund_id + share_class + as_of_date): the level it
+       reports. accounts (fund_id, share_class) ↔ ledger coverage both ways.
+       Position rows that cannot reach a fund because their account is an
+       orphan. No NAV arithmetic.
+     - End: "What looks suspicious", a bullet list built from computed variables
+       (printed), followed by a markdown copy.
+
+     Section 8 (B): statuses and linked records
+
+     1. Counts by status, with related_transaction_id filled per status.
+     2. Link join with repeated IDs in mind: links (rows with a filled related
+        ID) left-merged onto transactions on transaction_id. The cell prints
+        rows before/after and how many link rows hit a repeated target.
+        Comparisons then use one row per target: the first copy, with a printed
+        check that the two copies of each repeated target are equal in the
+        compared columns. The cell also reports how many times each target is
+        referenced per link kind.
+     3. Per link kind (REVERSED→BOOKED, BOOKED→CANCELLED, CANCELLED→missing, or
+        whatever the data shows): same account, security and transaction_type.
+        Quantity and gross_amount labelled equal / opposite sign / different /
+        blank, reusing as_number. Trade-date gap in days (normalised).
+        event_timestamp gap in minutes. Same settlement_date and source_system.
+     4. The two REVERSED rows per original compared with each other.
+     5. The CANCELLED → missing links: count, plus 3 examples by rule (first
+        three in sorted transaction_id).
+     6. Interpretation: the dictionary hint and the Guide wording quoted, then
+        one table with each reading and the evidence for and against it. No
+        treatment is chosen:
+        - R1 state, original stays: REVERSED rows are inactive records and the
+          original stays active (= BOOKED-only).
+        - R2 state, both inactive: the original was reversed out, so drop the
+          REVERSED rows and their BOOKED targets.
+        - R3 offsetting event, once per original: one REVERSED row per target
+          (first in file order) subtracts its quantity.
+        - R4 offsetting event, every row: each REVERSED row subtracts. That is a
+          double offset given two rows per original. It is shown only as
+          evidence of what the book does, not as a candidate treatment.
+          The conclusion says whether the evidence settles the question. The
+          probes suggest it does not: no event-operation field, REVERSED rows
+          carry the original's sign, and the book applies R4. The table also
+          says which contract would resolve it (an explicit operation field or a
+          sign convention).
+
+     Section 9 (C): dry-run reconstruction (trade-only, no corporate actions)
+
+     Definitions cell (markdown, before any code):
+     - signed quantity = +quantity for BUY and −quantity for SELL, using the raw
+       value;
+     - key = account_id + security_id (+ as_of_date from config when comparing
+       with the reported tables);
+     - match = |diff| ≤ tolerance.
+
+     Groups (each key lands in exactly one; the code asserts they add up to the
+     full outer union):
+     1. matched, with an exact/within-tolerance split;
+     2. different;
+     3. only in rebuild, nonzero;
+     4. only in rebuild, nets to zero (its own group, counted neither as match
+        nor break);
+     5. only in reported table;
+     6. not evaluable, split into "in both" and "only in rebuild".
+
+     A key is not evaluable when a contributing row has a blank or unreadable
+     quantity, or when the variant marks it (conflict pair, blank settlement
+     date in the settlement version). Being one-sided is decided before
+     evaluability: a key present only in the reported table is always group 5.
+
+     Rates: two denominators, both named in every table: matched ÷ (matched +
+     different), and matched ÷ all keys in the union.
+
+     Preparation cell: one trades frame with row_number lineage; normalised
+     trade/settlement dates converted to real dates (failures counted and
+     shown); quantity_number via pd.to_numeric with blank and unreadable counts;
+     signed quantity; flags for pair type and copy number (from copy_a/copy_b
+     and the pair masks), REVERSED target, negative, and blank. Small helpers:
+     rebuild(rows, extra_not_evaluable_keys) and compare_groups(rebuilt,
+     reported). Both are plain pandas groupby and outer merge with
+     indicator=True, and they print row counts before and after.
+
+     Steps, in this stated order (the cumulative "no-repair path" in bold,
+     branches indented):
+
+     Step: C0
+     Carried on the chain: raw: all rows
+     Branches (also each applied alone to C0): n/a
+     ────────────────────────────────────────
+     Step: a
+     Carried on the chain: drop second copy of the 2,032 exact pairs and the 28
+     format-only pairs
+     Branches (also each applied alone to C0): exact pairs only (format-only
+     pairs
+     kept twice)
+     ────────────────────────────────────────
+     Step: b
+     Carried on the chain: keys of the 45 conflicting pairs marked not evaluable
+     Branches (also each applied alone to C0): keep first copy · keep second
+     copy ·
+     drop both
+     ────────────────────────────────────────
+     Step: c1
+     Carried on the chain: drop CANCELLED rows
+     Branches (also each applied alone to C0): n/a
+     ────────────────────────────────────────
+     Step: c2
+     Carried on the chain: drop REVERSED rows (R1 = BOOKED-only)
+     Branches (also each applied alone to C0): R2 · R3 · R4 (double offset,
+     evidence
+     only)
+     ────────────────────────────────────────
+     Step: d
+     Carried on the chain: negatives kept raw; affected keys counted and flagged
+     Branches (also each applied alone to C0): keys not evaluable · absolute
+     value
+     (labelled sensitivity, never carried)
+     ────────────────────────────────────────
+     Step: e
+     Carried on the chain: blank-quantity keys not evaluable (no change on the
+     chain, since the definition already does this; shown explicitly)
+     Branches (also each applied alone to C0): blank as zero (sensitivity; the
+     probe
+     shows the book does this)
+     ────────────────────────────────────────
+     Step: f
+     Carried on the chain: trade-date cut-off ≤ as_of_date, with the number of
+     trades after it
+     Branches (also each applied alone to C0): settlement-date version:
+     settlement_date ≤ as_of_date; blank settlement → key not evaluable; trades
+     after the date counted
+
+     - The Guide's shared benchmark (BOOKED rows only, nothing else) appears as
+       its own named row ("c alone on raw").
+     - Before step d, a small investigation cell: which transaction_type and
+       status the negatives have, how many sit in the duplicate sign-flip pair,
+       and the sign of gross_amount.
+     - Step table: rows in, rows after, then the six groups and two rates, for
+       positions and for comparison_positions. Kinds: chain / branch / alone.
+       Saved to outputs/01_rebuild_steps.csv.
+     - transaction_count check: for each variant, keys where the number of
+       contributing rows equals positions.transaction_count. The text says which
+       inclusion policy fits, if any.
+     - The 480 book-only positions: for each variant, how many the history
+       supports (matched), contradicts, cannot evaluate, or has no trades for.
+     - Orphans: group counts per variant for keys whose account is among the 195
+       or whose security is among the 15. Also how many transaction account_ids
+       and security_ids are orphans.
+     - Account trace. The rule is written in markdown before the code: among
+       accounts with at least one "different" key against positions under the
+       Guide's BOOKED-only benchmark, take the account with the most distinct
+       securities; break ties by sorted account_id. Two tables follow. The first
+       lists the account's trades, sorted by security, trade_date and
+       transaction_id, with flags. The second gives one row per security:
+       rebuilt quantity under C0, BOOKED-only, the chain end, and R2/R4, next to
+       positions quantity, transaction_count and comparison_positions quantity.
+
+     Section 10 (D): defect log, summary, headlines, cross-check
+
+     - Defect log: the existing 9 lines are kept (the 480 book-only line gets
+       updated evidence text). New computed lines are added, each with confirmed
+       / unresolved / cleared status. They cover:
+       - spin-off targets missing from securities, and the trades and positions
+         on them;
+       - MERGER without a target;
+       - ex_date after effective_date;
+       - ratio/cash_rate filled where the type does not use them;
+       - XYZ price currency with no FX rate;
+       - missing VENDOR_A rows;
+       - held securities without a price;
+       - USD rate ≠ 1;
+       - CANCELLED links to missing IDs;
+       - two REVERSED rows per original;
+       - BOOKED rebook with a changed quantity but the same gross_amount;
+       - the book's double offset and its counting of duplicates (unresolved:
+         book policy, not proof of error);
+       - negative and blank quantities;
+       - settlement before trade date;
+       - positions with no trades;
+       - rebuild differences under BOOKED-only.
+     - Summary box (cell 1) and the live headline cell: new bullets and prints
+       for A, B and C. TOC: renumbered.
+     - Cross-check: your listed manual results are added to MANUAL_RESULTS and
+       the matching computed values to NOTEBOOK_RESULTS. USD min/max are
+       compared after rounding to 3 decimals, as "about". New rebuild numbers
+       without a manual value appear with "no manual result" (scored neither
+       way). The markdown after the table gives one sentence per mismatch on
+       which side might be wrong.
+
+     Judgment calls (the notebook shows results under each option; nothing is
+     chosen)
+
+     Call: Raw vs BOOKED-only
+     Options: both shown
+     Evidence: Guide: raw first, BOOKED-only as the shared benchmark
+     ────────────────────────────────────────
+     Call: Order of steps
+     Options: a→b→c→d→e→f, plus each step alone
+     Evidence: duplicates are 4,206 BOOKED and 4 CANCELLED; one REVERSED target
+     is a
+     repeated ID, so dedup before R2 changes its count
+     ────────────────────────────────────────
+     Call: Format-only duplicates
+     Options: exact / not exact
+     Evidence: equal after normalise_date
+     ────────────────────────────────────────
+     Call: Conflicting duplicates
+     Options: first / second / drop both / not evaluable
+     Evidence: unknown which copy is right (section 5)
+     ────────────────────────────────────────
+     Call: REVERSED meaning
+     Options: R1–R4
+     Evidence: see B; R4 = double offset, which the book follows
+     ────────────────────────────────────────
+     Call: Negative quantities
+     Options: raw / not evaluable / absolute (labelled)
+     Evidence: all BUY; gross_amount never negative; book uses raw
+     ────────────────────────────────────────
+     Call: Blank quantities
+     Options: not evaluable / blank as zero
+     Evidence: book fits blank as zero on 2,641 of 2,643 keys
+     ────────────────────────────────────────
+     Call: Rebuilt zero keys absent from positions
+     Options: own group (match? one-sided? excluded?) — your call later
+     Evidence: all net to zero under the book's policy
+     ────────────────────────────────────────
+     Call: Tolerance and denominator
+     Options: 1e-6 + exact split; two named denominators
+     Evidence: 869 float-noise quantities
+     ────────────────────────────────────────
+     Call: Blank settlement dates
+     Options: key not evaluable in the settlement version
+     Evidence: 1,687 blanks
+     ────────────────────────────────────────
+     Call: Settlement before trade date
+     Options: included as dated, count shown
+     Evidence: 1,124 rows
+     ────────────────────────────────────────
+     Call: Fit to positions
+     Options: never used to choose a variant (circular, like the Guide's vendor
+     rule)
+     Evidence: the book double counts and double offsets
+     ────────────────────────────────────────
+     Call: Rebuild as_of_date
+     Options: set to config snapshot for the comparison key
+     Evidence: both reported tables have a single date
+
+     If a new judgment call comes up while building, I stop and ask.
+
+     Verification
+
+     - 11.1b DuckDB second method (all_varchar=true, blanks tested with IS NULL,
+       DOUBLE arithmetic, same config tolerance and cut-off). It computes the
+       six groups and both rates for C0, every chain step and the settlement
+       version, against both reported tables. Dedup in SQL is independent of row
+       order: SELECT DISTINCT over all columns after date normalisation removes
+       exact and format-only copies, and IDs that still appear twice are the
+       conflicting ones (not evaluable). The cell shows a pandas vs DuckDB table
+       with an agree? column. If any number disagrees, I stop and tell you.
+     - Group sums are asserted to equal the outer-union size in every variant
+       (row accounting).
+     - Run once in place: uv run jupyter nbconvert --to notebook --execute
+       --inplace notebooks/01_explore_tables.ipynb. Then I check every "What
+       this tells us" cell and the summary against the output.
+     - Constraints: data/ and load_data.ipynb untouched; outputs only in
+       outputs/ (01_defect_log.csv, 01_cross_check.csv, new
+       01_rebuild_steps.csv); no record IDs in code; no commit; git status shown
+       at the end.
+
+     Files
+
+     - notebooks/01_explore_tables.ipynb: cell 112 replaced by sections 7 to 9;
+       cells 0–2, 113–125 updated.
+     - config/exploration.toml: new.
+     - outputs/01_rebuild_steps.csv: new; outputs/01_defect_log.csv and
+       outputs/01_cross_check.csv regenerated.
+
+⏺ Plan approved. First let me look at the section 4 cells I haven't read yet
+  (id_summary, key_check, copies_in_txn).
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ I'll create the config file and start a persistent Jupyter kernel in the
+  background, so I can run existing cells once and develop new cells against
+  real output without creating an executed copy of the notebook.
+
+⏺ Write(config/exploration.toml)
+  ⎿  Wrote 8 lines to config/exploration.toml
+      1 # Thresholds for notebooks/01_explore_tables.ipynb (exploration o
+        nly, not the final rules).
+      2 # Change a value here and rerun the notebook; no number below is
+      3
+      4 [snapshot]
+      5 as_of_date = "2026-07-10"            # Dataset Guide valuation sn
+        apshot; cut-off for both rebuild versions
+      7 [reconstruction]
+      8 quantity_match_tolerance = 1e-6      # absolute units; only absor
+        bs float noise in stored quantities
+     … +2 lines (ctrl+o to expand)
+  Ran 3 shell commands (ctrl+o to expand)
+
+⏺ The dev kernel holds all existing notebook state (prefix ran in 12 s). Now
+  section A. I'm writing the cells into a scratch file with # %% markers, then
+  running them in the kernel.
+
+  Made 1 scratchpad edit +389 (ctrl+o to expand)
+
+⏺ Let me simplify the field-surprise table so it always has the same columns,
+  before running.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Section A runs cleanly. A few follow-up facts I need for the text: whether the
+  12 XYZ securities are held, which 12 master securities have no price, and
+  which dates VENDOR_A misses.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ VENDOR_A is missing just the 10 July snapshot for 30 securities, while the 12
+  XYZ securities show 898 positions and 2,649 trades. I'll run both computations
+  in the notebook and draft the "What this tells us" summaries from the
+  results.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Now the section A interpretation texts, written from that output (in
+  placeholder order).
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Section A is done. Now section B, statuses and linked records.
+
+  Made 1 scratchpad edit +204, ran 1 shell command (ctrl+o to expand)
+
+⏺ Before writing up Section B, I'll make three fixes: normalize dates when
+  comparing the two REVERSED rows (likely just a formatting mismatch), add price
+  to the link profile, and explain why 11 CANCELLED targets link to only two
+  BOOKED rows.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+⏺ Found that on rebooks, gross_amount matches the cancelled original's quantity
+  × price, not the rebook's own quantity—explaining 3,328 of 3,336 cases. I'll
+  add this as a cell and set a 0.01 gross tolerance in config since amounts are
+  stored to the cent.
+
+⏺ Bash(cat >> config/exploration.toml <<'EOF'
+      gross_amount_tolerance = 0.01        # currency units; gross_amount is
+      stored to the cent…)
+  ⎿  Updated config/exploration.toml (+1 -0)
+      6  
+      7  [reconstruction]
+      8  quantity_match_tolerance = 1e-6      # absolute units; only abso
+         rbs float noise in stored quantities
+      9 +gross_amount_tolerance = 0.01        # currency units; gross_amo
+        +unt is stored to the cent                                       
+
+⏺ Now the section B texts, written from that output.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ One claim in the dangling-links text is wrong: most unlinked CANCELLED rows
+  are referenced by a rebook. I'll compute that in the cell and correct the
+  text.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+⏺ Section B is done. Now section C, the reconstruction. This is the largest
+  piece, so I'm writing the definitions, helpers and step functions first.
+
+  Made 1 scratchpad edit +326, ran 1 shell command (ctrl+o to expand)
+
+⏺ The preparation runs and every count is as expected. Now the step cells, the
+  summary tables and the follow-up analyses.
+
+  Made 1 scratchpad edit +369, ran 1 shell command (ctrl+o to expand)
+
+⏺ Everything works and runs fast. I'll display the per-step tables transposed
+  (groups as rows, variants as columns) so they are easier to read, then run the
+  remaining cells.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Re-running the helpers cell reset step_results, so I need to rerun from the C0
+  cell. That's expected; rerunning:
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+⏺ The transposed tables are too wide to read in the terminal, so I'll pull a
+  compact summary of every variant straight from the kernel.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ All variants are run — duplicates stay counted in both tables, R4 (double
+  offset) matches best, and treating blanks as zero adds ~2,600 matches. The
+  likely policy is "drop CANCELLED + R4 + keep duplicates," which I haven't
+  tested yet, so I'll add c1 combined with R2/R3/R4 on C0 against the Guide
+  benchmark for direct testing.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Now the remaining outputs: negatives, blanks, cut-off, chain changes,
+  transaction_count fit, book-only, orphans and the trace.
+
+  Read 1 file, ran 1 shell command (ctrl+o to expand)
+
+⏺ Found that one security's reported quantity (14,147.286) exceeds the
+  trade-based count (10,849) by a 1.304 multiplier, suggesting a corporate
+  action adjustment. I'll verify if that security has a recorded corporate
+  action and check whether other long-decimal reported quantities follow the
+  same pattern.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ No corporate action explains this security's discrepancy, and these
+  differences generally aren't tied to corporate actions anyway. I'll instead
+  check if gross_amount / price on the account's trades explains the reported
+  quantity.
+
+  Ran 1 shell command (ctrl+o to expand)
+⏺ I've found that one trade's price is off by a factor of 100, causing a
+  mismatch between gross_amount/price, but this doesn't account for the +3,298
+  quantity gap. I'll add price, gross_amount, and their ratio to the trace
+  table, then check the chain-change tables.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ I have every output I need for section C. Writing the interpretation texts
+  now.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Fixing one phrase in the orphan text that used a number the table does not
+  show:
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Sections A, B, and C are done. Now I'll draft the defect log, add a second
+  DuckDB method for the rebuild, and finish with the cross-check and headlines,
+  using the step c cell's comparisons of the three "drop CANCELLED, then R…"
+  variants to back the defect log.
+
+  Made 1 scratchpad edit +342, ran 1 shell command (ctrl+o to expand)
+
+⏺ Before running, I'll make the SQL side detection use explicit presence flags
+  (robust to NULL keys), and pass only the query parameters each statement uses.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ That run was moved to the background. While it finishes, I'll draft the
+  cross-check, summary and headline cells.
+
+  Made 1 scratchpad edit +287 (ctrl+o to expand)
+
+⏺ Let me check whether the backgrounded run has finished.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Still running. I'll wait for it to finish before going on.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ I'll be notified when the tail cells finish running in the kernel.
+
+❯ why does it take so long?
+
+⏺ Let me check rather than guess.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ The dev kernel's been pegged at 100% on one core for 10 minutes, likely stuck
+  in single-threaded Python code in one of the new tail cells (buffered output
+  hides which one). I'll interrupt the kernel to get a traceback pinpointing the
+  exact line—state should survive the interrupt.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Background command "Fix SQL flags and parameters, run tail cells" completed
+(exit code 0)
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Background command "Wait until the backgrounded run finishes" completed (exit
+code 0)
+
+⏺ Found the bug: my join used IS NOT DISTINCT FROM plus a constant comparison,
+  preventing DuckDB's fast hash join and forcing a ~480k×480k scan on one core.
+  I'll fix it by giving the rebuild side its own as_of_date column and joining
+  on three plain equalities with COALESCE for blank keys, then re-time the
+  query.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ It was a slow join in my DuckDB code, now fixed. The data was never the
+  problem.
+
+  What was slow. The new DuckDB check of the rebuild (cell 11.1b) compared each
+  rebuilt key with the reported positions. My join condition included one test
+  against a constant (the snapshot date). That stopped DuckDB from using its
+  fast way of matching keys. It most likely fell back to checking every pair of
+  keys, around 480,000 × 480,000, on one core, which explains 10+ minutes at
+  100% CPU without finishing. The pandas version of the same comparison takes
+  about a second. The earlier cells (defect log, the existing DuckDB checks) had
+  already finished in seconds.
+
+  The fix. The rebuild now carries the snapshot date (from
+  config/exploration.toml) as its own column, and the join matches on account,
+  security and date. The meaning is unchanged: a reported row with a different
+  date still counts as "only in reported table".
+
+  Result. The whole cell now runs in about 7 seconds. All 180 reconstruction
+  numbers agree between pandas and DuckDB, with 0 disagreements:
+  - the 7 groups, the key count and both match rates;
+  - for the raw benchmark, every chain step and the settlement-date version;
+  - against both positions and comparison_positions.
+
+  I'll carry on with the remaining steps: the cross-check and headline cells,
+  the summary box and table of contents, then inserting everything into the
+  notebook and the single in-place nbconvert run.
+
+❯ is the notebook done?
+
+⏺ No, the notebook isn't done, and it hasn't been changed yet. All the new work
+  exists only as drafts in my scratchpad, tested in a separate dev kernel.
+
+  Drafted and tested against the real data:
+  - Section 7 (small tables): all cells and their "What this tells us" texts.
+  - Section 8 (statuses and links): all cells and texts, including the REVERSED
+    evidence table.
+  - Section 9 (rebuild): all 37 variants, the step table, the transaction_count
+    check, the 480 book-only positions, orphans and the account trace, all with
+    texts.
+  - Section 10 (defect log): the code runs. Its "What this tells us" text is not
+    written yet.
+  - Section 11.1 (DuckDB): the rebuild check runs and agrees with pandas on all
+    180 numbers. Its text is not written yet.
+
+  Still to do:
+  1. Run the drafted cross-check (11.2) and live-headline (11.3) cells, then
+     write the mismatch text from the output.
+  2. Update the summary box and the table of contents.
+  3. Insert all the cells into notebooks/01_explore_tables.ipynb, replacing the
+     TODO section and renumbering what follows.
+  4. Run the notebook once, in place, with nbconvert, and check every text
+     against that run.
+  5. Show you git status.
+
+  Already in the repo:
+  - config/exploration.toml (snapshot date, quantity tolerance and a
+    gross-amount tolerance of 0.01).
+  - outputs/01_rebuild_steps.csv, which the dev kernel wrote, so it will be
+    regenerated in the final run.
+  - The dev runs also rewrote outputs/01_defect_log.csv with the new longer log.
+    The final run regenerates it too.
+
+  Shall I carry on and finish it?
+
+❯ finish it
+
+⏺ Continuing. First, the defect-log output and the cross-check cells in the dev
+  kernel:
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Everything runs and cross-checks cleanly with 0 mismatches across 87 items.
+  I'll fix two small issues—numpy integers printing oddly and a 99.24%/99.23%
+  discrepancy—then write the remaining texts.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Now the head cells (intro, summary box, table of contents), then I'll assemble
+  the notebook.
+
+  Made 1 scratchpad edit +44 (ctrl+o to expand)
+
+⏺ Before assembling, I'll check the existing cells for old section references
+  and all new text for em or en dashes.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ The only stale reference is cell 105's note that the 480 breaks would be
+  traced "in a later notebook," which section 9.10 now addresses. I'll assemble
+  the notebook now, keeping existing cell IDs and replacing cell 112 (TODO) and
+  the old tail.
+⏺ Bash(P=/private/tmp/claude-501/-Users-oansen-code-projects-State-Street-Case-C
+      ompetition-State-Street-Case-Student-Package/5f653ff2-c1d8-485e-8df4-72c86
+      802dc58/scrat…)
+  ⎿  1 file changed (binary, mode only or too large to show)
+
+⏺ The notebook now has 252 cells (84 code). I'll stop the dev kernel to free
+  memory, then run the notebook once, in place, timed.
+
+⏺ Bash(kill 22223 22219 2>/dev/null; cd /Users/oansen/code/projects/State_Street
+      _Case_Competition/State_Street_Case_Student_Package && /usr/bin/time -l uv
+      run jupyter…)
+  ⎿  1 file changed (binary, mode only or too large to show)
+  ⎿  (timeout 10m)
+
+⏺ Background command "Start a persistent dev Jupyter kernel" completed (exit
+code 0)
+
+⏺ The notebook ran end to end in 109 seconds, peaking around 4 GB of memory.
+  Next, I'll check the executed outputs for errors, warnings, the live headline
+  cell, and whether quoted facts match this run.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ No errors, no warnings, and the headlines match the summary box. A spot-check
+  of the trace pick and the saved step table:
+
+⏺ Bash(uv run python - <<'EOF'
+      import json…)
+  ⎿  Updated notebooks/01_explore_tables.ipynb (+1 -1)
+       9      "\n",
+      10      "A teaching notebook: read it top to bottom to learn what i
+          s in the State Street case data, how the tables fit together, a
+          nd where the first problems show up. Every number below is comp
+          uted from the raw files in `data/`. Nothing in `data/` is chang
+          ed; the only saved results go to `outputs/`. The few thresholds
+           it uses live in `config/exploration.toml`.\n",
+      11      "\n",
+      12 -    "**How to run it:** from the repo root, `uv run jupyter lab
+         -` and open this file, then *Run All*. It needs about RUNTIME_PL
+         -ACEHOLDER."                                                    
+      12 +    "**How to run it:** from the repo root, `uv run jupyter lab
+         +` and open this file, then *Run All*. It needs about 4 GB of me
+         +mory and about two minutes (measured: 109 seconds on an Apple S
+         +ilicon laptop)."                                               
+      13     ]
+      14    },
+      15    {
+
+⏺ The notebook is finished. It runs end to end in place (109 seconds, about 4 GB
+  of memory) with no errors or warnings, and every "What this tells us" text
+  and the summary box match that run. pandas and DuckDB agree on all 180
+  reconstruction numbers, and all 87 of your manual results match.
+
+  What's in it
+  - Section 7, the four small tables:
+    - none of the 23 spin-off targets is in securities, and none of the 31
+      mergers names a target;
+    - every corporate action carries both a ratio and a cash rate;
+    - VENDOR_A has no price on 10 July for 30 securities;
+    - 12 held securities are priced in XYZ, which has no FX rate;
+    - the USD rate is never exactly 1.
+  - Section 8, statuses and links:
+    - every reversed original has exactly two REVERSED rows, with the same sign
+      as the original;
+    - in 3,328 of the 3,336 rebooks that change the quantity, the gross amount
+      still fits the old quantity;
+    - 842 CANCELLED rows point to IDs that do not exist;
+    - the evidence does not settle what REVERSED means, so all four readings are
+      shown.
+  - Section 9, the rebuild: 37 variants, compared with both reported tables.
+    Your main numbers (share of comparable keys that match positions):
+
+  ┌─────────────────────────┬────────┐
+  │         Variant         │ Match  │
+  ├─────────────────────────┼────────┤
+  │ Raw benchmark           │ 98.77% │
+  ├─────────────────────────┼────────┤
+  │ BOOKED-only (Guide)     │ 99.66% │
+  ├─────────────────────────┼────────┤
+  │ No-repair chain         │ 99.23% │
+  ├─────────────────────────┼────────┤
+  │ Settlement-date version │ 87.70% │
+  └─────────────────────────┴────────┘
+
+  The book seems to:
+  - count duplicate copies twice;
+  - subtract every REVERSED row, a double offset (this explains
+    transaction_count on all 480,279 keys);
+  - keep negative quantities negative;
+  - count blank quantities as zero.
+
+  The trade history supports the book for 477 of the 480 positions the custodian
+  does not report.
+  - Account trace: the rule picked an account where one security's trades add up
+    to 10,849, but both positions and the custodian report 14,147.29. One of
+    its trades has a price 100 times too large. That is a good candidate for the
+    evidenced trace at Check-in 2.
+
+  Changes beyond the plan
+  - I added a second tolerance to the config: gross_amount_tolerance = 0.01,
+    used for the gross-amount checks.
+  - I added variants that drop CANCELLED and then apply R2, R3 or R4 directly to
+    the raw benchmark, so each reading can be compared with the Guide benchmark
+    on its own.
+  - I fixed the slow DuckDB join (now about 7 seconds).
+
+  Decisions for you
+  - The 42 rebuilt keys that net to zero and are absent from positions are still
+    their own group, counted neither as a match nor as a break. How should they
+    count?
+  - No treatment is chosen anywhere: conflicting duplicates, the meaning of
+    REVERSED, negative and blank quantities are all shown under each option.
+
+  Not looked into yet: 869 trade quantities stored like 3551.2200000000003,
+  where gross ÷ price doesn't give the quantity.
+
+  data/ and load_data.ipynb are untouched (integrity check 10 of 10 PASS). Saved
+  tables are only in outputs/: 01_rebuild_steps.csv is new, and
+  01_defect_log.csv (now 27 lines) and 01_cross_check.csv were regenerated.
+  Nothing is committed.
+
+  On branch main
+  Changes not staged for commit:
+          modified:   notebooks/01_explore_tables.ipynb
+  Untracked files:
+          AI_Logs/
+          config/exploration.toml
+
+  AI_Logs/ was already there before this session; outputs/ doesn't appear
+  because Git ignores it.
+
+❯ <ide_opened_file>The user opened the file
+  /Users/oansen/code/projects/State_Street_Case_Competition/State_Street_Case_S
+  tudent_Package/notebooks/01_explore_tables.ipynb in the IDE. This may or may
+  not be related to the current task.</ide_opened_file>
+
+❯ let's refine the prompt if needed, so we can work on the check-in 2
+  deliverables:
+  Read CLAUDE.md and docs/notes/PROJECT_SUMMARY.md (especially section 7b).
+  Then
+  read reference/02_Dataset_Guide.md in full, section 5 and the Check-in 2 row
+  of
+  reference/01_Student_Brief.md, sections 2 to 6 and 9 of
+  reference/03_Student_Working_Guide.md, and docs/notes/RULES_DRAFT.md.
+
+  Also read the summary box and the defect log in
+  notebooks/01_explore_tables.ipynb (read only those two parts, not the whole
+  notebook). They contain what I already verified in the data, so do not ask me
+  about things already answered there. Treat anything marked TODO as unknown.
+
+  Use superpowers:brainstorming to help me plan the Check-in 2 work (week of
+  19 Oct). The deliverables are: position reconstruction and reconciliation,
+  first break classification, one evidenced trace, proposed price and ledger
+  checks, a defect catalog, and how we treat REVERSED trades and unsupported
+  corporate actions. Follow the Dataset Guide conventions exactly.
+
+  Ask me questions one at a time before deciding anything. Keep it simple: we
+  want to explain the data well, not build the most complex tool. Don't write
+  any code yet.
+
+⏺ Before suggesting edits, I'll check that the sections your prompt points to
+  actually exist.
+
+  Listed 1 directory (ctrl+o to expand)
+
+⏺ Your prompt mostly works, and every file and section it names exists. Three
+  things need changing.
+
+  What I changed and why
+  1. The notebook is now hard to read in parts. It is 818 KB with outputs. The
+     same facts are in three CSVs (the defect log, the rebuild step table, the
+     cross-check), which are easier to read than notebook JSON.
+  2. "Treat anything marked TODO as unknown" no longer applies. The TODO section
+     was replaced. What is actually still open is a list of decisions, plus
+     parts the notebook never reached. Naming both stops Claude re-asking
+     settled questions and makes it plan the real gaps.
+  3. The Check-in 2 row is in brief section 8, not section 5. Section 5
+     describes the full Part Two demonstration. I also added brief section 9
+     (judging) and Working Guide section 7 ("what you will be asked in the
+     room").
+
+  The brainstorming skill normally writes a design document and commits it, so
+  the prompt now says where the plan goes and not to commit.
+
+  Refined prompt
+
+  Read CLAUDE.md and docs/notes/PROJECT_SUMMARY.md (especially section 7b). Then
+  read
+  reference/02_Dataset_Guide.md in full; in reference/01_Student_Brief.md,
+  section 5,
+  the Check-in 2 row in section 8 and section 9 (how judges evaluate); in
+  reference/03_Student_Working_Guide.md, sections 2 to 7 and 9; and
+  docs/notes/RULES_DRAFT.md.
+
+  What we already verified (do not ask me about these again):
+  - the summary box at the top of notebooks/01_explore_tables.ipynb (cell 1
+  only;
+    do not read the rest of the notebook, it is large and holds outputs)
+  - outputs/01_defect_log.csv (27 findings with evidence status)
+  - outputs/01_rebuild_steps.csv (37 rebuild variants against positions and
+    comparison_positions: group counts and match rates)
+  - outputs/01_cross_check.csv (our manual results against the notebook)
+
+  Still open (decisions, not facts):
+  - how to count the 42 rebuilt keys that net to zero and are absent from
+  positions
+  - conflicting duplicates (keep first / keep second / drop both / not
+  evaluable)
+  - the meaning of REVERSED (readings R1 to R4; the book applies R4, a double
+  offset)
+  - negative quantities (raw / not evaluable / absolute) and blank quantities
+    (not evaluable / zero)
+
+  Not done yet:
+  - quantity comparison of positions against comparison_positions on the keys in
+  both
+  - classifying the breaks
+  - price checks and ledger arithmetic
+  - an event-adjusted corporate-action scenario
+  - a full evidenced trace (the notebook has one candidate account)
+
+  Use superpowers:brainstorming to help me plan the Check-in 2 work (week of 19
+  Oct).
+  The deliverables are:
+  - position reconstruction and reconciliation
+  - first break classification
+  - one evidenced trace
+  - proposed price and ledger checks
+  - a defect catalog
+  - how we treat REVERSED trades and unsupported corporate actions
+
+  Follow the Dataset Guide conventions exactly: raw benchmark first, BOOKED-only
+  as the
+  shared benchmark, both REVERSED readings without double offsets, full outer
+  joins with
+  denominators, unsupported corporate actions quarantined in a separate
+  scenario.
+
+  Ask me questions one at a time before deciding anything, including what form
+  the
+  check-in takes (slides, notebook walkthrough, or both). Keep it simple: we
+  want to
+  explain the data well, not build the most complex tool. Don't write any code
+  yet.
+  Write the agreed plan to docs/notes/CHECKIN2_PLAN.md and do not commit it.
+
+  If you'd rather keep the brainstorming skill's default location for design
+  documents, drop the last two sentences. Should I start with this version?
