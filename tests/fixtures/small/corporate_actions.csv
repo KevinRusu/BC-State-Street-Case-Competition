@@ -1,0 +1,3 @@
+action_id,security_id,action_type,ex_date,effective_date,ratio,cash_rate,target_security_id
+FXCA1,FXSEC3,SPLIT,2026-06-15,2026-06-16,2,,
+FXCA2,FXSEC1,CASH_DIVIDEND,2026-06-20,2026-06-22,,0.5,

@@ -30,6 +30,7 @@ __pycache__/
 # Generated results, rebuildable from data/ + code
 outputs/*
 !outputs/.gitkeep
+tests/runs/
 *.duckdb
 *.parquet
 *.log
@@ -37,3 +38,6 @@ outputs/*
 
 # Competition originals (PDF/Word). We commit the Markdown copies in reference/ instead.
 reference/official/
+
+# chat logs
+AI_Logs

@@ -28,6 +28,7 @@ config/            thresholds and rule settings (never hard-code these in code)
 src/               shared Python code (add once the same code appears in two notebooks)
 scripts/           scripts that build figures, the framework workbook and slides
 notebooks/         analysis and evidence notebooks
+tests/             test scripts and a small made-up fixture (tests/runs/ is gitignored)
 outputs/           intermediate results (gitignored, rebuildable from data/ + code)
 docs/
   notes/           project summary, rules draft, deliverables guide, team notes
@@ -42,6 +43,17 @@ data_dictionary.csv
 
 To rebuild a figure, run its script with an output path, for example
 `uv run python scripts/fig_detection.py docs/figures/03_detection_matrix.png`.
+
+## Tests for notebook 02
+
+Run from the repo root. Both run the committed notebook headless, without rebuilding it.
+
+- `tests/fixture_test.sh` (~15 s): runs the notebook on the made-up data in `tests/fixtures/small/` under the default
+  config, shuffled rows, `holding_date = "settlement"` and a trace flag no key carries, and checks the outcomes the
+  fixture was built to contain.
+- `tests/robustness_test.sh` (~5 min): runs the release with rows shuffled under several seeds and with one
+  threshold changed, and checks that only what should move does. About 4 GB RAM per run; it leaves the default
+  run in `outputs/`.
 
 ## Working conventions
 
