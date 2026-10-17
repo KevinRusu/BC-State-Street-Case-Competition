@@ -5,7 +5,8 @@ Step by step:
    (anything with a slash) and every relative Markdown link.
 2. Each must exist (globs like `config/*.toml` must match something). Exceptions: folders that are local or
    generated (they may be absent in a fresh clone) and PLANNED files we have said we will create.
-3. Compare the register checksum in docs/FINDINGS.md with outputs/02_defect_register.csv
+3. Compare the register checksum in docs/FINDINGS.md, and in every fact card of docs/DEFECT_CATALOG.md, with
+   outputs/02_defect_register.csv
    (skipped when outputs/ has not been built on this machine).
 Exit code 1 if anything is wrong, so it can sit in a checklist or a test.
 
@@ -21,7 +22,6 @@ ROOT = Path(__file__).resolve().parent.parent
 LOCAL = ('outputs/', 'tests/runs/', 'reference/official/', 'AI_Logs/', 'data/')
 # Files we have said we will create. Remove a line once the file exists.
 PLANNED = {
-    'docs/DEFECT_CATALOG.md',
     'docs/checkins/checkin2/Checkin2.pptx',
     'docs/final/',
     'src/',
@@ -84,10 +84,16 @@ def check_findings():
     if not findings.exists():
         return ['docs/FINDINGS.md missing: run scripts/build_findings.py']
     current = hashlib.sha256(register.read_bytes()).hexdigest()[:12]
+    problems = []
     m = re.search(r'Register checksum: `([0-9a-f]+)`', findings.read_text())
     if not m or m.group(1) != current:
-        return ['docs/FINDINGS.md is older than outputs/02_defect_register.csv: run scripts/build_findings.py']
-    return []
+        problems.append('docs/FINDINGS.md is older than outputs/02_defect_register.csv: run scripts/build_findings.py')
+    catalog = ROOT / 'docs' / 'DEFECT_CATALOG.md'
+    if catalog.exists():
+        stale = set(re.findall(r'register \(checksum `([0-9a-f]+)`\)', catalog.read_text())) - {current}
+        if stale:
+            problems.append('docs/DEFECT_CATALOG.md cards are older than the register: run scripts/build_findings.py')
+    return problems
 
 
 def main():

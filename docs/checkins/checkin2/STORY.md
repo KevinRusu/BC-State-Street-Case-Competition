@@ -88,8 +88,9 @@ the master file as an EQUITY.[^t-down]
 > Separately, 1,118 position rows sit on a security that isn't in the master file, and 1,118 position rows hold a
 > security with no price at all.[^r-sec] The three example securities in that register line are each the new
 > security of a spin-off: `SEC188562` (`CA00015`), `SEC204363` (`CA00093`) and `SEC219998` (`CA00105`)
-> *(observed)*.[^ca] That **all** 1,118 come from spin-offs is our inference, to be proven by a full trace for the
-> final. **Confirmed.** Not yet traced hop by hop.
+> *(observed)*.[^ca] Notebook 01 checked this for all of them, not just the examples: the 1,118 position rows sit on
+> 15 securities, every one a spin-off target that was never set up, with 1,131 trades and 0 prices
+> *(observed)*.[^cc] **Confirmed.** Not yet traced hop by hop.
 
 ## Step 3: The holding (middle office)
 
@@ -266,6 +267,8 @@ Slide numbers from the deck outline in [CHECKIN2_PLAN.md §5](CHECKIN2_PLAN.md#5
 [^r-ca]: `outputs/02_defect_register.csv`, line "Corporate-action target security missing from securities".
 [^ca]: `outputs/02_ca_readiness.csv`: rows with verdict `quarantined` and reason `TARGET_NOT_MASTERED` (all
     `SPINOFF`); `target_security_id` of `CA00005`, `CA00015`, `CA00093`, `CA00105`.
+[^cc]: `outputs/01_cross_check.csv`, rows "missing spin-off targets traded and held", "missing spin-off targets:
+    transaction rows", "…: position rows" and "…: price rows" (also `outputs/01_defect_log.csv`).
 [^r-sec]: `outputs/02_defect_register.csv`, lines "Position on a security_id missing from securities" and "Held
     security with no price at all".
 [^r-nocust]: `outputs/02_defect_register.csv`, line "Position in the book with no custodian record".

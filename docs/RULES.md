@@ -1,6 +1,6 @@
 # Rules: the detailed rules under our 7 checks
 
-Last updated: 2026-10-16
+Last updated: 2026-10-17
 
 *Built 12 Oct 2026 from the old spine workbook (`Spine_Checkin1_v0.3.xlsx`, in git history); rule gaps added 16 Oct (D-036 in `docs/DECISIONS.md`). Thresholds live in `config/*.toml`; which rules have run, and what they found, is in `docs/FINDINGS.md`.*
 
@@ -73,6 +73,19 @@ Last updated: 2026-10-16
 | `PRC_VENDOR_DISPERSION` | (max − min) / mean across vendor quotes ≤ 0.5%; a ~100× ratio flags percent-of-par vs per-unit | flag | 0.5% from brief App. A (illustrative) |
 | `FX_RATE_VALID` | Exactly one rate per currency per date; rate_to_usd > 0; USD = 1.000000; day-on-day move within band | hold | Added after journey found USD rate ≠ 1. Confirmed in the data: USD rate_to_usd ≠ 1 on 30 of 30 days (range 0.990 to 1.010) |
 | `FX_RATE_COVERAGE` | Every currency used in prices has a rate in fx_rates for the price date | hold | Added 16 Oct (Check-in 2 register): currency XYZ on 1,080 price rows has no rate |
+
+**Proposed, not run yet: coverage and freshness.** Both are parts of `PRC_QUOTE_ELIGIBLE`. Rule and denominator are
+fixed here before running (D-041 in `docs/DECISIONS.md`); results go in the register once run.
+
+| | Coverage | Freshness |
+|---|---|---|
+| Unit | One `positions` row on the snapshot date (`[snapshot] as_of_date`) | The quote chosen for one held security on the snapshot date |
+| Denominator (eligible) | Every such row, including those on a security missing from `securities` | Chosen quotes with a readable `price_timestamp` |
+| Pass | At least one quote for the security on the snapshot date with price > 0 and price currency = security currency; priority vendor first, then the next `vendor_priority` | `price_timestamp` falls on `price_date`, at or before the NAV cutoff time |
+| Fail | No eligible quote from any vendor. A holding with no quote at all is a fail, not "not evaluable": the absence itself is the evidence | Timestamp after the cutoff or on a later day, or a quote from an earlier `price_date` |
+| Not evaluable (reported apart) | A quote exists but cannot be judged: security missing from `securities` (no currency to compare) or an unreadable `price_date` | Missing or unreadable `price_timestamp`; never counted as fresh |
+| Reported beside it | Rows priced only by a fallback vendor | Flat runs (same price on consecutive days): a look-alike, not stale by itself |
+| Input still needed | none | The NAV cutoff time: not in the data. Goes in `config/reconciliation.toml` `[prices]` before the check runs, with the flat-run length |
 
 ## 7. NAV check
 

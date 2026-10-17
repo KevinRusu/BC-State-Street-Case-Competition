@@ -287,3 +287,30 @@ Made while building notebook 02 and fixing review findings. Source: *build log*,
   turning point at the custodian step).
 - **Figure:** `scripts/fig_trace_journey.py` draws `docs/figures/08_journey_negative_buy.png` from the trace,
   vendor and NAV outputs; no IDs or numbers in the code.
+
+### D-041 · 17 Oct · Denominators for the proposed coverage and freshness checks
+
+- **Decision:** coverage counts `positions` rows on the snapshot date; freshness counts the chosen quote per held
+  security. A holding with no quote at all **fails** coverage (the absence is the evidence); "not evaluable" is kept
+  for quotes that exist but can't be judged (unmastered security, unreadable date or timestamp). The NAV cutoff time
+  is not in the data, so freshness names it as an input still needed, to go in `config/reconciliation.toml` before
+  the check runs. Table under the price check in [RULES.md](RULES.md).
+- **Why:** CHECKIN2_PLAN §3.5 asks for rule, threshold and denominator for each proposed check; Dataset Guide §5
+  asks for the eligible denominator with missing and unevaluable records apart. Counting no-quote holdings as
+  failures keeps coverage consistent with the confirmed "Held security with no price at all" register line.
+- **Instead of:** treating unpriced holdings on unmastered securities as not evaluable, which would raise coverage
+  by hiding the spin-off targets that were never set up.
+
+### D-042 · 17 Oct · Defect catalog: generated fact cards, hand-written judgement
+
+- **Decision:** each entry in [DEFECT_CATALOG.md](DEFECT_CATALOG.md) has a fact card (name, status, rule id,
+  affected / eligible / not evaluable, examples, how detected) that `scripts/build_findings.py` fills from the
+  register between `<!-- card: … -->` markers; `scripts/check_docs.py` fails when a card's checksum is older than
+  the register. Rule, where it entered, why it matters and the fix are prose, with footnotes for any number. Each
+  entry names a teammate reviewer. Order follows the story's route.
+- **Why:** no typed numbers in the facts (CLAUDE.md) and a catalog that can't go stale silently, while the
+  judgement stays readable.
+- **Instead of:** the bare seven-row Working Guide table per class, or seven headed sections per class.
+- **Corrects D-040:** the spin-off link is **observed** for all affected positions, not only the examples:
+  `outputs/01_cross_check.csv` shows the 1,118 position rows sit on 15 securities, all missing spin-off targets
+  (1,131 trades, 0 prices). STORY.md is corrected.

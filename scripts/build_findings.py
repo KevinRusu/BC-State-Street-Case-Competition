@@ -5,16 +5,21 @@ Step by step:
 2. Write a banner: generated, do not edit; the register's checksum (scripts/check_docs.py compares it with
    the current register to catch a stale FINDINGS.md); the run's config, seed, snapshot date and runtime.
 3. One table per evidence status (confirmed, unresolved, cleared), in the register's own order.
+4. Fill the fact cards in docs/DEFECT_CATALOG.md. A card sits between `<!-- card: name | name -->` and
+   `<!-- /card -->`, naming one or more register findings; everything between the markers is rewritten from the
+   register (with its checksum, which scripts/check_docs.py also compares). The prose around the cards is not touched.
 
 Run from the repo root after notebook 02: uv run python scripts/build_findings.py
 """
-import csv, hashlib, subprocess
+import csv, hashlib, re, subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 REGISTER = ROOT / 'outputs' / '02_defect_register.csv'
 RUN_INFO = ROOT / 'outputs' / '02_run_info.csv'
 OUT = ROOT / 'docs' / 'FINDINGS.md'
+CATALOG = ROOT / 'docs' / 'DEFECT_CATALOG.md'
+CARD = re.compile(r'<!-- card: (.+?) -->\n.*?<!-- /card -->', re.S)
 STATUSES = ['confirmed', 'unresolved', 'cleared']
 COLUMNS = ['finding', 'stage', 'unit', 'affected', 'eligible', 'not evaluable', 'rule', 'examples']
 
@@ -26,6 +31,37 @@ def checksum(path):
 def cell(value):
     value = value.replace('|', '\\|').replace('\n', ' ')
     return f'{int(value):,}' if value.isdigit() else value
+
+
+def card(names, by_name, register_sum):
+    """One fact card: a table with one line per named finding, then how each was detected."""
+    missing = [n for n in names if n not in by_name]
+    if missing:
+        raise SystemExit(f'DEFECT_CATALOG.md names findings not in the register: {missing}')
+    lines = [f"<!-- card: {' | '.join(names)} -->",
+             f'*Facts generated from the register (checksum `{register_sum}`) by `scripts/build_findings.py`; '
+             'do not edit between the markers.*', '',
+             '| Register line | Status | Rule | Affected | Out of (eligible) | Not evaluable | Examples |',
+             '|---|---|---|---|---|---|---|']
+    for n in names:
+        r = by_name[n]
+        lines.append('| ' + ' | '.join([cell(n), f"**{r['status']}**", cell(r['rule']),
+                                         f"{cell(r['affected'])} {r['unit']}", cell(r['eligible']),
+                                         cell(r['not evaluable']), cell(r['examples'])]) + ' |')
+    lines.append('')
+    lines += [f"- *How detected ({cell(n)}):* {cell(by_name[n]['how detected'])}" for n in names]
+    return '\n'.join(lines + ['<!-- /card -->'])
+
+
+def fill_catalog(rows, register_sum):
+    if not CATALOG.exists():
+        print(f'note: {CATALOG.relative_to(ROOT)} not found; no cards filled')
+        return
+    by_name = {r['finding']: r for r in rows}
+    text = CATALOG.read_text()
+    new, count = CARD.subn(lambda m: card([n.strip() for n in m.group(1).split('|')], by_name, register_sum), text)
+    CATALOG.write_text(new)
+    print(f'filled {count} cards in {CATALOG.relative_to(ROOT)}')
 
 
 def main():
@@ -59,6 +95,7 @@ def main():
         lines += ['| ' + ' | '.join(cell(r[c]) for c in COLUMNS) + ' |' for r in group]
     OUT.write_text('\n'.join(lines) + '\n')
     print(f'wrote {OUT.relative_to(ROOT)}: {len(rows)} findings')
+    fill_catalog(rows, checksum(REGISTER))
 
 
 if __name__ == '__main__':

@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-10-16 (repo restructure; Check-in 2 code done; Check-in 2 story written)
+Last updated: 2026-10-17 (clean run done; price-check denominators written; defect catalog drafted)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
@@ -12,16 +12,17 @@ Last updated: 2026-10-16 (repo restructure; Check-in 2 code done; Check-in 2 sto
   ideally with an interactive dashboard or small app.
 - **Check-in 2 (method gate, week of 19 Oct):** the code is done. `notebooks/02_reconcile.ipynb` runs on the full
   data (all eleven tasks in `docs/checkins/checkin2/CHECKIN2_PLAN.md` §6b), with fixture and robustness tests in
-  `tests/`. The team work is still open (below).
+  `tests/`. Clean-kernel run done 17 Oct (`tests/run_notebook.sh`, 49 s; register checksum unchanged, see
+  FINDINGS.md). Denominators for the proposed coverage and freshness checks written (D-041). The team work is still
+  open (below).
 
 ## Next: before Check-in 2
 
 | Work | Where | Owner |
 |---|---|---|
-| Seven-question write-ups: the four classes in D-017 + the cleared flag in D-024 | `docs/DEFECT_CATALOG.md` | |
+| Review the catalog draft: one teammate per entry checks the prose and fills *Reviewed by* | `docs/DEFECT_CATALOG.md` | |
 | Read the story before the dry run (one broken trade, end to end, with the detours and the cleared flag) | `docs/checkins/checkin2/STORY.md` | everyone |
 | Deck, 8 to 10 slides, outline in CHECKIN2_PLAN §5; every number from an `outputs/02_*` file | `docs/checkins/checkin2/Checkin2.pptx` | |
-| Clean-kernel full run, timed; regenerate FINDINGS | `notebooks/02_reconcile.ipynb` | |
 | Dry run: each member explains one slide and one number | | |
 
 ## Next: after Check-in 2
