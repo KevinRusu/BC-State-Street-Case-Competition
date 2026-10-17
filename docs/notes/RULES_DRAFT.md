@@ -94,7 +94,7 @@ The general rule: a record we cannot test is **reported separately and never rai
 | Trades booked before cutoff | Missing, unreadable or out-of-order timestamps reported separately, never counted as on time |
 | Duplicate trade rate | Rows with blank key fields reported separately |
 | Positions matching the custodian | A holding on only one side is reported separately, never counted as agreed; untestable keys reported separately |
-| Holdings with a fresh, agreed price | No quote at all reported separately; securities with a single quote reported separately (nothing to compare) |
+| Holdings with a fresh, agreed price | No quote at all reported separately; securities with quotes from a single vendor reported separately (nothing to compare) |
 | NAV rows that add up | Missing or zero inputs reported separately |
 | Funds released with no serious open issue | Unpriced holdings disclosed; a fund is left out if less than 95% of its holdings can be valued |
 | Overall score | Untestable records lower the coverage figure; they never raise the score |
