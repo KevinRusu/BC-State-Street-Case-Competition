@@ -1,6 +1,6 @@
 # Thresholds and treatment choices for notebooks/02_reconcile.ipynb (Check-in 2 method gate).
 # Change a value here and rerun the notebook; no number below is repeated in the code.
-# Written before the results were looked at (docs/notes/CHECKIN2_PLAN.md §2 and §3).
+# Written before the results were looked at (docs/checkins/checkin2/CHECKIN2_PLAN.md §2 and §3).
 
 [snapshot]
 as_of_date = "2026-07-10"            # Dataset Guide valuation snapshot; cut-off for both rebuild versions

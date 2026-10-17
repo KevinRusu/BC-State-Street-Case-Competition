@@ -14,9 +14,9 @@
 
 | What | File | For whom | What it does |
 |---|---|---|---|
-| **Presentation** | `docs/checkin1/Checkin1_Pack.pptx` | Faculty, Monday | 11 slides + appendix A1 to A5. The story in the brief's order |
-| **Report** | `docs/checkin1/CHECKIN1_REPORT.pdf` (and `docs/checkin1/CHECKIN1_REPORT.md`) | Faculty and the team | Explains the problem, our approach and our findings, with the diagrams |
-| **Explanation slides** | `docs/presentations/Explainer_Deck.pptx` | The team | Teaches the business, the competition and our framework from zero, plus practice questions |
+| **Presentation** | `docs/checkins/checkin1/Checkin1_Pack.pptx` | Faculty, Monday | 11 slides + appendix A1 to A5. The story in the brief's order |
+| **Report** | `docs/checkins/checkin1/CHECKIN1_REPORT.pdf` (and `docs/checkins/checkin1/CHECKIN1_REPORT.md`) | Faculty and the team | Explains the problem, our approach and our findings, with the diagrams |
+| **Explanation slides** | `docs/checkins/checkin1/Explainer_Deck.pptx` | The team | Teaches the business, the competition and our framework from zero, plus practice questions |
 
 Supporting files:
 
@@ -25,8 +25,8 @@ Supporting files:
 | `docs/Framework.xlsx` | All our tables in one workbook, one tab per Check-in 1 piece. Same wording as the slides |
 | `notebooks/checkin1_evidence.ipynb` | Re-checks every number on the full data (about 15 seconds). Some labels still say "spine", the name of our earlier workbook |
 | `docs/figures/` | The 5 diagrams, plus the scripts that draw them (`scripts/`) |
-| `docs/notes/RULES_DRAFT.md` | The detailed rules under each of the 7 checks. Starting point for the code at Check-in 2 |
-| `docs/notes/OVERVIEW.md` | Our earlier team plan. Check-in 1 parts are out of date; the Part Two plan still applies |
+| `docs/RULES.md` | The detailed rules under each of the 7 checks. Starting point for the code at Check-in 2 |
+| `docs/checkins/checkin1/OVERVIEW.md` | Our earlier team plan. Check-in 1 parts are out of date; the Part Two plan still applies |
 | `reference/01_Student_Brief.md` | The official case. If anything disagrees, the brief wins |
 
 ---

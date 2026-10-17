@@ -1,9 +1,9 @@
-> **Note (12 Oct 2026):** this is our earlier team plan. For Check-in 1 we simplified the design to 3 offices, 6 handoffs, 7 checks and 7 KPIs, without ID codes, so the parts of this file about the "spine" workbook, IDs and 20 controls are out of date. Start with [`DELIVERABLES_GUIDE.md`](DELIVERABLES_GUIDE.md) for Check-in 1, and see [`RULES_DRAFT.md`](RULES_DRAFT.md) for the detailed rules. The Part Two plan below (code, rules file, timeline, why rules detect and AI explains) still applies.
+> **Note (12 Oct 2026):** this is our earlier team plan. For Check-in 1 we simplified the design to 3 offices, 6 handoffs, 7 checks and 7 KPIs, without ID codes, so the parts of this file about the "spine" workbook, IDs and 20 controls are out of date. Start with [`DELIVERABLES_GUIDE.md`](DELIVERABLES_GUIDE.md) for Check-in 1, and see [`RULES.md`](../../RULES.md) for the detailed rules. The Part Two plan below (code, rules file, timeline, why rules detect and AI explains) still applies.
 
 # State Street Case: Team Overview
 
 *BC Fall into BC Case Competition 2026 · "Data Quality in a Front-to-Back Investment Platform"*
-*Written 9 Oct 2026 · Source of truth is always [`reference/01_Student_Brief.md`](../../reference/01_Student_Brief.md). If this file and the brief disagree, the brief wins.*
+*Written 9 Oct 2026 · Source of truth is always [`reference/01_Student_Brief.md`](../../../reference/01_Student_Brief.md). If this file and the brief disagree, the brief wins.*
 
 ---
 
@@ -455,7 +455,7 @@ deterministic engine (DuckDB + rules.yaml)  →  outputs/defects.json  (rule id,
 
 ## 12. Resources
 
-**Case documents (read in this order):** [Student Brief](../../reference/01_Student_Brief.md) · [Dataset Guide](../../reference/02_Dataset_Guide.md) · [Working Guide](../../reference/03_Student_Working_Guide.md) · [data_dictionary.csv](../data_dictionary.csv) · [load_data.ipynb](../load_data.ipynb)
+**Case documents (read in this order):** [Student Brief](../../../reference/01_Student_Brief.md) · [Dataset Guide](../../../reference/02_Dataset_Guide.md) · [Working Guide](../../../reference/03_Student_Working_Guide.md) · [data_dictionary.csv](../../../data_dictionary.csv) · [load_data.ipynb](../../../load_data.ipynb)
 
 **Industry practice**
 - ISDA: [Portfolio Reconciliation Best Operational Practice](https://www.isda.org/attachment/MjIyNw==/Portfolio_Reconciliation_Best_Operational_Practic)

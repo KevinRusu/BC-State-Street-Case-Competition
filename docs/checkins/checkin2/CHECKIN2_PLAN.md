@@ -1,6 +1,6 @@
 # Check-in 2 plan: the method gate (Mon 19 Oct 2026)
 
-*Agreed 16 Oct 2026 · for the team building over the weekend · read with `PROJECT_SUMMARY.md` §7 and §7b*
+*Agreed 16 Oct 2026 · for the team building over the weekend · read with `docs/STATUS.md` and `docs/DECISIONS.md`; data conventions in `reference/02_Dataset_Guide.md`*
 
 ## 1. Why, and what success looks like
 
@@ -127,7 +127,7 @@ Notebook 02 must reproduce these from `outputs/01_rebuild_steps.csv` before doin
     - spread (max − min) / mean ≤ 0.5%
     - a separate **scale flag** when the max/min ratio falls in a band around 100 (band in config)
     - Single-quote and no-quote securities reported apart; currency conflicts kept visible.
-- **Proposed (rule + threshold + denominator, not run):** holding coverage with vendor fallback, freshness (timestamp vs price_date and cutoff, flat runs as look-alikes), FX validity (USD ≠ 1 stays open with faculty). Rule ids from `docs/notes/RULES_DRAFT.md` §6 and §7.
+- **Proposed (rule + threshold + denominator, not run):** holding coverage with vendor fallback, freshness (timestamp vs price_date and cutoff, flat runs as look-alikes), FX validity (USD ≠ 1 stays open with faculty). Rule ids from `docs/RULES.md` §6 and §7.
 
 ### 3.6 Corporate actions: supported vs quarantined
 
@@ -151,7 +151,7 @@ Notebook 02 must reproduce these from `outputs/01_rebuild_steps.csv` before doin
   - affected / eligible / not evaluable
   - stage
   - 2 or 3 example IDs produced by the code (first by sort order, never typed in)
-- **Rule gaps are fixed as they come up.** Part One is not revised before starting. When a finding has no rule in `RULES_DRAFT.md`, write "gap" in its rule column and add the rule to `RULES_DRAFT.md` then, under one of the existing seven checks. Likely gaps:
+- **Rule gaps are fixed as they come up.** Part One is not revised before starting. When a finding has no rule in `docs/RULES.md`, write "gap" in its rule column and add the rule to `docs/RULES.md` then, under one of the existing seven checks. Likely gaps:
   - position keys missing from the account or security master
   - a price currency with no FX rate
   - more than one REVERSED row per original
@@ -168,10 +168,10 @@ Notebook 02 must reproduce these from `outputs/01_rebuild_steps.csv` before doin
 | `notebooks/02_reconcile.ipynb` | Sections 3.1 to 3.7, top to bottom, run live |
 | `config/reconciliation.toml` | Snapshot date, tolerances, policy switches (conflicts, REVERSED main/side reading, negatives, blanks), cause-rule order, NAV tolerance, spread threshold, scale band, CA required terms, trace selection rule |
 | `outputs/02_waterfall.csv`, `02_sensitivities.csv`, `02_three_way_summary.csv`, `02_break_classes.csv`, `02_trace.csv`, `02_nav_check.csv`, `02_vendor_check.csv`, `02_ca_readiness.csv`, `02_defect_register.csv` | Results (gitignored; rebuilt by the notebook) |
-| `docs/notes/DEFECT_CATALOG.md` | The five full write-ups; carried forward to the final |
-| `docs/presentations/Checkin2.pptx` | The deck, in the style of `docs/presentations/State_Street_Presentation.pptx`; every number copied from an `outputs/02_*` file |
+| `docs/DEFECT_CATALOG.md` | The five full write-ups; carried forward to the final |
+| `docs/checkins/checkin2/Checkin2.pptx` | The deck, in the style of `docs/checkins/checkin1/State_Street_Presentation.pptx`; every number copied from an `outputs/02_*` file |
 
-Reuse: notebook 01's loading and date-parsing pattern (`PROJECT_SUMMARY.md` §6) and its §9 chain logic; rule ids and wording from `RULES_DRAFT.md`.
+Reuse: notebook 01's loading and date-parsing pattern and its §9 chain logic; rule ids and wording from `docs/RULES.md`.
 
 ## 5. Deck outline (8 to 10 slides, answer first)
 
@@ -222,7 +222,7 @@ Run inline, one task at a time. A task is done only when its check passes. If a 
 | T10 | Defect register (§3.7) | Example IDs come from outputs only; every finding has a status and denominators |
 | T11 | Clean-kernel full run, shuffle test, one threshold rehearsal | Same numbers after shuffling; runtime and versions recorded |
 
-Not part of this run (team work): `DEFECT_CATALOG.md` write-ups, the deck, the dry run.
+Not part of this run (team work): `docs/DEFECT_CATALOG.md` write-ups, the deck, the dry run.
 
 ## 7. How we verify it
 

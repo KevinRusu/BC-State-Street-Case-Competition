@@ -20,22 +20,29 @@ Add a package with `uv add <name>` (or `uv add --dev <name>` for tooling), then 
 
 ## Layout
 
+Where we are and what's next: [docs/STATUS.md](docs/STATUS.md). How agents should work in this repo: [CLAUDE.md](CLAUDE.md).
+
 ```
 data/              raw competition data (.csv.gz): read-only, never write here
 reference/         brief, dataset guide, working guide as Markdown (tracked)
   official/        original PDF and Word files (NOT committed, copy them in from the package)
 config/            thresholds and rule settings (never hard-code these in code)
-src/               shared Python code (add once the same code appears in two notebooks)
-scripts/           scripts that build figures, the framework workbook and slides
-notebooks/         analysis and evidence notebooks
+notebooks/         analysis and evidence notebooks (edit the .ipynb directly)
+scripts/           build figures, the framework workbook and docs/FINDINGS.md; check the docs
+                   (build_slides.py and add_journeys.py were one-off fillers for the Check-in 1 deck)
 tests/             test scripts and a small made-up fixture (tests/runs/ is gitignored)
-outputs/           intermediate results (gitignored, rebuildable from data/ + code)
+outputs/           results (gitignored, rebuildable from data/ + code)
+src/               shared Python code (not yet: added when the code leaves the notebooks)
 docs/
-  notes/           project summary, rules draft, deliverables guide, team notes
-  checkin1/        Check-in 1 report (md + pdf) and the faculty deck
-  presentations/   main presentation and explainer deck
-  figures/         generated charts (built by scripts/)
-  Framework.xlsx
+  STATUS.md        where we are, next steps, owners, open questions
+  DECISIONS.md     every treatment and scope choice, append-only
+  FINDINGS.md      one line per finding, generated from outputs/ (do not edit)
+  RULES.md         the detailed rules under our 7 checks
+  Framework.xlsx   the Check-in 1 framework tables (built by scripts/make_framework_xlsx.py)
+  figures/         generated diagrams (built by scripts/)
+  checkins/        what we handed in at each check-in (checkin1/, checkin2/); history, not edited afterwards
+  final/           the final hand-in, once we start it
+AI_Logs/           exported AI chats (gitignored; needed for the final hand-in)
 load_data.ipynb    provided loader/integrity checker; must stay beside manifest.csv
 manifest.csv       row counts and checksums for data/
 data_dictionary.csv
@@ -43,6 +50,13 @@ data_dictionary.csv
 
 To rebuild a figure, run its script with an output path, for example
 `uv run python scripts/fig_detection.py docs/figures/03_detection_matrix.png`.
+
+After rerunning notebook 02, regenerate the findings and check the docs:
+
+```bash
+uv run python scripts/build_findings.py
+uv run python scripts/check_docs.py
+```
 
 ## Tests for notebook 02
 

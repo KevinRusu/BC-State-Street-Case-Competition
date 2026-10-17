@@ -1,13 +1,15 @@
-# Rules draft: the detailed rules under our 7 checks
+# Rules: the detailed rules under our 7 checks
 
-*Starting point for `config/rules.yaml` at Check-in 2 · built 12 Oct 2026 from the old spine workbook (`Spine_Checkin1_v0.3.xlsx`, still in git history)*
+Last updated: 2026-10-16
+
+*Built 12 Oct 2026 from the old spine workbook (`Spine_Checkin1_v0.3.xlsx`, in git history); rule gaps added 16 Oct (D-036 in `docs/DECISIONS.md`). Thresholds live in `config/*.toml`; which rules have run, and what they found, is in `docs/FINDINGS.md`.*
 
 ## How to read this file
 
 - A **check** (or control) is one test at one handoff, with one owner. We explain 7 of them on the slides.
 - A **rule** is one exact condition the code tests. Each check has several rules underneath. Faculty see the checks; the code runs the rules.
 - **If it fails** says what happens to the record: **reject** (refuse it), **hold** (stop it until someone fixes it), **flag** (let it through but report it), **correct** (fix it automatically, and log the fix).
-- The **suggested id** is the name the rule could get in `rules.yaml`.
+- The **suggested id** is the rule's name in the code, the config and the findings register.
 - Thresholds marked as assumptions are our choices, not State Street numbers. Judges will change them live, so they must live in the config file, not in the code.
 
 ## 1. Account check
@@ -120,7 +122,9 @@ Every rule needs a way to clear these, or we report false alarms:
 
 We have no State Street threshold. As an outside reference only: Luxembourg CSSF Circular 24/856 uses 0.2%, 0.5% and 1% NAV error thresholds, depending on fund type.
 
-## What one rule looks like in `rules.yaml`
+## What every rule should state
+
+A proposed shape for when the rules move out of the notebook into code (D-012). Today the thresholds sit in `config/reconciliation.toml` and the rule ids in the register.
 
 ```yaml
 - id: ACC_NOT_OPEN_ON_TRADE_DATE      # the rule's name
@@ -132,4 +136,4 @@ We have no State Street threshold. As an outside reference only: Luxembourg CSSF
   threshold: 0                        # how many failures we accept (0 = none)
 ```
 
-Line by line: `id` is a unique name so we can count results per rule; `check` and `owner` tie the rule back to the slides; `test` is the condition in plain words (the code turns it into SQL); `on_fail` is the response; `threshold` is the number judges might change live, which is why it sits here and not inside the code.
+Line by line: `id` is a unique name so we can count results per rule; `check` and `owner` tie the rule back to the slides; `test` is the condition in plain words (the code turns it into SQL); `on_fail` is the response; `threshold` is the number judges might change live, which is why it sits in the config and not inside the code.
