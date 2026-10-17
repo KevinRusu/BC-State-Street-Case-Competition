@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-10-16 (repo restructure; Check-in 2 code done)
+Last updated: 2026-10-16 (repo restructure; Check-in 2 code done; Check-in 2 story written)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
@@ -19,6 +19,7 @@ Last updated: 2026-10-16 (repo restructure; Check-in 2 code done)
 | Work | Where | Owner |
 |---|---|---|
 | Seven-question write-ups: the four classes in D-017 + the cleared flag in D-024 | `docs/DEFECT_CATALOG.md` | |
+| Read the story before the dry run (one broken trade, end to end, with the detours and the cleared flag) | `docs/checkins/checkin2/STORY.md` | everyone |
 | Deck, 8 to 10 slides, outline in CHECKIN2_PLAN §5; every number from an `outputs/02_*` file | `docs/checkins/checkin2/Checkin2.pptx` | |
 | Clean-kernel full run, timed; regenerate FINDINGS | `notebooks/02_reconcile.ipynb` | |
 | Dry run: each member explains one slide and one number | | |

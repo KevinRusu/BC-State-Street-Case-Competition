@@ -2,10 +2,12 @@
 
 How it works, step by step:
 1. Each journey is a list of steps. A step has: who handles it (tag), a title,
-   two short lines of evidence, a check label and a status (ok / fail / warn / info).
+   two short lines of evidence, a check label and a status (ok / fail / warn / info /
+   missed = the check passed but the record is wrong).
 2. draw_journey() places the steps as boxes in one row, joins them with arrows,
    and adds notes underneath (where the evidence stops, what it means).
 3. The figure is saved as a PNG in the folder given on the command line.
+   The two Check-in 1 journeys are drawn only when this file is run; other scripts import draw_journey.
 """
 import sys
 import matplotlib
@@ -22,6 +24,7 @@ STATUS = {                                              # border colour, fill co
     "fail": ("#D93025", "#FDECEA", "#D93025", "✗"),
     "warn": ("#C77700", "#FFF6E5", "#C77700", "!"),
     "info": (BLUE,      "white",   GREY,      "•"),
+    "missed": ("#D93025", "#FDECEA", "#1E8E3E", "✓"),   # the check passed, but the record is wrong
 }
 
 def draw_journey(steps, dashed_into, notes, takeaway, legend, fname):
@@ -37,7 +40,7 @@ def draw_journey(steps, dashed_into, notes, takeaway, legend, fname):
         edge, fill, pill, sym = STATUS[s["status"]]
         # who handles this step, above the box
         ax.text(x + w / 2, y0 + h + 0.12, f"{i + 1}  ·  {s['tag'].upper()}", ha="center", va="bottom",
-                fontsize=8.5, color=edge if s["status"] == "fail" else GREY, fontweight="bold")
+                fontsize=8.5, color=edge if s["status"] in ("fail", "missed") else GREY, fontweight="bold")
         # the box itself
         ax.add_patch(FancyBboxPatch((x, y0), w, h, boxstyle="round,pad=0,rounding_size=0.12",
                                     linewidth=2, edgecolor=edge, facecolor=fill))
@@ -76,51 +79,52 @@ def draw_journey(steps, dashed_into, notes, takeaway, legend, fname):
 LEGEND = ("Solid arrow: we saw the link in the data (matching IDs).   "
           "Dashed arrow: our reasoning, the data cannot show it.   Red dashed box: where the evidence stops.")
 
-# Journey 1: one clean trade, TXN100000380
-trade = [
-    dict(tag="Front office", title="The trade", status="ok", check="Trade check",
-         lines=["BUY 1,612 shares", "Booked on time"]),
-    dict(tag="Master data", title="Master records", status="ok", check="Account, security",
-         lines=["Account is open", "Security is known"]),
-    dict(tag="Middle office", title="The holding", status="ok", check="Position check",
-         lines=["4 trades add up", "Our book: 2,028"]),
-    dict(tag="Custodian", title="The custodian", status="ok", check="Position check",
-         lines=["Custodian: 2,028", "Same: no break"]),
-    dict(tag="Price vendors", title="The price", status="ok", check="Price check",
-         lines=["3 vendors agree", "Within 0.44%"]),
-    dict(tag="Back office", title="The fund's NAV", status="ok", check="NAV check",
-         lines=["Net assets / shares", "= 11.35, it adds up"]),
-]
-draw_journey(trade, dashed_into={4},
-             notes=[(0.0, 0.62, "#D93025", "Where the evidence stops",
-                     "No proof the trade really settled, and no cash or fee data,\n"
-                     "so we cannot show this holding inside the fund's net assets."),
-                    (0.65, 0.35, BLUE, "What it shows",
-                     "A clean trade passes every check\nfrom capture to NAV.")],
-             takeaway="Journey 1: one trade (TXN100000380), from the front office to the fund's NAV",
-             legend=LEGEND, fname="06_journey_trade_simple.png")
+if __name__ == "__main__":
+    # Journey 1: one clean trade, TXN100000380
+    trade = [
+        dict(tag="Front office", title="The trade", status="ok", check="Trade check",
+             lines=["BUY 1,612 shares", "Booked on time"]),
+        dict(tag="Master data", title="Master records", status="ok", check="Account, security",
+             lines=["Account is open", "Security is known"]),
+        dict(tag="Middle office", title="The holding", status="ok", check="Position check",
+             lines=["4 trades add up", "Our book: 2,028"]),
+        dict(tag="Custodian", title="The custodian", status="ok", check="Position check",
+             lines=["Custodian: 2,028", "Same: no break"]),
+        dict(tag="Price vendors", title="The price", status="ok", check="Price check",
+             lines=["3 vendors agree", "Within 0.44%"]),
+        dict(tag="Back office", title="The fund's NAV", status="ok", check="NAV check",
+             lines=["Net assets / shares", "= 11.35, it adds up"]),
+    ]
+    draw_journey(trade, dashed_into={4},
+                 notes=[(0.0, 0.62, "#D93025", "Where the evidence stops",
+                         "No proof the trade really settled, and no cash or fee data,\n"
+                         "so we cannot show this holding inside the fund's net assets."),
+                        (0.65, 0.35, BLUE, "What it shows",
+                         "A clean trade passes every check\nfrom capture to NAV.")],
+                 takeaway="Journey 1: one trade (TXN100000380), from the front office to the fund's NAV",
+                 legend=LEGEND, fname="06_journey_trade_simple.png")
 
-# Journey 2: one security record, SEC937640, and the spin-off it triggered
-security = [
-    dict(tag="Master data", title="The security", status="ok", check="Security check",
-         lines=["SEC937640", "Set up correctly"]),
-    dict(tag="Across offices", title="Widely used", status="info", check="Reach: 94 funds",
-         lines=["309 trades", "Held in 94 funds"]),
-    dict(tag="Corporate action", title="The spin-off", status="warn", check="Corporate action",
-         lines=["11 Jun: holders get", "a new security"]),
-    dict(tag="Master data", title="New security", status="fail", check="Security check",
-         lines=["SEC204363 was", "never set up"]),
-    dict(tag="Middle office", title="Still traded", status="fail", check="Nothing stopped it",
-         lines=["64 trades", "63 holdings"]),
-    dict(tag="Price vendors", title="No price", status="fail", check="Price check",
-         lines=["0 prices", "Cannot be valued"]),
-]
-draw_journey(security, dashed_into=set(),
-             notes=[(0.0, 0.31, "#D93025", "Where the evidence stops",
-                     "No record of which accounts\nreceived the spin-off."),
-                    (0.34, 0.31, "#D93025", "Across the whole file",
-                     "15 new securities like this:\n1,131 trades, 1,118 holdings, 0 prices."),
-                    (0.68, 0.32, BLUE, "The fix",
-                     "A security check at the handoff\nwould have held all 1,131 trades.")],
-             takeaway="Journey 2: one security (SEC937640) and the spin-off it triggered",
-             legend=LEGEND, fname="07_journey_security_simple.png")
+    # Journey 2: one security record, SEC937640, and the spin-off it triggered
+    security = [
+        dict(tag="Master data", title="The security", status="ok", check="Security check",
+             lines=["SEC937640", "Set up correctly"]),
+        dict(tag="Across offices", title="Widely used", status="info", check="Reach: 94 funds",
+             lines=["309 trades", "Held in 94 funds"]),
+        dict(tag="Corporate action", title="The spin-off", status="warn", check="Corporate action",
+             lines=["11 Jun: holders get", "a new security"]),
+        dict(tag="Master data", title="New security", status="fail", check="Security check",
+             lines=["SEC204363 was", "never set up"]),
+        dict(tag="Middle office", title="Still traded", status="fail", check="Nothing stopped it",
+             lines=["64 trades", "63 holdings"]),
+        dict(tag="Price vendors", title="No price", status="fail", check="Price check",
+             lines=["0 prices", "Cannot be valued"]),
+    ]
+    draw_journey(security, dashed_into=set(),
+                 notes=[(0.0, 0.31, "#D93025", "Where the evidence stops",
+                         "No record of which accounts\nreceived the spin-off."),
+                        (0.34, 0.31, "#D93025", "Across the whole file",
+                         "15 new securities like this:\n1,131 trades, 1,118 holdings, 0 prices."),
+                        (0.68, 0.32, BLUE, "The fix",
+                         "A security check at the handoff\nwould have held all 1,131 trades.")],
+                 takeaway="Journey 2: one security (SEC937640) and the spin-off it triggered",
+                 legend=LEGEND, fname="07_journey_security_simple.png")

@@ -269,3 +269,21 @@ Made while building notebook 02 and fixing review findings. Source: *build log*,
 - **Decision:** `AI_Logs/` is gitignored (commit ad2cbe5). The logs are collected for the final hand-in.
 - **Why:** the logs quote record IDs (flagged in the Check-in 2 build review); keeping them out of the repo limits
   where data appears. Brief §10 still requires submitting the prompts and responses that shaped the work.
+
+### D-040 · 16 Oct · Check-in 2 story: follow one broken trade
+
+- **Decision:** the findings are told as one story, `docs/checkins/checkin2/STORY.md`, for teammates before the dry
+  run. Spine: the D-025 trace, shown as the mirror of Check-in 1's clean trade (figure 08 beside figure 06): a broken
+  trade gets through every check after the point where it entered. The other three D-017 classes are short detours
+  (one count, one example, "not yet traced"); the D-024 cleared flag is the ending. Every number cites its
+  `outputs/` file in a footnote. Frozen after Check-in 2; the final gets a new story in `docs/final/`.
+- **Story vs catalog:** the story tells, `docs/DEFECT_CATALOG.md` proves. The story links to the catalog for rule,
+  population and fix and never restates them.
+- **Spin-off link:** the register's three spin-off lines are not linked in any output. The story shows the link
+  observed for the register's example securities (each is a spin-off target in `02_ca_readiness.csv`) and calls the
+  link for all affected positions inferred, to be traced for the final.
+- **Why:** Check-in 1 feedback (tell a story); Working Guide §7 (any member may be asked to walk a record back).
+- **Instead of:** a stage-by-stage tour of the classes, or an "agreement isn't proof" framing (kept as the story's
+  turning point at the custodian step).
+- **Figure:** `scripts/fig_trace_journey.py` draws `docs/figures/08_journey_negative_buy.png` from the trace,
+  vendor and NAV outputs; no IDs or numbers in the code.
