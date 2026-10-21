@@ -314,3 +314,24 @@ Made while building notebook 02 and fixing review findings. Source: *build log*,
 - **Corrects D-040:** the spin-off link is **observed** for all affected positions, not only the examples:
   `outputs/01_cross_check.csv` shows the 1,118 position rows sit on 15 securities, all missing spin-off targets
   (1,131 trades, 0 prices). STORY.md is corrected.
+
+### D-043 · 17 Oct · Negative BUYs: gross_amount confirms the size, not the side (refines D-032)
+
+- **Decision:** the trace and the docs no longer say `gross_amount / price` "contradicts the sign". gross_amount is
+  positive on every BUY and every SELL (`outputs/02_sign_by_type.csv`), so it confirms a trade's **size** but not its
+  side. Two readings fit a negative BUY: **wrong sign** (it should be BUY +q; the book is off by 2q) and **wrong type**
+  (it should be SELL q; the book is right). The trace states both, with the exposure under each (the D-014 trace's
+  ~19 bps under wrong sign, 0 under wrong type). Status: the **record** stays confirmed, because a quantity is never
+  negative (Dataset Guide §3) and `TXN_FIELDS_VALID` rejects it under both readings. The **correct value** is
+  unresolved, leaning wrong sign: the new rule `TXN_NEGATIVE_SIDE_EVIDENCE` ([RULES.md](RULES.md) §3) finds the
+  partner records of each negative row, and every partner found is a BUY with a positive quantity
+  (`outputs/02_negative_partners.csv`; counts in the register's "how detected"). The custodian is not counted as
+  evidence for either reading: it equals the book on these positions, but it also follows the book's duplicate and
+  REVERSED conventions (trace, custodian hop). Remediation corrects a row only when a partner record or the source's
+  order side or cash direction shows its side, holds the rest, and never takes the absolute value.
+- **Why:** the old claim read size as direction. Working Guide §5 asks for the evidence to match the claim, and a
+  confirmed record with an unproven correction are two different statements.
+- **Instead of:** keeping "contradicts the sign" (overstated), or downgrading the line to unresolved (the record is
+  wrong under both readings).
+- **Refines:** D-032 (the trace claim) and the "independent evidence (`gross_amount`)" in D-014 and CHECKIN2_PLAN §2:
+  gross_amount is independent evidence of the size only. Faculty question added in STATUS.md.

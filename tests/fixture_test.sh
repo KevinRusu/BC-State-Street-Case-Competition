@@ -115,6 +115,9 @@ expect('break keys = sum of the break-class register lines', int(breaks), int(cl
 trace = read('default', '02_trace.csv')
 traced = trace[(trace['hop'] == 'source') & (trace['field'] == 'quantity')]['value'].tolist()
 expect('trace picks the negative-quantity BUY present in all three sources', ['-50'], traced)
+gross_note = trace.loc[trace['field'] == 'gross_amount / price', 'note'].str.cat()
+expect('gross_amount fits the size -> trace says it confirms the size and states both readings', True,
+       'confirms the size' in gross_note and 'wrong sign' in gross_note and 'wrong type' in gross_note)
 
 # Shuffled rows -> the same outputs (the conflicting-pair keep_first / keep_second lines aside: none in the fixture)
 changed = []
@@ -148,8 +151,8 @@ expect('edge: traced key on an account missing from accounts, no pipeline record
 expect('edge: trace says the account is not in accounts', True,
        bool(((trace['table'] == 'accounts') & (trace['value'] == 'not in accounts')).any()))
 expect('edge: trace counts 0 pipeline records', ['0'], value('pipeline records for this transaction_id'))
-expect('edge: gross_amount fits neither sign -> trace does not say the sign contradicts gross_amount', False,
-       bool(trace.loc[trace['field'] == 'gross_amount / price', 'note'].str.contains('contradicts').any()))
+expect('edge: gross_amount fits neither sign -> trace does not say gross_amount confirms the size', False,
+       bool(trace.loc[trace['field'] == 'gross_amount / price', 'note'].str.contains('confirms the size').any()))
 expect('edge: USD-quoted security -> no FX rate applied (20 units x 5.00)', ['100.0'], value('indicative exposure (USD)'))
 register = read('edge', '02_defect_register.csv').set_index('finding')
 line = lambda name, column: register[column].get(name)

@@ -65,7 +65,7 @@ nav_result = "adds up" if all(r["result"] == "pass" for r in nav) else "does not
 steps = [
     dict(tag="Front office", title="The trade", status="fail", check="Trade check",
          lines=[f"{t('source', 'transactions', 'transaction_type')} {num(quantity)} shares",
-                f"Amount: +{num(implied)}",
+                f"Amount: size {num(implied)}",
                 f"Still {t('source', 'transactions', 'status')}"]),
     dict(tag="Master data", title="Master records", status="ok", check="Account, security",
          lines=[f"Account is {t('downstream', 'accounts', 'status').lower()}", "Security is known"]),

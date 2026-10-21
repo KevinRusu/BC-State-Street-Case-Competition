@@ -17,21 +17,31 @@ The entries follow the trade's route through the platform, in the same order as 
 
 ---
 
-## 1. Negative-quantity BUYs · Confirmed
+## 1. Negative-quantity BUYs · Record confirmed; correct value unresolved, leaning wrong sign
 
 <!-- card: Negative trade quantity -->
-*Facts generated from the register (checksum `276759c73a42`) by `scripts/build_findings.py`; do not edit between the markers.*
+*Facts generated from the register (checksum `d43040c69f8c`) by `scripts/build_findings.py`; do not edit between the markers.*
 
 | Register line | Status | Rule | Affected | Out of (eligible) | Not evaluable | Examples |
 |---|---|---|---|---|---|---|
 | Negative trade quantity | **confirmed** | TXN_FIELDS_VALID | 655 rows | 1,406,714 | 2,819 | TXN100004247, TXN100006937, TXN100008622 |
 
-- *How detected (Negative trade quantity):* quantity < 0 (by type: BUY 655); gross_amount fits the absolute value on 654 of 655; the book keeps the raw sign, so the reconciliation matches (trace in section 6)
+- *How detected (Negative trade quantity):* quantity < 0 (by type: BUY 655); gross_amount fits the absolute value on 654 of 655, so it confirms the size; it is positive on every BUY and SELL row, so it does not show the side; other records of the same trade (TXN_NEGATIVE_SIDE_EVIDENCE, section 6): 5 of 655 negative transaction_ids have one; partners support wrong sign on 5 (example TXN100223562); wrong sign = a partner of the same type with a positive quantity, wrong type = one of the opposite type; the book keeps the raw sign, so the reconciliation matches (trace in section 6)
 <!-- /card -->
 
 **Rule.** `TXN_FIELDS_VALID` ([RULES.md](RULES.md) §3): the quantity must be above zero. Eligible: every trade row
-with a readable quantity; blank quantities can't be tested and are counted apart. A second field backs the flag:
-`gross_amount / price` gives the size of the trade, so we can see whether the money agrees with the minus sign.
+with a readable quantity; blank quantities can't be tested and are counted apart. A row that fails is a confirmed
+defect whatever its correct value is, because a quantity is a size and never negative (Dataset Guide
+[§3](../reference/02_Dataset_Guide.md#the-shared-reconstruction-benchmark)).
+
+`gross_amount / price` gives the **size** of the trade, not its side: `gross_amount` is positive on every BUY and
+every SELL row.[^sign] So two readings fit a negative BUY. **Wrong sign:** it should be a BUY of +q, and the book is
+off by 2q. **Wrong type:** it should be a SELL of q, and the book is right. A second rule,
+`TXN_NEGATIVE_SIDE_EVIDENCE` ([RULES.md](RULES.md) §3), looks for other records of the same trade: a copy with the
+same `transaction_id` and another quantity, rows whose `related_transaction_id` points at the row, and the row it
+points at. A few negative BUYs have one, and on every one of them the partner is a BUY with a positive quantity, which
+supports wrong sign *(observed)*.[^partners] The traced trade has none.[^t-src] Deciding the rest needs the order side
+or the cash direction from the source.
 
 **Where it entered.** In the trade row as delivered, before the platform touched it. In the traced example, the row
 came from `OMS_FRONT` with the minus sign already in it, and nothing later changed the quantity *(observed)*.[^t-src]
@@ -40,15 +50,19 @@ trades *(observed)*.[^t-pipe] So the stage is **trade capture**, and the handoff
 the sources send them is not in the data.
 
 **Why it matters.** The book and the custodian both carry the sign, so reconciliation **matches and hides it**: of
-the positions where all three sources agree, 634 contain a negative-quantity trade.[^bc] Each such position
-misstates units by twice the trade size. In the traced example that is an indicative exposure of about 19 bps of the
-fund's net assets (exposure, not a loss; assumptions in the trace).[^t-down] Who acts: trade operations (fix the
-rows), then fund accounting (the holdings feed NAV).
+the positions where all three sources agree, 634 contain a negative-quantity trade.[^bc] Under the wrong-sign reading,
+each such position misstates units by twice the trade size; under the wrong-type reading the position is right and
+only the trade record is wrong. In the traced example the exposure is about 19 bps of the fund's net assets under the
+wrong-sign reading and zero under the wrong-type reading (exposure, not a loss; assumptions in the trace).[^t-down]
+The custodian can't settle it: it equals the book on most of these positions, but it also follows the book's
+duplicate and REVERSED conventions, so it is not independent.[^t-cust] Who acts: trade operations (fix the rows),
+then fund accounting (the holdings feed NAV).
 
 **What would fix it.** Reject at capture: `TXN_FIELDS_VALID`, at the trade check, owned by the **Trade operations
 lead**; on fail, **reject** and return to the source. That is prevention. Remediation for the rows already booked:
-correct each one against its `gross_amount` and rebuild the positions it feeds. Fixing the positions alone would be
-undone by the next feed.
+`gross_amount` gives each row's size but not its side, so correct a row only when its side is known (a partner
+record, or the source's order side or cash direction), hold the rest, and rebuild the positions they feed. Never
+take the absolute value. Fixing the positions alone would be undone by the next feed.
 
 *Reviewed by:* ______
 
@@ -57,7 +71,7 @@ undone by the next feed.
 ## 2. Duplicate trade copies counted as trades · Unresolved (the copies themselves are confirmed)
 
 <!-- card: Repeated transaction_id: exact full-row copy | Repeated transaction_id: copies differ only by date format | Repeated transaction_id: copies conflict on a fact | Repeated transaction_id in the pipeline | Book and custodian count duplicate copies as trades | Book and custodian count duplicate copies and subtract every REVERSED row -->
-*Facts generated from the register (checksum `276759c73a42`) by `scripts/build_findings.py`; do not edit between the markers.*
+*Facts generated from the register (checksum `d43040c69f8c`) by `scripts/build_findings.py`; do not edit between the markers.*
 
 | Register line | Status | Rule | Affected | Out of (eligible) | Not evaluable | Examples |
 |---|---|---|---|---|---|---|
@@ -105,7 +119,7 @@ convention.
 ## 3. Spin-off targets never set up · Confirmed
 
 <!-- card: Corporate-action target security missing from securities | Position on a security_id missing from securities | Held security with no price at all -->
-*Facts generated from the register (checksum `276759c73a42`) by `scripts/build_findings.py`; do not edit between the markers.*
+*Facts generated from the register (checksum `d43040c69f8c`) by `scripts/build_findings.py`; do not edit between the markers.*
 
 | Register line | Status | Rule | Affected | Out of (eligible) | Not evaluable | Examples |
 |---|---|---|---|---|---|---|
@@ -149,7 +163,7 @@ trades and price the holdings.
 ## 4. Custodian missing holdings · Unresolved
 
 <!-- card: Position in the book with no custodian record -->
-*Facts generated from the register (checksum `276759c73a42`) by `scripts/build_findings.py`; do not edit between the markers.*
+*Facts generated from the register (checksum `d43040c69f8c`) by `scripts/build_findings.py`; do not edit between the markers.*
 
 | Register line | Status | Rule | Affected | Out of (eligible) | Not evaluable | Examples |
 |---|---|---|---|---|---|---|
@@ -185,7 +199,7 @@ position.
 ## 5. Closed positions not reported · Cleared
 
 <!-- card: Closed position not reported (trades net to zero, absent from book and custodian) -->
-*Facts generated from the register (checksum `276759c73a42`) by `scripts/build_findings.py`; do not edit between the markers.*
+*Facts generated from the register (checksum `d43040c69f8c`) by `scripts/build_findings.py`; do not edit between the markers.*
 
 | Register line | Status | Rule | Affected | Out of (eligible) | Not evaluable | Examples |
 |---|---|---|---|---|---|---|
@@ -222,10 +236,16 @@ positions.
 
 ---
 
-[^t-src]: `outputs/02_trace.csv`, hop `source`, rows `source_system` and "where it entered".
+[^t-src]: `outputs/02_trace.csv`, hop `source`, rows `source_system`, "other records of this trade" and "where it
+    entered".
 [^t-pipe]: `outputs/02_trace.csv`, hop `pipeline`, row "share of negative quantities by source_system" (and its note:
     share of all rows by source_system).
-[^t-down]: `outputs/02_trace.csv`, hop `downstream`, row "indicative exposure (bps of fund net assets)" = 19.4048.
+[^t-down]: `outputs/02_trace.csv`, hop `downstream`, row "indicative exposure (bps of fund net assets)" = 19.4048
+    (note: under the wrong-sign reading, 0 under the wrong-type reading).
+[^t-cust]: `outputs/02_trace.csv`, hop `custodian`, row "positions with a negative-quantity trade: custodian equals
+    the book" and its note.
+[^sign]: `outputs/02_sign_by_type.csv`, rows with field `gross_amount`.
+[^partners]: `outputs/02_negative_partners.csv`, column `reading_supported`; the count is in the card above.
 [^bc]: `outputs/02_break_classes.csv`, class "all three agree", column `sign_conflict_keys`.
 [^ca]: `outputs/02_ca_readiness.csv`: SPINOFF rows with reason `TARGET_NOT_MASTERED`; `candidate holders` of
     `CA00005`.

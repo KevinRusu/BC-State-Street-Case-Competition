@@ -3,7 +3,7 @@
 *For teammates, before the Check-in 2 dry run. About ten minutes. Frozen after Check-in 2; the final gets its own
 story in `docs/final/`.*
 
-*Every number here comes from the run whose register checksum is `276759c73a42`.[^findings] If the checksum at the
+*Every number here comes from the run whose register checksum is `d43040c69f8c`.[^findings] If the checksum at the
 top of [FINDINGS.md](../../FINDINGS.md) is different, the notebook has been rerun and some numbers below may be out of
 date. Small markers like [^t-src] say which file each number comes from; the list is at the bottom.*
 
@@ -42,8 +42,14 @@ should be positive: the Dataset Guide says quantity is a size, never negative
 ([§3](../../../reference/02_Dataset_Guide.md#the-shared-reconstruction-benchmark)).
 
 The same row also has a price of 88.5356 and a gross amount (the money paid) of 176,628.52.[^t-src] Money divided by
-price gives **+1,995** shares.[^t-src] So two fields of the same record disagree, and the money says the minus sign
-is wrong. Even so, the status is BOOKED: the platform accepted it as a normal trade.[^t-src]
+price gives **1,995** shares.[^t-src] So the money confirms the **size** of the trade. It can't confirm the
+direction: the gross amount is positive on every BUY and on every SELL in the file, so it never carries a
+sign.[^sign]
+
+What we know for sure is that the record is wrong, because a quantity is never negative. What we don't know is
+*which* field is wrong: the sign (it should be a BUY of +1,995) or the type (it should be a SELL of 1,995). Step 3
+shows what each reading means for the holding. Even so, the status is BOOKED: the platform accepted it as a normal
+trade.[^t-src]
 
 The **pipeline** handled it normally. It was received at 10:09, booked at 10:15 and published at 10:22, all before
 the 18:00 **cutoff**, and there is exactly one pipeline record for it.[^t-pipe]
@@ -101,9 +107,19 @@ account holds. We test it with a **rebuild**: start from zero and add up every t
 **What we saw** *(observed)*. This account has four trades in this security: the BUY of −1,995 and three SELLs of
 1,730, 1,050 and 4,913.[^t-pos] The rebuild gives −9,688, and the book says −9,688.[^t-pos] They match.
 
-**What we conclude** *(inferred)*. The match **hides** the error. The book added up the same wrong row we did, so of
-course they agree. If the BUY's sign followed the money (+1,995), the holding would be −5,698. That differs from the
-book by 2 × 1,995 = 3,990 shares.[^t-pos][^t-down]
+**What we conclude** *(inferred)*. The book added up the same wrong row we did, so of course they agree. Whether the
+match **hides** an error in the holding depends on which field of the trade is wrong (Step 1):
+
+- **Wrong sign** (it should be a BUY of +1,995): the holding would be −5,698. That differs from the book by
+  2 × 1,995 = 3,990 shares.[^t-pos][^t-down]
+- **Wrong type** (it should be a SELL of 1,995): a SELL of 1,995 moves the holding the same way as a BUY of −1,995,
+  so the holding is −9,688 and the book is right.[^t-pos]
+
+**Wrong sign is the better-supported reading.** Of the 655 negative BUYs, 5 have a second record of the same trade:
+a copy with the same ID, a rebook, a reversal, or the original that a reversal points at. On all 5, that second
+record is a BUY with a positive quantity *(observed)*.[^r-neg][^partners] Five cases is a lean, not a proof. This
+trade has no second record, so its own data can't decide.[^t-src] Deciding needs the order side from the source
+system or the direction of the cash movement, which is a question for faculty.
 
 *Why is the holding negative either way?* The three SELLs are bigger than the one BUY. A negative holding is not
 wrong in itself. The rebuild starts from zero at the beginning of the data (a convention of the exercise), and a
@@ -111,7 +127,8 @@ negative holding can be a short position
 ([Dataset Guide §3](../../../reference/02_Dataset_Guide.md#the-shared-reconstruction-benchmark)). The defect is the
 sign of this one trade, not the negative total.
 
-**What a check here sees.** "Match." It passes, but it shouldn't.
+**What a check here sees.** "Match." Under the wrong-sign reading it passes, but it shouldn't. Under the wrong-type
+reading the holding is right, and only the trade record is wrong.
 
 ## Step 4: The custodian
 
@@ -120,12 +137,17 @@ second opinion: when the book and the custodian agree, we normally trust the num
 
 **What we saw** *(observed)*. The custodian says −9,688, the same as the book.[^t-cust]
 
-**What we conclude.** This is the turning point of the story. The custodian repeats the book's mistake, so
-comparing the book with the custodian cannot catch it.[^t-cust] **Two sources agreeing is not proof that either one
-is right.** It isn't just this trade: in the first detour, book and custodian agree on a duplicate-inflated number
-on 2,021 positions.[^r-dupkeys]
+**What we conclude.** This is the turning point of the story. If the sign is wrong, the custodian repeats the book's
+mistake, so comparing the book with the custodian cannot catch it.[^t-cust] **Two sources agreeing is not proof that
+either one is right.**
 
-**What a check here sees.** "No break." It passes, but it shouldn't.
+Across the 645 positions with a negative BUY that all three sources hold, the custodian equals the book on 641 and
+never holds the wrong-sign value *(observed)*.[^t-cust] That looks like support for the wrong-type reading, but it
+isn't. The custodian also follows the book's own conventions: it counts duplicate copies or subtracts every REVERSED
+row on 2,704 positions.[^t-cust] So it is not an independent source. In the first detour, for example, book and
+custodian agree on a duplicate-inflated number on 2,021 positions.[^r-dupkeys]
+
+**What a check here sees.** "No break." It passes; if the sign is wrong, it shouldn't.
 
 > **Detour: custodian missing holdings (reconciliation).** Sometimes the custodian has no record at all. 480
 > positions are in the book with no custodian record (example `ACC1012432` / `SEC471303`).[^r-nocust] For 478 of
@@ -154,8 +176,10 @@ per share, the price investors buy and sell at. One basic check: net assets ÷ s
 **What we saw** *(observed)*. The account belongs to fund `FND00317`. Its share classes' net assets add up to
 183,372,640.45 USD.[^t-down] The NAV arithmetic holds on all four of its rows.[^nav]
 
-**What we conclude** *(inferred)*. The book is off by 3,990 shares.[^t-down] At 89.1807 USD each, that is an
-indicative **exposure** of 355,830.99 USD, about 19 **basis points** of the fund's net assets.[^t-down]
+**What we conclude** *(inferred)*. Under the wrong-sign reading, the book is off by 3,990 shares.[^t-down] At
+89.1807 USD each, that is an indicative **exposure** of 355,830.99 USD, about 19 **basis points** of the fund's net
+assets.[^t-down] Under the wrong-type reading, the holding is right and the exposure is zero.[^t-down] So the
+exposure is either about 19 bps or nothing, and the better-supported reading gives the 19 bps.
 
 This is exposure, not a loss: it measures how much of the fund's reported value rests on a wrong number. It assumes
 the price is per share and the ledger is in USD (as the data dictionary says). The data has no valuation of each
@@ -173,8 +197,15 @@ gross amount must equal quantity × price within 0.01.[^t-ctrl] **Owner:** the T
 **On failure:** reject the trade.[^t-ctrl]
 
 Across the whole file, this rule flags 655 trade rows with a negative quantity, all of them BUYs.[^r-neg] That's out
-of 1,406,714 rows it could test; another 2,819 have a blank quantity and can't be tested.[^r-neg] On 654 of the 655,
-the money fits a positive quantity.[^r-neg] That independent evidence is why this one is **confirmed**.
+of 1,406,714 rows it could test; another 2,819 have a blank quantity and can't be tested.[^r-neg] Each one is
+**confirmed** as a defective record, because a quantity is never negative
+([Dataset Guide §3](../../../reference/02_Dataset_Guide.md#the-shared-reconstruction-benchmark)): the record is wrong
+whichever reading is right. On 654 of the 655, the money fits the size of the trade, but not its side.[^r-neg]
+
+What stays **unresolved** is the correct value of each row. So the correction waits until something shows the side:
+a second record of the same trade (5 rows have one[^r-neg]) or the source's order side. Taking the absolute value is
+never the fix. The rule that looks for second records is `TXN_NEGATIVE_SIDE_EVIDENCE` in
+[RULES.md](../../RULES.md) §3.
 
 The lesson, and the brief's own words: "the cost of a defect rises with the distance between where it enters and
 where it is found" ([brief §1](../../../reference/01_Student_Brief.md#1-why-this-matters)). Once this trade got past
@@ -211,6 +242,8 @@ positions.[^r-clear]
 - Some differences have no explanation yet, and we keep them visible instead of forcing them into a class. On 1,886
   positions the custodian disagrees with both the book and the trades. On 717, book and custodian agree on a number
   the trades don't explain.[^classes]
+- Which field is wrong on each negative BUY. Wrong sign is better supported, but only 5 rows have a second record to
+  show it.[^partners] The rest need the order side or the cash direction from the source.
 - The exposure is an estimate. The data has no valuation, cash or fees.
 
 ## Where you'll see this on Monday
@@ -242,21 +275,29 @@ Slide numbers from the deck outline in [CHECKIN2_PLAN.md §5](CHECKIN2_PLAN.md#5
 | **Position** | What one account holds of one security on one date. In the code this is a "key". |
 | **Rebuild** | Start from zero and add up every trade for an account and security. Our independent check on the book. |
 | **Spin-off** | A company splits off part of itself; holders receive shares of a new security. |
+| **Wrong sign / wrong type** | The two readings of a negative BUY. Wrong sign: it should be a BUY with a positive quantity, so the book is off by twice the trade. Wrong type: it should be a SELL, so the book is right. |
 
 ---
 
 [^findings]: `docs/FINDINGS.md`, header line "Register checksum" (generated from `outputs/02_defect_register.csv`).
 [^t-src]: `outputs/02_trace.csv`, hop `source` (fields `transaction_id`, `account_id`, `security_id`, `trade_date`,
-    `quantity`, `price`, `gross_amount`, `status`, `source_system`; `gross_amount / price` = 1994.999977; "where it
-    entered").
+    `quantity`, `price`, `gross_amount`, `status`, `source_system`; `gross_amount / price` = 1994.999977; "other
+    records of this trade" = 0; "where it entered").
 [^t-pipe]: `outputs/02_trace.csv`, hop `pipeline` (timestamps, "pipeline records for this transaction_id", "share of
     negative quantities by source_system": OMS_FRONT 0.5, TRADE_CAPTURE 0.2914, CUSTODY_FEED 0.2086 against all rows
     0.4999, 0.3001, 0.2; "negative-quantity records in the same batch").
 [^t-pos]: `outputs/02_trace.csv`, hop `position` (book quantity, rebuilt quantity and its four contributing rows,
-    "quantity if the sign followed gross_amount").
-[^t-cust]: `outputs/02_trace.csv`, hop `custodian` (quantity, "custodian equals the book").
+    "quantity under the wrong-sign reading", "quantity under the wrong-type reading").
+[^t-cust]: `outputs/02_trace.csv`, hop `custodian` (quantity, "custodian equals the book"; "positions with a
+    negative-quantity trade: custodian equals the book" = 641 of 645, its note: wrong-sign value on 0, the book's
+    duplicate or REVERSED convention on 2,704 positions).
 [^t-down]: `outputs/02_trace.csv`, hop `downstream` (account, fund, share class, asset class, fund net assets,
-    "units misstated in the book", price used, indicative exposure in USD and in bps = 19.4048).
+    "units misstated in the book", price used, indicative exposure in USD and in bps = 19.4048; each note: "under the
+    wrong-sign reading", 0 under the wrong-type reading).
+[^sign]: `outputs/02_sign_by_type.csv` (`gross_amount` is `positive` on all BUY and all SELL rows; a negative
+    `quantity` occurs on BUY rows only).
+[^partners]: `outputs/02_negative_partners.csv` (5 negative-quantity transaction_ids with a partner record; every
+    row has `reading_supported` = wrong sign).
 [^t-ctrl]: `outputs/02_trace.csv`, hop `control` (`TXN_FIELDS_VALID`, owner, on fail).
 [^vendor]: `outputs/02_vendor_check.csv`, row for `SEC961485` (quotes, vendors, spread = 0.0024943, result).
 [^config]: `config/reconciliation.toml`, `spread_threshold` = 0.005.
