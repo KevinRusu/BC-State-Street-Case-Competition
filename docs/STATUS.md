@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-10-17 (negative BUYs: two readings and partner evidence added, D-043; catalog drafted)
+Last updated: 2026-10-21 (method review: D-044 to D-047; blank quantities added as catalog entry 2; deck storyboard drafted)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
@@ -18,17 +18,36 @@ Last updated: 2026-10-17 (negative BUYs: two readings and partner evidence added
   readings (wrong sign / wrong type); the new rule `TXN_NEGATIVE_SIDE_EVIDENCE` writes `outputs/02_negative_partners.csv`
   and `02_sign_by_type.csv`. Record confirmed; correct value unresolved, leaning wrong sign. The team work is still
   open (below).
+- **Method review (21 Oct):** the headline numbers were recounted from the raw files with separate SQL and all
+  matched (C0, BOOKED-only, C7, three-way agreement, book vs custodian, NAV, corporate actions, duplicate pairs).
+  Choices that had no written reason now do: removing copies (D-044, evidence in `outputs/02_duplicate_profile.csv`),
+  dropping CANCELLED (D-045), the headline rate (D-046). Blank quantities turned out to be real trades whose size is
+  still in the row; the book appears to drop their units (D-047, `outputs/02_blank_quantity.csv`, new rule
+  `TXN_BLANK_QUANTITY_EVIDENCE`, catalog entry 2). Agreed: for Check-in 2 we show where the data is broken and how we
+  treat it; we do not correct it.
 
 ## Next: before Check-in 2
 
 | Work | Where | Owner |
 |---|---|---|
-| Review the catalog draft: one teammate per entry checks the prose and fills *Reviewed by* | `docs/DEFECT_CATALOG.md` | |
+| Review the catalog draft (six entries now): one teammate per entry checks the prose and fills *Reviewed by* | `docs/DEFECT_CATALOG.md` | |
 | Read the story before the dry run (one broken trade, end to end, with the detours and the cleared flag) | `docs/checkins/checkin2/STORY.md` | everyone |
-| Deck, 8 to 10 slides, outline in CHECKIN2_PLAN §5; every number from an `outputs/02_*` file | `docs/checkins/checkin2/Checkin2.pptx` | |
+| Deck, 8 to 10 slides, outline in CHECKIN2_PLAN §5; every number from an `outputs/02_*` file. Storyboard drafted 21 Oct; revise it for D-044 to D-047, then build it with a script in `scripts/` | `docs/checkins/checkin2/Checkin2.pptx` | |
 | Dry run: each member explains one slide and one number | | |
 
 ## Next: after Check-in 2
+
+- **Open the groups we have only counted** (agreed 21 Oct, for Check-in 3's quality checks). Each is a register line or
+  an output row that nobody has looked inside yet:
+  - break classes "Custodian differs from both the book and the trades", "Book and custodian agree on a quantity the
+    trades do not explain" and "Book and custodian hold the opposite sign to the trades"
+  - "Position with no contributing trade", and the keys not evaluable only in the rebuild
+  - "Rebook changes the quantity but keeps the cancelled gross_amount": what the book did with them
+  - "CANCELLED row linked to an ID that does not exist", "More than one REVERSED row per original", "settlement_date
+    before trade_date"
+  - the backtest misses on rows with no link (`outputs/02_blank_quantity.csv`, part "backtest")
+  - the NAV fails and the vendor spread and scale flags
+  - conflicting copies that differ only on fields that don't change a quantity (could become testable)
 
 - Tag the repo `checkin2`; `docs/checkins/checkin2/` becomes frozen.
 - Move notebook 02's code into `src/` + `run_all.py` (D-012): one command rebuilds every number.
@@ -74,6 +93,8 @@ Docs known to disagree with a higher source. Fix, then remove the line.
 - `notebooks/01_explore_tables.ipynb` labels negative quantities "confirmed (sign contradicts gross_amount)" (also
   in `outputs/01_defect_log.csv`). D-043 says gross_amount confirms the size only. Reword when notebook 01 is next
   rerun.
+- `docs/checkins/checkin2/CHECKIN2_PLAN.md` §2, blank-quantity row: "blank-as-zero ... is evidence of the book's
+  convention". D-047 refines this: the blanks are real trades and the book appears to drop their units.
 - `docs/checkins/checkin2/CHECKIN2_PLAN.md` §2 (trace row: "independent evidence (`gross_amount`)") and §3.4 (hop 1:
   "`gross_amount` / price = +X") treat gross_amount as evidence of the sign. D-043 refines this; the plan stays as
   agreed.

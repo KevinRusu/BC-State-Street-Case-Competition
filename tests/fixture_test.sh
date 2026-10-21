@@ -54,13 +54,21 @@ counts = {
         'FXT32,FXACC2,FXSEC3,FXCUSIP03,BUY,2026-06-16,2026-06-18,15,5.00,USD,75.00,REVERSED,FXT31,FIXTURE_OMS,2026-06-16 10:00:00,',
         'FXT32,FXACC2,FXSEC3,FXCUSIP03,BUY,2026-06-16,2026-06-18,15,5.00,USD,75.00,REVERSED,FXT31,FIXTURE_OMS,2026-06-16 10:00:00,',
         'FXT33,FXACC2,FXSEC3,FXCUSIP03,BUY,2026-06-17,2026-06-19,5,5.00,USD,25.00,REVERSED,,FIXTURE_OMS,2026-06-17 10:00:00,',
-        'FXT34,FXACC2,FXSEC3,FXCUSIP03,BUY,2026-06-18,2026-06-22,5,5.00,USD,25.00,REVERSED,,FIXTURE_OMS,2026-06-18 10:00:00,')),
-    # Book row dated DD/MM/YYYY (same snapshot), and the traced key in the book.
+        'FXT34,FXACC2,FXSEC3,FXCUSIP03,BUY,2026-06-18,2026-06-22,5,5.00,USD,25.00,REVERSED,,FIXTURE_OMS,2026-06-18 10:00:00,',
+        # Blank quantities: one whose size is in the row (50.00 / 5.00 = 10 units; book and custodian leave it out),
+        # and one linked to another trade (held, never derived).
+        'FXT40,FXACC1,FXSEC3,FXCUSIP03,BUY,2026-06-15,2026-06-17,20,5.00,USD,100.00,BOOKED,,FIXTURE_OMS,2026-06-15 09:00:00,',
+        'FXT41,FXACC1,FXSEC3,FXCUSIP03,BUY,2026-06-16,2026-06-18,,5.00,USD,50.00,BOOKED,,FIXTURE_OMS,2026-06-16 09:00:00,',
+        'FXT42,FXACC2,FXSEC2,FXCUSIP02,BUY,2026-06-16,2026-06-18,,10.00,EUR,100.00,BOOKED,FXT01,FIXTURE_OMS,2026-06-16 09:00:00,')),
+    # Book row dated DD/MM/YYYY (same snapshot), the traced key in the book, and the blank-quantity key without its units.
     'positions': edit('positions', set_field({'position_id': 'FXP1'}, 'as_of_date', '10/07/2026',
-                                             add('FXP8,FXACC0,FXSEC3,-10,1,2026-07-10,BOOK_OF_RECORD'))),
-    # The traced key at the custodian, and a custodian row with quantity 0 (the custodian reports a flat position).
+                                             add('FXP8,FXACC0,FXSEC3,-10,1,2026-07-10,BOOK_OF_RECORD',
+                                                 'FXP9,FXACC1,FXSEC3,20,2,2026-07-10,BOOK_OF_RECORD'))),
+    # The traced key at the custodian, a custodian row with quantity 0 (the custodian reports a flat position), and the
+    # blank-quantity key holding the same as the book.
     'comparison_positions': edit('comparison_positions', add('FXC8,FXACC0,FXSEC3,-10,2026-07-10,CUSTODIAN_FEED',
-                                                             'FXC9,FXACC2,FXSEC2,0,2026-07-10,CUSTODIAN_FEED')),
+                                                             'FXC9,FXACC2,FXSEC2,0,2026-07-10,CUSTODIAN_FEED',
+                                                             'FXC10,FXACC1,FXSEC3,20,2026-07-10,CUSTODIAN_FEED')),
     # USD rate on the snapshot is not 1; the traced security is quoted in USD.
     'fx_rates': edit('fx_rates', set_field({'currency': 'USD', 'rate_date': '2026-07-10'}, 'rate_to_usd', '0.990000')),
     # FXSEC1 on the snapshot: both quotes come from one vendor.
@@ -175,6 +183,17 @@ expect('edge: two quotes from one vendor -> not evaluable, not a spread', True,
        'not evaluable' in vendor.loc['FXSEC1', 'result'])
 expect('edge: the custodian reports a zero row -> closed positions not cleared', 'unresolved',
        line('Closed position not reported (trades net to zero, absent from book and custodian)', 'status'))
+blank = read('edge', '02_blank_quantity.csv').set_index('measure')['count']
+expect('edge: blank quantity with gross_amount / price = 10 units -> derivable; a linked blank -> held', ('1', '1'),
+       (blank['derivable: whole number of units, no link to another trade'], blank['held: linked to another trade']))
+expect('edge: book holds the key without the derived units -> "book leaves out the units"', ('1', 'FXACC1/FXSEC3'),
+       (line('Book leaves out the units of trades with a blank quantity', 'affected'),
+        line('Book leaves out the units of trades with a blank quantity', 'examples')))
+copies = read('default', '02_duplicate_profile.csv').set_index('measure')
+expect('fixture book counts the copied SELL once -> profile says transaction_count counts each copy once',
+       ('0', 'counts each copy once: 1'),
+       (copies.loc['of the book positions holding a copy: transaction_count counts both copies', 'count'],
+        copies.loc['of the book positions holding a copy: transaction_count counts both copies', 'note']))
 
 width = max(len(r[0]) for r in results)
 for what, expected, observed, ok in results:

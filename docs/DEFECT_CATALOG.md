@@ -1,6 +1,6 @@
 # Defect catalog
 
-*The full write-ups of the four defect classes we take forward (D-017 in [DECISIONS.md](DECISIONS.md)) and the
+*The full write-ups of the five defect classes we take forward (D-017 and D-047 in [DECISIONS.md](DECISIONS.md)) and the
 cleared flag (D-024). Every other finding is one line in [FINDINGS.md](FINDINGS.md). For the same evidence told as a
 story, see `docs/checkins/checkin2/STORY.md`.*
 
@@ -20,7 +20,7 @@ The entries follow the trade's route through the platform, in the same order as 
 ## 1. Negative-quantity BUYs · Record confirmed; correct value unresolved, leaning wrong sign
 
 <!-- card: Negative trade quantity -->
-*Facts generated from the register (checksum `d43040c69f8c`) by `scripts/build_findings.py`; do not edit between the markers.*
+*Facts generated from the register (checksum `b29e95bb9740`) by `scripts/build_findings.py`; do not edit between the markers.*
 
 | Register line | Status | Rule | Affected | Out of (eligible) | Not evaluable | Examples |
 |---|---|---|---|---|---|---|
@@ -68,10 +68,58 @@ take the absolute value. Fixing the positions alone would be undone by the next 
 
 ---
 
-## 2. Duplicate trade copies counted as trades · Unresolved (the copies themselves are confirmed)
+## 2. Blank quantities left out by the book · Record confirmed; position impact unresolved
+
+<!-- card: Blank trade quantity | Book leaves out the units of trades with a blank quantity -->
+*Facts generated from the register (checksum `b29e95bb9740`) by `scripts/build_findings.py`; do not edit between the markers.*
+
+| Register line | Status | Rule | Affected | Out of (eligible) | Not evaluable | Examples |
+|---|---|---|---|---|---|---|
+| Blank trade quantity | **confirmed** | TXN_FIELDS_VALID | 2,819 rows | 1,409,533 | 0 | TXN100000235, TXN100000366, TXN100000703 |
+| Book leaves out the units of trades with a blank quantity | **unresolved** | POS_REBUILD_MATCHES | 2,756 keys | 2,778 | 19 | ACC1002855/SEC553894, ACC1002910/SEC371053, ACC1010411/SEC910108 |
+
+- *How detected (Blank trade quantity):* blank field; the size is still in the row on 2802 of 2819 (gross_amount / price is a whole number and the row has no link: TXN_BLANK_QUANTITY_EVIDENCE, section 2b)
+- *How detected (Book leaves out the units of trades with a blank quantity):* rebuilt with blank quantities derived from gross_amount / price, the key differs from the book (or the book has no row), and the book equals the blank-as-zero rebuild; the book still counts the row in transaction_count (section 2b). The size is derived, not confirmed by the source
+<!-- /card -->
+
+**Rule.** `TXN_FIELDS_VALID` ([RULES.md](RULES.md) §3): a trade must have a quantity. A blank fails it whatever the
+trade's true size, so the record is confirmed. A second rule, `TXN_BLANK_QUANTITY_EVIDENCE` (§3), asks whether the
+size is still in the row: `gross_amount / price` within `derived_units_tolerance` of a whole number, a price above
+zero, and no link to another trade. The side comes from BUY/SELL, which every row has, so unlike entry 1 the direction
+is not in doubt. Then, on positions: rebuilt with the derived sizes, does the position differ from the book while the
+book equals the rebuild that counts the blank as zero? (D-047.)
+
+**Where it entered.** At **trade capture**: the quantity is already blank in the row as delivered *(observed)*. It is
+not one desk: blanks are spread across the source systems in about their share of all trades *(observed)*.[^blank]
+Why the field is empty is not in the data. These are real trades, not trades that never happened: nearly all are
+BOOKED, every one moved money and was booked and published in the pipeline, and the book counts each one in its
+`transaction_count` *(observed)*.[^blank]
+
+**Why it matters.** The book appears to keep the trade but drop its units *(inferred)*. Rebuilt with the derived
+sizes, no testable position matches the book, and the book equals the rebuild that counts the blank as zero (see the
+card); on some of these positions the book has no row at all. The custodian holds the same as the book on nearly all
+of them, so a book-vs-custodian check can't see it: the same lesson as entry 1.[^blank] How sure is the derived size?
+On rows that do have a quantity, `gross_amount / price` gives it exactly on almost every one, and most misses are
+linked rows such as rebooks, which the rule holds back.[^blank] Still, the size comes from the row, not from the
+source, so the position line stays **unresolved**. An exposure in bps is not yet in our outputs (final). Who acts:
+trade operations (complete the rows), then reconciliation and fund accounting.
+
+**What would fix it.** Prevention: `TXN_FIELDS_VALID` at the trade check, owned by the **Trade operations lead**;
+on fail, **reject** a trade that has no quantity. Remediation for the rows already booked: propose the derived size
+to the source system to confirm (`TXN_BLANK_QUANTITY_EVIDENCE`, **hold**), book the confirmed quantity, and rebuild
+the positions it feeds. Linked rows and rows without a whole number wait for the source. Never fill a blank silently,
+and never treat it as zero.
+
+**What would settle it.** The source system's quantity for these trades, or a settlement record of the units delivered.
+
+*Reviewed by:* ______
+
+---
+
+## 3. Duplicate trade copies counted as trades · Unresolved (the copies themselves are confirmed)
 
 <!-- card: Repeated transaction_id: exact full-row copy | Repeated transaction_id: copies differ only by date format | Repeated transaction_id: copies conflict on a fact | Repeated transaction_id in the pipeline | Book and custodian count duplicate copies as trades | Book and custodian count duplicate copies and subtract every REVERSED row -->
-*Facts generated from the register (checksum `d43040c69f8c`) by `scripts/build_findings.py`; do not edit between the markers.*
+*Facts generated from the register (checksum `b29e95bb9740`) by `scripts/build_findings.py`; do not edit between the markers.*
 
 | Register line | Status | Rule | Affected | Out of (eligible) | Not evaluable | Examples |
 |---|---|---|---|---|---|---|
@@ -96,8 +144,11 @@ evaluable (D-006). Then the cause rule `book_counts_duplicate_copies` (D-013, or
 the book minus the rebuild equals the signed quantity of the removed copies, within the quantity tolerance.
 
 **Where it entered.** In the **pipeline**: the same `transaction_id` arrives twice in `transactions` and twice in
-`pipeline_events` (see the card). The copies are confirmed. What happens next is not: book and custodian hold
-exactly the quantity you get by counting both copies. That could be a defect in both, or a convention the platform
+`pipeline_events` (see the card). The two records of a pair are received together in one batch, then published twice,
+mostly minutes apart *(observed)*.[^dups] Our reading is a resend at the publish step *(inferred)*; the data has no
+message ID to prove it. The copies are confirmed. What happens next is not: book and custodian hold exactly the
+quantity you get by counting both copies, and the book's own `transaction_count` counts both on every position that
+holds one *(observed)*.[^dups] That could be a defect in both, or a convention the platform
 uses on purpose. It is on our list of questions for faculty (STATUS, open question 4).
 
 **Why it matters.** If the copies are errors, every affected position is overstated by the copied quantity, and the
@@ -116,10 +167,10 @@ convention.
 
 ---
 
-## 3. Spin-off targets never set up · Confirmed
+## 4. Spin-off targets never set up · Confirmed
 
 <!-- card: Corporate-action target security missing from securities | Position on a security_id missing from securities | Held security with no price at all -->
-*Facts generated from the register (checksum `d43040c69f8c`) by `scripts/build_findings.py`; do not edit between the markers.*
+*Facts generated from the register (checksum `b29e95bb9740`) by `scripts/build_findings.py`; do not edit between the markers.*
 
 | Register line | Status | Rule | Affected | Out of (eligible) | Not evaluable | Examples |
 |---|---|---|---|---|---|---|
@@ -160,10 +211,10 @@ trades and price the holdings.
 
 ---
 
-## 4. Custodian missing holdings · Unresolved
+## 5. Custodian missing holdings · Unresolved
 
 <!-- card: Position in the book with no custodian record -->
-*Facts generated from the register (checksum `d43040c69f8c`) by `scripts/build_findings.py`; do not edit between the markers.*
+*Facts generated from the register (checksum `b29e95bb9740`) by `scripts/build_findings.py`; do not edit between the markers.*
 
 | Register line | Status | Rule | Affected | Out of (eligible) | Not evaluable | Examples |
 |---|---|---|---|---|---|---|
@@ -196,10 +247,10 @@ position.
 
 ---
 
-## 5. Closed positions not reported · Cleared
+## 6. Closed positions not reported · Cleared
 
 <!-- card: Closed position not reported (trades net to zero, absent from book and custodian) -->
-*Facts generated from the register (checksum `d43040c69f8c`) by `scripts/build_findings.py`; do not edit between the markers.*
+*Facts generated from the register (checksum `b29e95bb9740`) by `scripts/build_findings.py`; do not edit between the markers.*
 
 | Register line | Status | Rule | Affected | Out of (eligible) | Not evaluable | Examples |
 |---|---|---|---|---|---|---|
@@ -236,6 +287,9 @@ positions.
 
 ---
 
+[^blank]: `outputs/02_blank_quantity.csv`: parts "blank quantities" (status, money, pipeline, source share,
+    `transaction_count`), "size from gross_amount / price", "backtest" and "positions".
+[^dups]: `outputs/02_duplicate_profile.csv`: the pipeline rows per copy pair, and the two `transaction_count` rows.
 [^t-src]: `outputs/02_trace.csv`, hop `source`, rows `source_system`, "other records of this trade" and "where it
     entered".
 [^t-pipe]: `outputs/02_trace.csv`, hop `pipeline`, row "share of negative quantities by source_system" (and its note:

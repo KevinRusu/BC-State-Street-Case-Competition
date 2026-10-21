@@ -335,3 +335,62 @@ Made while building notebook 02 and fixing review findings. Source: *build log*,
   wrong under both readings).
 - **Refines:** D-032 (the trace claim) and the "independent evidence (`gross_amount`)" in D-014 and CHECKIN2_PLAN §2:
   gross_amount is independent evidence of the size only. Faculty question added in STATUS.md.
+
+### D-044 · 21 Oct · Exact and date-format-only copies are removed before the rebuild (C1)
+
+- **Decision:** a second row with the same `transaction_id` that equals the first once both date formats are
+  normalised is removed (C1). Copies that still differ stay under D-006 (their keys are not evaluable).
+- **Why:** they look like one trade delivered twice, not two trades. `outputs/02_duplicate_profile.csv`: every pair
+  has two pipeline records, received at the same time in one batch, and the second is published later, mostly within
+  minutes *(observed)*. Our reading is a resend at the publish step *(inferred)*; the data has no delivery-attempt or
+  message ID to prove it, and it is synthetic. A trade happens once, so counting it twice overstates the holding
+  (`TXN_DUPLICATE`, [RULES.md](RULES.md) §3).
+- **The other side, stated:** the book counts both copies. Its own `transaction_count` includes both on every position
+  that holds one (same file), and book and custodian agree on the copy-inflated quantity (register line "Book and
+  custodian count duplicate copies as trades"). So the copies are confirmed, but whether counting them is a defect or
+  the platform's convention stays unresolved (faculty question 4 in STATUS).
+- **Instead of:** keeping the copies, as the Guide's BOOKED-only benchmark does. Effect: `outputs/02_waterfall.csv`,
+  C0 to C1 and the BOOKED-only line (Dataset Guide §3: show the effect of each transformation, "including exact and
+  conflicting duplicates").
+- **Source:** team review of the method, 21 Oct (no written reason existed for C1 before; D-004 only listed it).
+
+### D-045 · 21 Oct · CANCELLED rows do not count (C3)
+
+- **Decision:** a CANCELLED row adds nothing to a holding. A BOOKED row linked to a CANCELLED original is a rebook
+  and counts (Dataset Guide §3).
+- **Why:** a cancelled trade is not a holding, and the Guide's BOOKED-only benchmark drops it too. The book agrees:
+  its `transaction_count` equals the number of rows that are not CANCELLED on every position it holds
+  (`outputs/02_duplicate_profile.csv`).
+- **Instead of:** counting them (the C0 raw benchmark in the waterfall). CANCELLED rows linked to an ID that does not
+  exist stay uncounted; what that link means is unresolved (register line "CANCELLED row linked to an ID that does not
+  exist").
+
+### D-046 · 21 Oct · The headline rate: three-way agreement on the positions we can test
+
+- **Decision:** the one headline number is the keys where rebuild, book and custodian agree, divided by the keys in
+  the union minus the not-evaluable keys (`outputs/02_three_way_summary.csv`). The not-evaluable count is shown beside
+  it, never inside it. Flags inside the agreement are stated with it (`sign_conflict_keys` on "all three agree" in
+  `outputs/02_break_classes.csv`). Rates A and B stay on the waterfall, each named with its denominator.
+- **Why:** the same denominator as the register (D-027; Dataset Guide §5: eligible apart from unevaluable). One-sided
+  keys stay in the denominator, as not agreeing. Avoids the plan's anti-goal of a rate that silently includes
+  suspect keys.
+- **Instead of:** rate A (leaves out one-sided keys, so it flatters), rate B or three-way over the whole union
+  (counts "unknown" as "wrong").
+
+### D-047 · 21 Oct · Blank quantities are real trades with the quantity missing (refines D-009)
+
+- **Decision:** the main chain is unchanged: a key with a blank quantity is not evaluable. Beside it, a sensitivity
+  derives the size as `gross_amount / price` where that is within `derived_units_tolerance` of a whole number and the
+  row has no `related_transaction_id` (a rebook can carry the cancelled trade's gross_amount); the side comes from
+  BUY/SELL. New rule `TXN_BLANK_QUANTITY_EVIDENCE` ([RULES.md](RULES.md) §3), new register line "Book leaves out the
+  units of trades with a blank quantity" (**unresolved**), new catalog entry 2.
+- **Why:** `outputs/02_blank_quantity.csv`. The rows look like real trades: BOOKED, money moved, booked and published,
+  and counted in the book's `transaction_count`. The backtest of `gross_amount / price` on rows that do have a
+  quantity gives it exactly on nearly all of them; most misses are linked rows. With the derived sizes, no testable key
+  matches the book, and the book equals the blank-as-zero rebuild. So D-009's "blank-as-zero is evidence of the
+  book's convention" now reads: the book appears to drop the units of real trades.
+- **Why not in the main chain:** the size is derived from the row itself, not confirmed by the source. Filling it in
+  is a correction, and corrections belong to remediation once the source confirms (Dataset Guide §3: no silent
+  repair). Check-in 2 shows where the data is broken; it does not correct it (team, 21 Oct).
+- **Instead of:** "a blank means the trade never happened or was cancelled" (contradicted by the status, the money,
+  the pipeline and the book's own count), or blank-as-zero.

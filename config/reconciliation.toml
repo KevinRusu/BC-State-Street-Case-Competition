@@ -13,6 +13,8 @@ shuffle_seed = 0                     # 0 = rows as delivered; any other number s
 [tolerances]
 quantity_match_tolerance = 1e-6      # absolute units; only absorbs float noise in stored quantities
 gross_amount_tolerance = 0.01        # currency units; gross_amount is stored to the cent
+derived_units_tolerance = 0.01       # units; a blank quantity is derived only if gross_amount / price is this close to a
+                                     # whole number (sensitivity only, D-047)
 
 [policies]
 # The main chain. Each choice is shown beside its alternatives in the sensitivity table.
@@ -20,7 +22,7 @@ conflicting_pairs = "not_evaluable"  # not_evaluable | keep_first | keep_second 
 reversed_main = "R1"                 # R1 (REVERSED row is a status; BOOKED-only) | R3 (one offset per original). R4 is refused: double offset
 reversed_side = "R3"                 # the reading shown beside the main one on the keys with a reversal
 negatives = "raw"                    # raw (keep the sign, flag the key) | not_evaluable. Absolute value is a sensitivity only
-blanks = "not_evaluable"             # not_evaluable. Blank-as-zero is a sensitivity only
+blanks = "not_evaluable"             # not_evaluable. Blank-as-zero and gross_amount / price are sensitivities only
 holding_date = "trade"               # trade | settlement (the other one is reported beside it)
 
 [classification]
