@@ -1,14 +1,16 @@
+import { Fragment } from "react";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
-import { HOP_STATUS, fmt, toneColor } from "@/lib/status";
+import { FindingDots, SourceChip } from "@/components/common";
+import type { Counts } from "@/lib/findings";
+import { HOP_STATUS, toneColor, toneText } from "@/lib/status";
 import type { HopStatus, MapNode } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export const NODE_WIDTH = 230;
-export const NODE_HEIGHT = 118;
+export const NODE_WIDTH = 180;
 
 export type TableNodeData = {
   node: MapNode;
-  findings: { confirmed: number; unresolved: number; cleared: number };
+  counts: Counts;
   selected: boolean;
   dimmed: boolean;
   traceStatus?: HopStatus;
@@ -16,53 +18,46 @@ export type TableNodeData = {
 export type TableNodeType = Node<TableNodeData, "table">;
 
 const SIDES = [Position.Top, Position.Right, Position.Bottom, Position.Left];
+// A line can leave or enter at the middle of a side, or 30 % (-a) / 70 % (-b) along it (GRAPH from/to_handle).
+const SLOTS = [["", 50], ["-a", 30], ["-b", 70]] as const;
 
-/** A table on the map: name, grain, row count, and how many register findings its rules hold. */
+/** A table on the map: name, where its data comes from, and how many register findings count on it. */
 export function TableNode({ data }: NodeProps<TableNodeType>) {
-  const { node, findings, selected, dimmed, traceStatus } = data;
-  const ring = traceStatus ? toneColor(HOP_STATUS[traceStatus].tone) : undefined;
+  const { node, counts, selected, dimmed, traceStatus } = data;
+  const ring = traceStatus ? toneColor(HOP_STATUS[traceStatus].tone) : selected ? "var(--brand-line)" : undefined;
   return (
     <div
       className={cn(
-        "flex flex-col gap-1 rounded-xl border bg-card px-3.5 py-3 text-card-foreground shadow-sm transition-all",
-        selected && "ring-2 ring-primary",
+        "relative flex flex-col items-start gap-1.5 rounded-[10px] bg-card px-3 pt-3.5 pb-2.5 text-card-foreground shadow-[0_1px_3px_rgba(16,24,40,0.14)] transition-all",
         dimmed && "opacity-30",
       )}
-      style={{ width: NODE_WIDTH, minHeight: NODE_HEIGHT, ...(ring ? { boxShadow: `0 0 0 3px ${ring}` } : {}) }}
+      style={{ width: NODE_WIDTH, ...(ring ? { boxShadow: `0 0 0 ${traceStatus ? 3 : 2.5}px ${ring}` } : {}) }}
     >
-      {SIDES.map((side) => (
-        <span key={side}>
-          <Handle type="source" id={`${side}-out`} position={side} className="opacity-0" isConnectable={false} />
-          <Handle type="target" id={`${side}-in`} position={side} className="opacity-0" isConnectable={false} />
-        </span>
+      {SIDES.flatMap((side) =>
+        SLOTS.map(([slot, at]) => {
+          const along = side === Position.Top || side === Position.Bottom ? { left: `${at}%` } : { top: `${at}%` };
+          return (
+            <Fragment key={side + slot}>
+              <Handle type="source" id={`out-${side}${slot}`} position={side} style={along} className="opacity-0" isConnectable={false} />
+              <Handle type="target" id={`in-${side}${slot}`} position={side} style={along} className="opacity-0" isConnectable={false} />
+            </Fragment>
+          );
+        }),
+      )}
+      <span className="text-[15px] leading-snug font-semibold">{node.label}</span>
+      {node.sources.map((source) => (
+        <SourceChip key={source.label} source={source} />
       ))}
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-sm font-semibold">{node.label}</span>
-        {traceStatus && (
-          <span className="text-[10px] font-medium" style={{ color: ring }}>
-            {HOP_STATUS[traceStatus].label}
-          </span>
-        )}
-      </div>
-      <div className="text-xs text-muted-foreground italic">{node.grain}</div>
-      {node.note && <div className="text-[11px] text-muted-foreground">{node.note}</div>}
-      <div className="mt-auto flex items-center justify-between pt-1 text-xs">
-        <span className="font-mono tabular-nums">{fmt(node.rows)} rows</span>
-        <span className="flex items-center gap-2">
-          {findings.confirmed > 0 && <Count tone="bad" n={findings.confirmed} title="confirmed findings" />}
-          {findings.unresolved > 0 && <Count tone="warn" n={findings.unresolved} title="unresolved findings" />}
-          {findings.cleared > 0 && <Count tone="ok" n={findings.cleared} title="cleared look-alikes" />}
+      {traceStatus && (
+        <span className="text-[10px] font-medium" style={{ color: toneText(HOP_STATUS[traceStatus].tone) }}>
+          {HOP_STATUS[traceStatus].label}
         </span>
-      </div>
+      )}
+      {(counts.confirmed > 0 || counts.unresolved > 0 || counts.cleared > 0) && (
+        <span className="absolute -top-2.5 right-1.5 rounded-full bg-card px-2 py-0.5 shadow-[0_1px_3px_rgba(16,24,40,0.18)] ring-1 ring-black/5 dark:ring-white/10">
+          <FindingDots counts={counts} />
+        </span>
+      )}
     </div>
-  );
-}
-
-function Count({ tone, n, title }: { tone: "bad" | "warn" | "ok"; n: number; title: string }) {
-  return (
-    <span className="flex items-center gap-1" title={`${n} ${title} in the register`}>
-      <span className="size-2 rounded-full" style={{ background: toneColor(tone) }} />
-      <span className="tabular-nums">{n}</span>
-    </span>
   );
 }

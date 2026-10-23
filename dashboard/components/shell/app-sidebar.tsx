@@ -4,8 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Activity, LayoutDashboard, Network, Route, Workflow } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useShell } from "./shell-state";
 
-const PAGES = [
+export const PAGES = [
   { href: "/", label: "Data map", icon: Network, hint: "tables, joins, rules" },
   { href: "/trace", label: "Trace a record", icon: Route, hint: "follow one ID end to end" },
 ];
@@ -16,10 +17,11 @@ const LATER = [
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const { menuOpen } = useShell();
   return (
-    <aside className="hidden w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground md:flex">
+    <aside className={cn("hidden w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground", menuOpen && "md:flex")}>
       <div className="flex items-center gap-2.5 border-b px-4 py-4">
-        <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+        <div className="flex size-8 items-center justify-center rounded-lg bg-brand text-white">
           <Workflow className="size-4" />
         </div>
         <div className="leading-tight">
@@ -39,7 +41,7 @@ export function AppSidebar() {
                 active ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground" : "hover:bg-sidebar-accent/60",
               )}
             >
-              <Icon className={cn("mt-0.5 size-4", active && "text-primary")} />
+              <Icon className={cn("mt-0.5 size-4", active && "text-brand-line")} />
               <span className="flex flex-col">
                 {label}
                 <span className="text-xs font-normal text-muted-foreground">{hint}</span>

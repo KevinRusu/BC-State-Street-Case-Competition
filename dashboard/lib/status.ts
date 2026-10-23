@@ -28,7 +28,16 @@ export const HOP_STATUS: Record<HopStatus, { tone: Tone; label: string }> = {
 
 export const REGISTER_STATUS: Record<string, Tone> = { confirmed: "bad", unresolved: "warn", cleared: "ok" };
 
+// The same tones when they colour text: amber and grey get darker values so text stays readable (4.5:1).
+const TONE_TEXT_VAR: Record<Tone, string> = {
+  ok: "var(--status-ok)",
+  warn: "var(--status-warn-text)",
+  bad: "var(--status-bad)",
+  info: "var(--muted-foreground)",
+};
+
 export const toneColor = (tone: Tone) => TONE_VAR[tone];
+export const toneText = (tone: Tone) => TONE_TEXT_VAR[tone];
 
 const HOP_ORDER: HopStatus[] = ["missing", "fan_out", "ok", "info", "not_reached"];
 export const worstHop = (statuses: HopStatus[]): HopStatus =>

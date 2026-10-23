@@ -1,6 +1,7 @@
 // Runs on the store that tests/store_test.sh builds from tests/fixtures/small (STORE_PATH points at it).
 // The fixture is made up, so its IDs can be named here.
 import { beforeAll, describe, expect, test } from "vitest";
+import { countsFor, totals, type Counts } from "@/lib/findings";
 import { getDemoTraces, getMapData, traceRecord } from "@/lib/store";
 import type { MapData } from "@/lib/types";
 
@@ -36,6 +37,36 @@ describe("map", () => {
     const known = new Set(map.catalog.map((r) => r.ruleId));
     for (const ruleId of [...map.nodes.flatMap((n) => n.rules), ...map.edges.flatMap((e) => e.rules)])
       expect(known.has(ruleId), ruleId).toBe(true);
+  });
+
+  test("every table sits in a known office row and stage column", () => {
+    for (const node of map.nodes) {
+      expect(map.offices.some((o) => o.id === node.office), node.id).toBe(true);
+      expect(map.stages.some((s) => s.id === node.stage), node.id).toBe(true);
+    }
+  });
+
+  test("every handoff check has an owner and an office", () => {
+    for (const edge of map.edges.filter((e) => e.handoff !== null)) {
+      expect(edge.owner, edge.id).not.toBe("");
+      expect(edge.checkOffice, edge.id).not.toBe("");
+    }
+  });
+
+  test("every register line is counted once on the map", () => {
+    const sum: Counts = { confirmed: 0, unresolved: 0, cleared: 0 };
+    const add = (c: Counts) => (Object.keys(sum) as (keyof Counts)[]).forEach((k) => (sum[k] += c[k]));
+    for (const node of map.nodes) add(countsFor(map.register, "node", node.id));
+    for (const edge of map.edges) add(countsFor(map.register, "edge", edge.id));
+    expect(sum).toEqual(totals(map.register));
+    expect(map.register.length).toBeGreaterThan(0);
+  });
+
+  test("comes-from chips come from the data", () => {
+    expect(map.nodes.find((n) => n.id === "transactions")?.sources).toEqual([
+      { label: "1 trade system", evidence: "data", column: "transactions.source_system", values: ["FIXTURE_OMS"], reason: "" },
+    ]);
+    expect(map.nodes.find((n) => n.id === "accounts")?.sources[0].values).toEqual([]);
   });
 });
 

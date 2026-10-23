@@ -1,12 +1,13 @@
 "use client";
 
 import { ArrowRight, Info } from "lucide-react";
-import { Dot, Metric, Pill, Section } from "@/components/common";
+import { CheckBadge, Dot, FindingDots, Metric, Pill, Section, SourceChip } from "@/components/common";
 import { RulesList } from "@/components/rules-list";
 import { edgeIssue, type Selection } from "@/components/flow/graph";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { JOIN_STATUS, fmt } from "@/lib/status";
-import type { JoinSide, MapData, MapEdge, Status } from "@/lib/types";
+import { countsFor } from "@/lib/findings";
+import { JOIN_STATUS, fmt, toneText } from "@/lib/status";
+import type { JoinSide, MapData, MapEdge, MapNode, Status } from "@/lib/types";
 
 type Props = { data: MapData; selection: Selection; onSelect: (selection: Selection) => void };
 
@@ -18,77 +19,74 @@ export function DetailsPanel({ data, selection, onSelect }: Props) {
 
 const label = (data: MapData, id: string) => data.nodes.find((n) => n.id === id)?.label ?? id;
 
-function EdgeLink({ data, edge, onSelect }: { data: MapData; edge: MapEdge; onSelect: Props["onSelect"] }) {
+/** One join in a list: its check number (or health dot), name, a second line, and what counts on it. */
+function JoinRow({ data, edge, onSelect, detail }: { data: MapData; edge: MapEdge; onSelect: Props["onSelect"]; detail: React.ReactNode }) {
   const issue = edgeIssue(edge.id, data.health);
   return (
     <button
       type="button"
       onClick={() => onSelect({ kind: "edge", id: edge.id })}
-      className="flex w-full items-start gap-2.5 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
+      className="flex w-full items-start gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-block"
     >
-      <Dot tone={JOIN_STATUS[edge.status].tone} className="mt-1.5" />
+      {edge.handoff !== null ? <CheckBadge n={edge.handoff} /> : <Dot tone={JOIN_STATUS[edge.status].tone} className="mt-1.5" />}
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="flex items-baseline justify-between gap-2">
-          <span>
-            {edge.handoff !== null && <span className="mr-1.5 font-mono text-xs text-muted-foreground">#{edge.handoff}</span>}
-            {edge.label}
+          <span className={edge.handoff !== null ? "font-medium" : undefined}>{edge.label}</span>
+          <span className="flex shrink-0 items-center gap-2 text-xs">
+            <FindingDots counts={countsFor(data.register, "edge", edge.id)} />
+            {issue && (
+              <span className="tabular-nums" style={{ color: toneText(JOIN_STATUS[edge.status].tone) }}>
+                {issue}
+              </span>
+            )}
           </span>
-          {issue && <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{issue}</span>}
         </span>
-        <span className="text-xs text-muted-foreground">
-          {label(data, edge.source)} <ArrowRight className="inline size-3" /> {label(data, edge.target)}
-        </span>
+        <span className="text-xs text-muted-foreground">{detail}</span>
       </span>
     </button>
   );
 }
 
+const route = (data: MapData, edge: MapEdge) => (
+  <>
+    {label(data, edge.source)} <ArrowRight className="inline size-3" /> {label(data, edge.target)}
+  </>
+);
+
 function Overview({ data, onSelect }: { data: MapData; onSelect: Props["onSelect"] }) {
-  const order: Status[] = ["orphans", "fan_out", "blank_keys", "ok", "info"];
-  const edges = [...data.edges].sort((a, b) => order.indexOf(a.status) - order.indexOf(b.status));
-  const byStatus = (status: string) => data.register.filter((r) => r.status === status).length;
+  const checks = data.edges.filter((e) => e.handoff !== null).sort((a, b) => a.handoff! - b.handoff!);
+  const others = data.edges.filter((e) => e.handoff === null);
   const placed = new Set([...data.nodes.flatMap((n) => n.rules), ...data.edges.flatMap((e) => e.rules)]);
   const unplaced = [...new Set(data.register.map((r) => r.ruleId))].filter((r) => r && !placed.has(r));
   return (
     <div className="space-y-6 p-5">
-      <div className="space-y-1">
+      <div className="space-y-2">
         <h2 className="text-lg font-semibold">How to read the map</h2>
-        <p className="text-sm text-muted-foreground">Click a table or an arrow to see its details.</p>
-      </div>
-      <ul className="space-y-2 text-sm">
-        <li>
-          <b>Bands</b> are the offices. A record moves left to right, from capture to NAV.
-        </li>
-        <li>
-          <b>Numbered arrows</b> are the control map&apos;s six handoffs, each with the check that sits on it.
-        </li>
-        <li>
-          <b>Dashed</b> arrows are inferred or scenario links: the data has no key that proves them.
-        </li>
-        {(["ok", "fan_out", "orphans", "info"] as Status[]).map((s) => (
-          <li key={s} className="flex items-start gap-2">
-            <Dot tone={JOIN_STATUS[s].tone} className="mt-1.5" />
-            <span>
-              <b>{JOIN_STATUS[s].label}</b>: {JOIN_STATUS[s].meaning}
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          A <b className="text-foreground">row</b> is the office that handles a table. Follow the{" "}
+          <b className="text-foreground">columns</b> left to right to follow the data.{" "}
+          <b className="text-brand-line">Blue numbers</b> are our checks; an arrow&apos;s colour is the health of its
+          keys. Dashed: the data can&apos;t prove it. Click anything for details.
+        </p>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          {(["ok", "fan_out", "orphans", "info"] as Status[]).map((s) => (
+            <span key={s} className="flex items-center gap-1.5" title={JOIN_STATUS[s].meaning}>
+              <Dot tone={JOIN_STATUS[s].tone} /> {JOIN_STATUS[s].label}
             </span>
-          </li>
-        ))}
-      </ul>
-      <Section title="This run">
-        <div className="grid grid-cols-3 gap-2 text-center">
-          {(["confirmed", "unresolved", "cleared"] as const).map((s) => (
-            <div key={s} className="rounded-lg border p-2">
-              <div className="text-xl font-semibold tabular-nums">{byStatus(s)}</div>
-              <div className="text-xs text-muted-foreground">{s}</div>
-            </div>
           ))}
         </div>
-        <p className="text-xs text-muted-foreground">Register lines from notebook 02 ({data.info.registerLines} in all).</p>
-      </Section>
-      <Section title="Joins, worst first">
+      </div>
+      <Section title="The checks, in flow order">
         <div className="-mx-2">
-          {edges.map((edge) => (
-            <EdgeLink key={edge.id} data={data} edge={edge} onSelect={onSelect} />
+          {checks.map((edge) => (
+            <JoinRow key={edge.id} data={data} edge={edge} onSelect={onSelect} detail={`${edge.owner} · ${edge.checkOffice}`} />
+          ))}
+        </div>
+      </Section>
+      <Section title="Other joins">
+        <div className="-mx-2">
+          {others.map((edge) => (
+            <JoinRow key={edge.id} data={data} edge={edge} onSelect={onSelect} detail={route(data, edge)} />
           ))}
         </div>
       </Section>
@@ -102,21 +100,61 @@ function Overview({ data, onSelect }: { data: MapData; onSelect: Props["onSelect
   );
 }
 
+/** Who handles a table (or checks an independent source), and where its data comes from. */
+function Ownership({ node }: { node: MapNode }) {
+  return (
+    <dl className="grid grid-cols-[88px_1fr] gap-x-3 gap-y-3 rounded-xl bg-block p-3.5 text-sm">
+      <dt className="text-muted-foreground">{node.office === "independent" ? "Checked by" : "Handled by"}</dt>
+      <dd>
+        <span className="font-medium">
+          {node.checkOffice} · {node.owner}
+        </span>
+        {node.note && <p className="mt-0.5 text-xs text-muted-foreground">{node.note}</p>}
+      </dd>
+      {node.sources.length > 0 && (
+        <>
+          <dt className="text-muted-foreground">Comes from</dt>
+          <dd className="space-y-2">
+            {node.sources.map((source) => (
+              <div key={source.label} className="space-y-1">
+                <SourceChip source={source} className="text-xs" />
+                {source.evidence === "data" ? (
+                  <p className="text-xs text-muted-foreground">
+                    Seen in the data: <span className="font-mono">{source.column}</span>
+                    <span className="mt-1 flex flex-wrap gap-1">
+                      {source.values.map((v) => (
+                        <span key={v} className="rounded bg-[var(--chip-data)] px-1.5 py-px font-mono text-[11px] text-foreground">
+                          {v}
+                        </span>
+                      ))}
+                    </span>
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">{source.reason}</p>
+                )}
+              </div>
+            ))}
+          </dd>
+        </>
+      )}
+    </dl>
+  );
+}
+
 function NodeDetails({ data, id, onSelect }: { data: MapData; id: string; onSelect: Props["onSelect"] }) {
   const node = data.nodes.find((n) => n.id === id);
   if (!node) return null;
-  const band = data.bands.find((b) => b.id === node.band);
   const joins = data.edges.filter((e) => e.source === id || e.target === id);
   const columns = data.columns.filter((c) => c.table === id);
   return (
     <div className="space-y-6 p-5">
       <div className="space-y-1">
-        <div className="text-xs text-muted-foreground">{band?.label}</div>
+        <div className="text-xs text-muted-foreground">{node.place}</div>
         <h2 className="text-lg font-semibold">{node.label}</h2>
         <p className="font-mono text-xs text-muted-foreground">{node.id}</p>
         <p className="text-sm italic">{node.grain}</p>
-        {node.note && <p className="text-sm text-muted-foreground">{node.note}</p>}
       </div>
+      <Ownership node={node} />
       <Section title="Rows">
         <Metric label="Loaded (as text)" value={fmt(node.rows)} />
         <Metric
@@ -130,7 +168,7 @@ function NodeDetails({ data, id, onSelect }: { data: MapData; id: string; onSele
       <Section title="Joins">
         <div className="-mx-2">
           {joins.map((edge) => (
-            <EdgeLink key={edge.id} data={data} edge={edge} onSelect={onSelect} />
+            <JoinRow key={edge.id} data={data} edge={edge} onSelect={onSelect} detail={route(data, edge)} />
           ))}
         </div>
       </Section>
@@ -227,6 +265,11 @@ function EdgeDetails({ data, id }: { data: MapData; id: string }) {
           <Pill tone={JOIN_STATUS[edge.status].tone}>{JOIN_STATUS[edge.status].label}</Pill>
         </div>
         <h2 className="text-lg font-semibold">{edge.label}</h2>
+        {edge.handoff !== null && (
+          <p className="text-sm">
+            <span className="text-muted-foreground">Owner:</span> {edge.owner} · {edge.checkOffice}
+          </p>
+        )}
         <p className="text-sm">
           {label(data, edge.source)} <ArrowRight className="inline size-3.5" /> {label(data, edge.target)}
         </p>

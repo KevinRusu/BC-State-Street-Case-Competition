@@ -12,13 +12,25 @@ export type StoreInfo = {
   registerLines: number;
 };
 
-export type Band = { id: string; label: string; subtitle: string; x: number; y: number; w: number; h: number };
+/** A row of the map: an office, or the strip of independent sources. */
+export type MapOffice = { id: string; label: string; kind: "office" | "independent"; x: number; y: number; w: number; h: number };
+
+/** A column of the map: a stage of the flow. `note` is the bracket text over it, if any. */
+export type MapStage = { id: string; label: string; note: string; x: number; w: number };
+
+/** A "comes from" chip: `data` when the data names the source (its distinct values), `reasoning` when it is ours. */
+export type MapSource = { label: string; evidence: "data" | "reasoning"; column: string; values: string[]; reason: string };
 
 export type MapNode = {
   id: string;
   label: string;
-  band: string;
+  office: string;
   stage: string;
+  /** Where it sits, in words: "Middle office · Positions". */
+  place: string;
+  check: string;
+  owner: string;
+  checkOffice: string;
   x: number;
   y: number;
   grain: string;
@@ -28,6 +40,7 @@ export type MapNode = {
   columns: number;
   unreadableDates: string;
   rules: string[];
+  sources: MapSource[];
 };
 
 export type EdgeKind = "handoff" | "flow" | "lookup";
@@ -43,6 +56,16 @@ export type MapEdge = {
   inferred: boolean;
   status: Status;
   rules: string[];
+  /** The check a handoff carries, with its owner and office ("" on other edges). */
+  check: string;
+  owner: string;
+  checkOffice: string;
+  /** The side a line leaves and enters: top|right|bottom|left, -a / -b for 30 % / 70 % along it. */
+  fromHandle: string;
+  toHandle: string;
+  /** Where the line's small tag sits (0-1 along it) and which way it extends. */
+  tagAt: number;
+  tagSide: "left" | "right" | "above" | "below";
 };
 
 export type JoinSide = {
@@ -80,6 +103,9 @@ export type RegisterLine = {
   notEvaluable: number;
   examples: string;
   idKind: string;
+  /** The one map element this line counts on (build_store.py decides). */
+  mapKind: "node" | "edge" | "";
+  mapId: string;
 };
 
 export type RuleText = { ruleId: string; section: string; test: string; onFail: string; note: string };
@@ -88,7 +114,8 @@ export type ColumnDoc = { table: string; column: string; intendedType: string; d
 
 export type MapData = {
   info: StoreInfo;
-  bands: Band[];
+  offices: MapOffice[];
+  stages: MapStage[];
   nodes: MapNode[];
   edges: MapEdge[];
   health: JoinSide[];

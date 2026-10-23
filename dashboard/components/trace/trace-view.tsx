@@ -11,7 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { HOP_STATUS, REGISTER_STATUS, fmt, worstHop } from "@/lib/status";
 import type { DemoTrace, Hop, HopStatus, MapData, TraceResult } from "@/lib/types";
-import { HopCard } from "./hop-card";
+import { TimelineStep } from "./timeline-step";
 
 type Props = { map: MapData; demos: DemoTrace[]; query: string; trace: TraceResult | null };
 
@@ -80,7 +80,7 @@ export function TraceView({ map, demos, query, trace }: Props) {
                   key={demo.recordId}
                   href={`/trace?id=${encodeURIComponent(demo.recordId)}`}
                   title={demo.source}
-                  className={`flex max-w-xs items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs transition-colors hover:bg-muted ${demo.recordId === query ? "border-primary bg-muted" : ""}`}
+                  className={`flex max-w-xs items-center gap-2 rounded-lg bg-block px-2.5 py-1.5 text-xs ring-1 transition-colors hover:bg-muted ${demo.recordId === query ? "ring-brand-line" : "ring-transparent"}`}
                 >
                   <Dot tone={demo.status === "trace" ? "ok" : REGISTER_STATUS[demo.status] ?? "info"} />
                   <span className="truncate">{demo.label}</span>
@@ -97,7 +97,7 @@ export function TraceView({ map, demos, query, trace }: Props) {
         )}
 
         {trace && !trace.found && (
-          <Card>
+          <Card className="bg-block ring-0">
             <CardContent className="flex items-start gap-3 py-2 text-sm">
               <SearchX className="mt-0.5 size-5 text-status-warn" />
               <div>
@@ -114,34 +114,44 @@ export function TraceView({ map, demos, query, trace }: Props) {
 
         {trace?.found && <TraceSummary trace={trace} />}
 
-        <Card className="overflow-hidden p-0">
-          <div className="h-[460px]">
-            <Graph
-              data={map}
-              showLookups={false}
-              animate={false}
-              trace={highlight}
-              onSelect={(selection) => {
-                if (selection?.kind !== "node") return;
-                document.querySelector(`[data-hop-table="${selection.id}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-              }}
-            />
-          </div>
-        </Card>
+        {/* From xl up the map stays in view (sticky) beside the steps; below that they stack. */}
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] xl:items-start">
+          <Card className="overflow-hidden p-0 xl:sticky xl:top-0">
+            <div className="h-[460px] xl:h-[600px]">
+              <Graph
+                data={map}
+                showLookups={false}
+                animate={false}
+                trace={highlight}
+                onSelect={(selection) => {
+                  if (selection?.kind !== "node") return;
+                  document.querySelector(`[data-hop-table="${selection.id}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+              />
+            </div>
+          </Card>
 
-        {trace?.found && (
-          <ol className="space-y-3">
-            {trace.hops.map((hop, index) => (
-              <HopCard key={hop.id} hop={hop} step={index + 1} />
-            ))}
-          </ol>
-        )}
-
-        {!trace && (
-          <p className="text-sm text-muted-foreground">
-            Pick a story above or type an ID. Each step shows the raw rows (as text) the join found.
-          </p>
-        )}
+          {trace?.found ? (
+            <div className="space-y-2">
+              <div className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">The steps</div>
+              <ol>
+                {trace.hops.map((hop, index) => (
+                  <TimelineStep
+                    key={hop.id}
+                    hop={hop}
+                    step={index + 1}
+                    place={map.nodes.find((n) => n.id === hop.table)?.place ?? ""}
+                    last={index === trace.hops.length - 1}
+                  />
+                ))}
+              </ol>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Pick a story above or type an ID. Each step shows the raw rows (as text) the join found.
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -151,7 +161,7 @@ function TraceSummary({ trace }: { trace: Extract<TraceResult, { found: true }> 
   const broken = trace.hops.filter((h) => h.status === "missing");
   const extra = trace.hops.filter((h) => h.status === "fan_out");
   return (
-    <Card>
+    <Card className="bg-block ring-0">
       <CardContent className="space-y-3 py-1">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <span className="font-mono text-base font-semibold">{trace.query}</span>

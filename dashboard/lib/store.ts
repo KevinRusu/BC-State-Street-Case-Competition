@@ -4,8 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { DuckDBInstance, type DuckDBConnection, type DuckDBValue } from "@duckdb/node-api";
 import type {
-  Band, ColumnDoc, DemoTrace, Hop, HopStatus, JoinSide, MapData, MapEdge, MapNode, RegisterLine, RegisterMark,
-  Row, RuleText, Status, StoreInfo, TraceResult,
+  ColumnDoc, DemoTrace, Hop, HopStatus, JoinSide, MapData, MapEdge, MapNode, MapOffice, MapSource, MapStage,
+  RegisterLine, RegisterMark, Row, RuleText, Status, StoreInfo, TraceResult,
 } from "./types";
 
 export class StoreMissingError extends Error {
@@ -92,23 +92,38 @@ export async function getMapData(): Promise<MapData> {
         .map((h) => h.status)
         .sort((a, b) => STATUS_ORDER.indexOf(a) - STATUS_ORDER.indexOf(b))[0] ?? "info";
 
-    const bands: Band[] = (await rows(con, "SELECT * FROM map_bands")).map((r) => ({
-      id: text(r.id), label: text(r.label), subtitle: text(r.subtitle), x: num(r.x), y: num(r.y), w: num(r.w), h: num(r.h),
+    const offices: MapOffice[] = (await rows(con, "SELECT * FROM map_offices")).map((r) => ({
+      id: text(r.id), label: text(r.label), kind: text(r.kind) as MapOffice["kind"],
+      x: num(r.x), y: num(r.y), w: num(r.w), h: num(r.h),
+    }));
+    const stages: MapStage[] = (await rows(con, "SELECT * FROM map_stages")).map((r) => ({
+      id: text(r.id), label: text(r.label), note: text(r.note), x: num(r.x), w: num(r.w),
+    }));
+    const sources = await rows(con, "SELECT * FROM map_sources ORDER BY node_id, position");
+    const sourcesOf = (id: string): MapSource[] => sources.filter((s) => s.node_id === id).map((s) => ({
+      label: text(s.label), evidence: text(s.evidence) as MapSource["evidence"], column: text(s.column_ref),
+      values: text(s.source_values).split("; ").filter(Boolean), reason: text(s.reason),
     }));
     const nodes: MapNode[] = (await rows(con, "SELECT * FROM map_nodes")).map((r) => ({
-      id: text(r.id), label: text(r.label), band: text(r.band), stage: text(r.stage), x: num(r.x), y: num(r.y),
+      id: text(r.id), label: text(r.label), office: text(r.office), stage: text(r.stage), place: text(r.place),
+      check: text(r.check), owner: text(r.owner), checkOffice: text(r.check_office), x: num(r.x), y: num(r.y),
       grain: text(r.grain), note: text(r.note), rows: num(r.rows), manifestRows: num(r.manifest_rows),
       columns: num(r.columns), unreadableDates: text(r.unreadable_dates), rules: rulesOf("node", text(r.id)),
+      sources: sourcesOf(text(r.id)),
     }));
     const edges: MapEdge[] = (await rows(con, "SELECT * FROM map_edges")).map((r) => ({
       id: text(r.id), source: text(r.source), target: text(r.target), kind: text(r.kind) as MapEdge["kind"],
       handoff: r.handoff === null ? null : num(r.handoff), label: text(r.label), expected: text(r.expected),
       inferred: Boolean(r.inferred), status: worst(text(r.id)), rules: rulesOf("edge", text(r.id)),
+      check: text(r.check), owner: text(r.owner), checkOffice: text(r.check_office),
+      fromHandle: text(r.from_handle), toHandle: text(r.to_handle), tagAt: num(r.tag_at),
+      tagSide: text(r.tag_side) as MapEdge["tagSide"],
     }));
     const register: RegisterLine[] = (await rows(con, "SELECT * FROM register ORDER BY line")).map((r) => ({
       line: num(r.line), ruleId: text(r.rule_id), finding: text(r.finding), status: text(r.status),
       stage: text(r.stage), unit: text(r.unit), affected: num(r.affected), eligible: num(r.eligible),
       notEvaluable: num(r.not_evaluable), examples: text(r.examples), idKind: text(r.id_kind),
+      mapKind: text(r.map_kind) as RegisterLine["mapKind"], mapId: text(r.map_id),
     }));
     const catalog: RuleText[] = (await rows(con, "SELECT * FROM rule_catalog")).map((r) => ({
       ruleId: text(r.rule_id), section: text(r.section), test: text(r.test), onFail: text(r.on_fail), note: text(r.note),
@@ -118,7 +133,7 @@ export async function getMapData(): Promise<MapData> {
       description: text(r.description),
     }));
     const info = toInfo((await rows(con, "SELECT * FROM store_info"))[0]);
-    return { info, bands, nodes, edges, health, register, catalog, columns };
+    return { info, offices, stages, nodes, edges, health, register, catalog, columns };
   } finally {
     con.closeSync();
   }
