@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-10-21 (method review: D-044 to D-047; blank quantities added as catalog entry 2; deck storyboard drafted)
+Last updated: 2026-10-21 (method review: D-044 to D-047; blank quantities added as catalog entry 2; Check-in 2 deck drafted, dry run next)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
@@ -32,8 +32,8 @@ Last updated: 2026-10-21 (method review: D-044 to D-047; blank quantities added 
 |---|---|---|
 | Review the catalog draft (six entries now): one teammate per entry checks the prose and fills *Reviewed by* | `docs/DEFECT_CATALOG.md` | |
 | Read the story before the dry run (one broken trade, end to end, with the detours and the cleared flag) | `docs/checkins/checkin2/STORY.md` | everyone |
-| Deck, 8 to 10 slides, outline in CHECKIN2_PLAN §5; every number from an `outputs/02_*` file. Storyboard drafted 21 Oct; revise it for D-044 to D-047, then build it with a script in `scripts/` | `docs/checkins/checkin2/Checkin2.pptx` | |
-| Dry run: each member explains one slide and one number | | |
+| Deck **drafted 21 Oct**: 10 slides + 3 backup, speaker notes beside it. Rebuild after any notebook rerun: `uv run python scripts/fig_trace_journey.py docs/figures && uv run python scripts/fig_checkin2.py && uv run python scripts/build_checkin2_deck.py` (the last one checks the deck rules). Team: read it and correct wording | `docs/checkins/checkin2/Checkin2.pptx`, `docs/checkins/checkin2/SPEAKER_NOTES.md` | |
+| **Next: dry run.** Each member explains one slide and one number, using SPEAKER_NOTES.md | | |
 
 ## Next: after Check-in 2
 

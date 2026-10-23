@@ -78,7 +78,7 @@ steps = [
          lines=[f"{vendor['vendors']} vendors agree", f"Within {float(vendor['spread']):.2%}",
                 "Units are wrong"]),
     dict(tag="Back office", title="The fund's NAV", status="missed", check="NAV check",
-         lines=[f"NAV {nav_result}", f"Exposure ~{bps:.0f} bps", "of fund net assets"]),
+         lines=[f"NAV {nav_result}", f"Sign wrong: ~{bps:.0f} bps", "Type wrong: 0 bps"]),
 ]
 
 mjs.OUT = sys.argv[1] if len(sys.argv) > 1 else "."
