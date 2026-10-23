@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-10-21 (method review: D-044 to D-047; blank quantities added as catalog entry 2; Check-in 2 deck drafted, dry run next)
+Last updated: 2026-10-22 (plain-language team guide added; Check-in 2 deck drafted, dry run next)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
@@ -31,6 +31,7 @@ Last updated: 2026-10-21 (method review: D-044 to D-047; blank quantities added 
 | Work | Where | Owner |
 |---|---|---|
 | Review the catalog draft (six entries now): one teammate per entry checks the prose and fills *Reviewed by* | `docs/DEFECT_CATALOG.md` | |
+| Read the team guide first: the project, the six Check-in 2 items, the three statuses and how to put the numbers on slides, in plain words | `docs/checkins/checkin2/TEAM_GUIDE.md` | everyone |
 | Read the story before the dry run (one broken trade, end to end, with the detours and the cleared flag) | `docs/checkins/checkin2/STORY.md` | everyone |
 | Deck **drafted 21 Oct**: 10 slides + 3 backup, speaker notes beside it. Rebuild after any notebook rerun: `uv run python scripts/fig_trace_journey.py docs/figures && uv run python scripts/fig_checkin2.py && uv run python scripts/build_checkin2_deck.py` (the last one checks the deck rules). Team: read it and correct wording | `docs/checkins/checkin2/Checkin2.pptx`, `docs/checkins/checkin2/SPEAKER_NOTES.md` | |
 | **Next: dry run.** Each member explains one slide and one number, using SPEAKER_NOTES.md | | |
@@ -93,6 +94,8 @@ Docs known to disagree with a higher source. Fix, then remove the line.
 - `notebooks/01_explore_tables.ipynb` labels negative quantities "confirmed (sign contradicts gross_amount)" (also
   in `outputs/01_defect_log.csv`). D-043 says gross_amount confirms the size only. Reword when notebook 01 is next
   rerun.
+- `docs/checkins/checkin2/STORY.md` cites register checksum `d43040c69f8c`; FINDINGS.md is now `b29e95bb9740`.
+  Spot-checked 22 Oct: the story's numbers are unchanged in the current outputs. Update its checksum line.
 - `docs/checkins/checkin2/CHECKIN2_PLAN.md` §2, blank-quantity row: "blank-as-zero ... is evidence of the book's
   convention". D-047 refines this: the blanks are real trades and the book appears to drop their units.
 - `docs/checkins/checkin2/CHECKIN2_PLAN.md` §2 (trace row: "independent evidence (`gross_amount`)") and §3.4 (hop 1:
