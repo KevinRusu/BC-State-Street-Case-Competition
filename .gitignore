@@ -26,6 +26,11 @@ __pycache__/
 
 # Claude Code: only personal settings stay local
 .claude/settings.local.json
+# Claude Code plan/progress workspaces
+.superpowers/
+
+# Node packages and caches (the dashboard keeps its own in dashboard/)
+node_modules/
 
 # Generated results, rebuildable from data/ + code
 outputs/*
