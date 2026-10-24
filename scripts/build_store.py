@@ -347,6 +347,11 @@ def join_health(con):
     return lines
 
 
+def table_cells(text):
+    """The cells of a Markdown table row (without its outer pipes); an escaped pipe (\\|) stays in its cell, unescaped."""
+    return [c.strip().replace('\\|', '|') for c in re.split(r'(?<!\\)\|', text)]
+
+
 def rule_catalog():
     """Every rule row in docs/RULES.md: | `ID` | test | on fail | note |, with the section it sits in."""
     rules, section = [], ''
@@ -355,7 +360,7 @@ def rule_catalog():
             section = re.sub(r'^##\s+(\d+\.\s*)?', '', line).strip()
         found = re.match(r'^\|\s*`([A-Z_]+)`\s*\|(.*)\|\s*$', line)
         if found:
-            cells = [c.strip() for c in found.group(2).split('|')]
+            cells = table_cells(found.group(2))
             rules.append(dict(rule_id=found.group(1), section=section, test=cells[0] if cells else '',
                               on_fail=cells[1] if len(cells) > 1 else '', note=cells[2] if len(cells) > 2 else ''))
     return rules

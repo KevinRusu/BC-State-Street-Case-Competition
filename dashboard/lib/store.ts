@@ -14,17 +14,22 @@ export class StoreMissingError extends Error {
   }
 }
 
-/** STORE_PATH if set, else ../outputs/store.duckdb seen from dashboard/. */
+/** The file scripts/build_store.py writes: STORE_PATH, else RECONCILIATION_OUTPUTS/store.duckdb, else
+ * outputs/store.duckdb. Relative paths start at the repo root (the parent of dashboard/), as in the builder. */
 export function storePath(): string {
-  return process.env.STORE_PATH
-    ? path.resolve(process.env.STORE_PATH)
-    : path.resolve(process.cwd(), "..", "outputs", "store.duckdb");
+  // Read at run time from outside dashboard/, so the build has nothing to trace here (turbopackIgnore).
+  const root = path.resolve(process.cwd(), "..");
+  const outputs = path.resolve(/*turbopackIgnore: true*/ root, process.env.RECONCILIATION_OUTPUTS || "outputs");
+  return path.resolve(/*turbopackIgnore: true*/ root, process.env.STORE_PATH || path.join(outputs, "store.duckdb"));
 }
 
-type Open = { file: string; mtimeMs: number; instance: DuckDBInstance };
-const cache = globalThis as unknown as { __dataMapStore?: Promise<Open> };
+type Open = { file: string; mtimeMs: number; instance: Promise<DuckDBInstance> };
+const cache = globalThis as unknown as { __dataMapStore?: Open };
 
-/** One read-only instance per store file, reopened when the file is rebuilt; a fresh connection per call. */
+/** One read-only instance per store file, reopened when the file is rebuilt; a fresh connection per call. Nothing
+ * awaits between the check and the swap, so requests that arrive together share one new instance. The old one is
+ * never closed: a request may still be connecting to it, and DuckDB frees it once its last connection is closed and
+ * it is garbage-collected. */
 async function connect(): Promise<DuckDBConnection> {
   const file = storePath();
   let mtimeMs: number;
@@ -33,14 +38,16 @@ async function connect(): Promise<DuckDBConnection> {
   } catch {
     throw new StoreMissingError(file);
   }
-  const current = cache.__dataMapStore ? await cache.__dataMapStore.catch(() => undefined) : undefined;
-  if (!current || current.file !== file || current.mtimeMs !== mtimeMs) {
-    current?.instance.closeSync();
-    cache.__dataMapStore = DuckDBInstance.create(file, { access_mode: "READ_ONLY" }).then((instance) => ({
-      file, mtimeMs, instance,
-    }));
+  let open = cache.__dataMapStore;
+  if (!open || open.file !== file || open.mtimeMs !== mtimeMs) {
+    const opening: Open = { file, mtimeMs, instance: DuckDBInstance.create(file, { access_mode: "READ_ONLY" }) };
+    // A failed open is not kept: the next call tries again.
+    opening.instance.catch(() => {
+      if (cache.__dataMapStore === opening) delete cache.__dataMapStore;
+    });
+    cache.__dataMapStore = open = opening;
   }
-  return (await cache.__dataMapStore!).instance.connect();
+  return (await open.instance).connect();
 }
 
 type Raw = Record<string, unknown>;
@@ -339,17 +346,18 @@ export async function traceRecord(query: string): Promise<TraceResult> {
           edge: "trade_check", via: `account_id = ${account}, security_id = ${security}`, expected: "any",
           where: "account_id = $1 AND security_id = $2", params: [account, security] });
       }
+      // Both position tables hold one row per account x security x date (Dataset Guide §1): the snapshot's row.
       if (!start.position) {
         await add({ id: "position", title: "Position (our book)", table: "positions", edge: "trade_check",
-          via: `account_id = ${account}, security_id = ${security}`, expected: "one",
-          where: "account_id = $1 AND security_id = $2", params: [account, security],
-          missingNote: "no position in the book for this account + security" });
+          via: `account_id = ${account}, security_id = ${security}, as_of_date = ${snapshot}`, expected: "one",
+          where: "account_id = $1 AND security_id = $2 AND as_of_date_norm = $3", params: [account, security, snapshot],
+          missingNote: "no position in the book for this account + security on the snapshot date" });
       }
       if (!start.custodian) {
         await add({ id: "custodian", title: "Custodian position", table: "comparison_positions", edge: "position_check",
-          via: `account_id = ${account}, security_id = ${security}`, expected: "one",
-          where: "account_id = $1 AND security_id = $2", params: [account, security],
-          missingNote: "the custodian reports nothing for this account + security" });
+          via: `account_id = ${account}, security_id = ${security}, as_of_date = ${snapshot}`, expected: "one",
+          where: "account_id = $1 AND security_id = $2 AND as_of_date_norm = $3", params: [account, security, snapshot],
+          missingNote: "the custodian reports nothing for this account + security on the snapshot date" });
       }
     } else if (account) {
       await add({ id: "account_positions", title: "Positions of this account", table: "positions",
@@ -402,8 +410,9 @@ export async function traceRecord(query: string): Promise<TraceResult> {
       }
     }
 
-    // 3. Where this record (or its account + security key) is an example in notebook 02's register.
-    const ids = [id, ...(account && security ? [`${account}/${security}`] : [])];
+    // 3. Where this record, its account, its security or their key is an example in notebook 02's register.
+    const ids = [...new Set([id, account, security, account && security && `${account}/${security}`])]
+      .filter((v): v is string => Boolean(v));
     const marks: RegisterMark[] = (await rows(con,
       "SELECT DISTINCT line, rule_id, finding, status, record_id FROM register_examples " +
       `WHERE record_id IN (${ids.map((_, i) => `$${i + 1}`).join(", ")}) ORDER BY line`, ids)).map((r) => ({

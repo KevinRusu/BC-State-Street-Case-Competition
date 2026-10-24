@@ -16,6 +16,11 @@ export function MapExplorer({ data }: { data: MapData }) {
   const [animate, setAnimate] = useState(false);
   const { panelOpen } = useShell();
   const selectedLookup = selection?.kind === "edge" && data.edges.find((e) => e.id === selection.id)?.kind === "lookup";
+  // A selected lookup keeps the lookups shown, so switching them off drops that selection too.
+  const switchLookups = (on: boolean) => {
+    setShowLookups(on);
+    if (!on && selectedLookup) setSelection(null);
+  };
 
   return (
     <div className="flex min-h-0 flex-1">
@@ -29,7 +34,7 @@ export function MapExplorer({ data }: { data: MapData }) {
           </div>
           <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
             <label className="flex items-center gap-2">
-              <Switch checked={showLookups || selectedLookup} onCheckedChange={setShowLookups} /> Show lookups
+              <Switch checked={showLookups || selectedLookup} onCheckedChange={switchLookups} /> Show lookups
             </label>
             <label className="flex items-center gap-2">
               <Switch checked={animate} onCheckedChange={setAnimate} /> Animate flow

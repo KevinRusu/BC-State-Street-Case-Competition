@@ -10,7 +10,7 @@ rm -rf "$W"
 mkdir -p "$W"
 export RECONCILIATION_DATA=tests/fixtures/small/manifest.csv
 export RECONCILIATION_OUTPUTS=$W
-export STORE_PATH=$PWD/$W/store.duckdb
+export STORE_PATH=$W/store.duckdb          # relative on purpose: the builder and the app both start at the repo root
 
 tests/run_notebook.sh                       # notebook 02 on the fixture: the register the store copies
 uv run --quiet python scripts/build_store.py > "$W/build_store.log"
@@ -39,11 +39,14 @@ assert one("SELECT label, source_values FROM map_sources WHERE node_id = 'compar
 assert one("SELECT evidence, source_values FROM map_sources WHERE node_id = 'accounts'") == ('reasoning', '')
 assert one("SELECT count(*) FROM map_edges WHERE handoff IS NOT NULL AND owner = ''")[0] == 0
 assert one("SELECT count(*) FROM register WHERE map_id = ''")[0] == 0, 'a register line has no place on the map'
+assert one("SELECT count(*) FROM rule_catalog WHERE contains(test || on_fail || note, '\\')")[0] == 0, \
+    'a Markdown escape (\\|) split a rule cell'
 import sys; sys.path.insert(0, 'scripts')
-from build_store import source_label
+from build_store import source_label, table_cells
 assert source_label('{n} trade system{s}', []) is None, 'a blank source column must drop the chip'
 assert source_label('{n} trade system{s}', ['A', 'B']) == '2 trade systems'
 assert source_label('custodian feed', ['CUSTODIAN_FEED']) == 'custodian feed'
+assert table_cells(r' \|a − b\| ≤ 0.01 | reject | note ') == ['|a − b| ≤ 0.01', 'reject', 'note'], 'escaped pipes'
 # The graph check refuses edits that would hide a finding, show the wrong owner or drop a line from the map.
 import copy, build_store
 def rejected(change):
