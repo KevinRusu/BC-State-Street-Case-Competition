@@ -20,7 +20,7 @@ The entries follow the trade's route through the platform, in the same order as 
 ## 1. Negative-quantity BUYs · Record confirmed; correct value unresolved, leaning wrong sign
 
 <!-- card: Negative trade quantity -->
-*Facts generated from the register (checksum `b29e95bb9740`) by `scripts/build_findings.py`; do not edit between the markers.*
+*Facts generated from the register (checksum `d7e752f55f0a`) by `scripts/build_findings.py`; do not edit between the markers.*
 
 | Register line | Status | Rule | Affected | Out of (eligible) | Not evaluable | Examples |
 |---|---|---|---|---|---|---|
@@ -50,7 +50,7 @@ trades *(observed)*.[^t-pipe] So the stage is **trade capture**, and the handoff
 the sources send them is not in the data.
 
 **Why it matters.** The book and the custodian both carry the sign, so reconciliation **matches and hides it**: of
-the positions where all three sources agree, 634 contain a negative-quantity trade.[^bc] Under the wrong-sign reading,
+the positions where all three sources agree, 637 contain a negative-quantity trade.[^bc] Under the wrong-sign reading,
 each such position misstates units by twice the trade size; under the wrong-type reading the position is right and
 only the trade record is wrong. In the traced example the exposure is about 19 bps of the fund's net assets under the
 wrong-sign reading and zero under the wrong-type reading (exposure, not a loss; assumptions in the trace).[^t-down]
@@ -71,7 +71,7 @@ take the absolute value. Fixing the positions alone would be undone by the next 
 ## 2. Blank quantities left out by the book · Record confirmed; position impact unresolved
 
 <!-- card: Blank trade quantity | Book leaves out the units of trades with a blank quantity -->
-*Facts generated from the register (checksum `b29e95bb9740`) by `scripts/build_findings.py`; do not edit between the markers.*
+*Facts generated from the register (checksum `d7e752f55f0a`) by `scripts/build_findings.py`; do not edit between the markers.*
 
 | Register line | Status | Rule | Affected | Out of (eligible) | Not evaluable | Examples |
 |---|---|---|---|---|---|---|
@@ -119,7 +119,7 @@ and never treat it as zero.
 ## 3. Duplicate trade copies counted as trades · Unresolved (the copies themselves are confirmed)
 
 <!-- card: Repeated transaction_id: exact full-row copy | Repeated transaction_id: copies differ only by date format | Repeated transaction_id: copies conflict on a fact | Repeated transaction_id in the pipeline | Book and custodian count duplicate copies as trades | Book and custodian count duplicate copies and subtract every REVERSED row -->
-*Facts generated from the register (checksum `b29e95bb9740`) by `scripts/build_findings.py`; do not edit between the markers.*
+*Facts generated from the register (checksum `d7e752f55f0a`) by `scripts/build_findings.py`; do not edit between the markers.*
 
 | Register line | Status | Rule | Affected | Out of (eligible) | Not evaluable | Examples |
 |---|---|---|---|---|---|---|
@@ -170,7 +170,7 @@ convention.
 ## 4. Spin-off targets never set up · Confirmed
 
 <!-- card: Corporate-action target security missing from securities | Position on a security_id missing from securities | Held security with no price at all -->
-*Facts generated from the register (checksum `b29e95bb9740`) by `scripts/build_findings.py`; do not edit between the markers.*
+*Facts generated from the register (checksum `d7e752f55f0a`) by `scripts/build_findings.py`; do not edit between the markers.*
 
 | Register line | Status | Rule | Affected | Out of (eligible) | Not evaluable | Examples |
 |---|---|---|---|---|---|---|
@@ -214,7 +214,7 @@ trades and price the holdings.
 ## 5. Custodian missing holdings · Unresolved
 
 <!-- card: Position in the book with no custodian record -->
-*Facts generated from the register (checksum `b29e95bb9740`) by `scripts/build_findings.py`; do not edit between the markers.*
+*Facts generated from the register (checksum `d7e752f55f0a`) by `scripts/build_findings.py`; do not edit between the markers.*
 
 | Register line | Status | Rule | Affected | Out of (eligible) | Not evaluable | Examples |
 |---|---|---|---|---|---|---|
@@ -250,7 +250,7 @@ position.
 ## 6. Closed positions not reported · Cleared
 
 <!-- card: Closed position not reported (trades net to zero, absent from book and custodian) -->
-*Facts generated from the register (checksum `b29e95bb9740`) by `scripts/build_findings.py`; do not edit between the markers.*
+*Facts generated from the register (checksum `d7e752f55f0a`) by `scripts/build_findings.py`; do not edit between the markers.*
 
 | Register line | Status | Rule | Affected | Out of (eligible) | Not evaluable | Examples |
 |---|---|---|---|---|---|---|

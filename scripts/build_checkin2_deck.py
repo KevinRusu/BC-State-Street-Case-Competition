@@ -148,18 +148,33 @@ def facts():
     f["trace_bps"] = f"{float(trace[('downstream', 'indicative exposure (bps of fund net assets)')]):.0f}"
     f["trace_source"] = trace[("source", "source_system")]
     f["trace_cust_same"] = trace[("custodian", "positions with a negative-quantity trade: custodian equals the book")]
+    f["trace_partners"] = int(trace[("source", "other records of this trade")])
 
     partners = read("02_negative_partners.csv")
     f["partner_ids"] = partners["transaction_id"].nunique()
     f["partner_wrong_sign"] = partners.loc[partners["reading_supported"] == "wrong sign", "transaction_id"].nunique()
+    # The trace note says every negative trade with a partner is a BUY and every partner supports wrong sign (D-043)
+    assert set(partners["transaction_type"]) <= {"BUY"}, "a negative trade with a partner is not a BUY: reword slide 6"
+    assert f["partner_wrong_sign"] == f["partner_ids"], "not every partner supports wrong sign: revisit D-043 and slide 6"
 
     nav = read("02_nav_check.csv")["result"].value_counts()
     f["nav_fail"], f["nav_rows"] = int(nav.get("fail", 0)), int(nav.sum())
-    vendor = read("02_vendor_check.csv")["result"]
+    vendor_check = read("02_vendor_check.csv")
+    vendor = vendor_check["result"]
     f["vendor_spread"] = int((vendor == "spread above threshold").sum())
     f["vendor_scale"] = int((vendor == "scale flag (ratio near 100)").sum())
-    f["vendor_no_quote"] = int(vendor.str.contains("not evaluable").sum())
-    f["vendor_evaluable"] = len(vendor) - f["vendor_no_quote"]
+    f["vendor_not_comparable"] = int(vendor.str.contains("not evaluable").sum())
+    f["vendor_no_quote"] = int((vendor == "no quote (not evaluable)").sum())
+    f["vendor_evaluable"] = len(vendor) - f["vendor_not_comparable"]
+    per_count = vendor_check["vendors"].astype(int).value_counts().sort_index(ascending=False)
+    words = {0: "none", 1: "one", 2: "two", 3: "three"}
+    parts = [f"from {words.get(k, k)} on {n(c)}" for k, c in per_count.items()]
+    parts[0] = parts[0].replace(" on ", " vendors on ", 1) + " securities"
+    f["vendor_coverage"] = ", ".join(parts[:-1]) + (" and " if len(parts) > 1 else "") + parts[-1]
+    f["vendor_not_comparable_text"] = (f"{n(f['vendor_no_quote'])} have no quote to compare"
+                                       if f["vendor_not_comparable"] == f["vendor_no_quote"] else
+                                       f"{n(f['vendor_not_comparable'])} can't be compared "
+                                       f"({n(f['vendor_no_quote'])} have no quote at all)")
     import tomllib
     with open(ROOT / "config" / "reconciliation.toml", "rb") as stream:
         prices = tomllib.load(stream)["prices"]
@@ -170,8 +185,8 @@ def facts():
     f["ca_events"] = len(ca)
     f["ca_supported"] = int((ca["verdict"] == "supported").sum())
     f["ca_quarantined"] = int((ca["verdict"] == "quarantined").sum())
-    f["ca_types"] = (ca.groupby(["action_type", "verdict"]).size().reset_index(name="events")
-                     .merge(ca.groupby("action_type")["reason codes"].first().reset_index(), on="action_type"))
+    f["ca_types"] = (ca.groupby(["action_type", "verdict", "reason codes"])
+                     .agg(events=("action_id", "size"), release=("what would release it", "first")).reset_index())
     f["ca_holders"] = {r["action_id"]: int(r["candidate holders"]) for _, r in ca.iterrows()}
 
     side = read("02_reversed_side_view.csv")
@@ -181,7 +196,9 @@ def facts():
     f["r3_total"], f["r3_changed"] = int(side["keys"].sum()), int(changed["keys"].sum())
     f["r3_to_agree"] = int(changed.loc[changed["side"] == "all three agree", "keys"].sum())
     f["r3_to_ne"] = int(changed.loc[changed["side"].str.startswith("not evaluable"), "keys"].sum())
-    f["r3_to_break"] = f["r3_changed"] - f["r3_to_agree"] - f["r3_to_ne"]
+    breaks_ = {"rebuild is the odd one out", "book is the odd one out", "custodian is the odd one out", "all three differ"}
+    f["r3_to_break"] = int(changed.loc[changed["side"].isin(breaks_) & ~changed["main"].isin(breaks_), "keys"].sum())
+    f["r3_other"] = f["r3_changed"] - f["r3_to_agree"] - f["r3_to_ne"] - f["r3_to_break"]
 
     status = (ROOT / "docs" / "STATUS.md").read_text()
     block = status.split("## Open questions for faculty", 1)[1].split("\n## ", 1)[0]
@@ -494,7 +511,9 @@ def s_trace(d):
                 f"A quantity is never negative, so the record is wrong for sure. The money paid confirms the size but "
                 f"not the side, so two readings fit: wrong sign (a BUY of the positive amount) or wrong type (a SELL). "
                 f"We lean to wrong sign: of the {f['partner_ids']} negative BUYs that have a second record, all "
-                f"{f['partner_wrong_sign']} support it. But this trade has none.\n\n"
+                f"{f['partner_wrong_sign']} support it. "
+                + ("But this trade has none.\n\n" if f["trace_partners"] == 0 else
+                   f"This trade has {f['trace_partners']}: see 02_trace.csv.\n\n") +
                 f"The book holds {f['trace_book']} and so does the custodian, so every later check passes: the "
                 f"reconciliation, the custodian, the price, the NAV arithmetic. If the sign is wrong the holding "
                 f"should be {f['trace_wrong_sign']}: an exposure of about {f['trace_bps']} basis points of the fund's "
@@ -523,9 +542,9 @@ def s_checks(d):
                 f"Ledger arithmetic: for every fund share class, net assets divided by shares outstanding must equal "
                 f"the NAV per share, the price investors buy and sell at. It fails on {n(f['nav_fail'])} of "
                 f"{n(f['nav_rows'])} rows. Which input is wrong we can't tell yet.\n\n"
-                f"Vendor prices: three vendors quote each held security. On {n(f['vendor_spread'])} of "
-                f"{n(f['vendor_evaluable'])} securities their prices differ by more than {f['spread_threshold']}; "
-                f"{f['vendor_no_quote']} have no quote to compare. On {n(f['vendor_scale'])} the highest and lowest are "
+                f"Vendor prices: on the snapshot date the held securities have quotes {f['vendor_coverage']}. "
+                f"On {n(f['vendor_spread'])} of {n(f['vendor_evaluable'])} securities their prices differ by more than "
+                f"{f['spread_threshold']}; {f['vendor_not_comparable_text']}. On {n(f['vendor_scale'])} the highest and lowest are "
                 f"about 100 times apart (ratio {f['scale_band']}), the signature of a price per 100 against per unit. "
                 "We flag it and never correct it automatically. Thresholds live in the config; judges can change them.\n\n"
                 "Proposed, not run: coverage (does every holding have a price), freshness (is the price from the "
@@ -592,7 +611,8 @@ def s_corporate_actions(d):
     types = f["ca_types"].sort_values(["verdict", "events"], ascending=[False, False])
     names = {"CASH_DIVIDEND": "Cash dividend", "SPINOFF": "Spin-off"}
     rows = [[names.get(t, t.capitalize()), n(e), "Applied" if v == "supported" else "Held back",
-             release.get(rc, rc)] for t, v, e, rc in types[["action_type", "verdict", "events", "reason codes"]].itertuples(index=False)]
+             release.get(rc, text or "–")]        # the notebook's own wording for any code without a short label
+            for t, v, rc, e, text in types[["action_type", "verdict", "reason codes", "events", "release"]].itertuples(index=False)]
     s = d.slide(f"{n(f['ca_supported'])} of {n(f['ca_events'])} corporate actions can be applied; "
                 f"{n(f['ca_quarantined'])} are held back because a term we need is missing",
                 "Corporate actions are company events that change holdings: a split, a merger, a spin-off, a dividend, "
@@ -652,8 +672,14 @@ def s_questions(d):
 
 def b_sensitivities(d):
     f = d.f
+    sens = f["sens"]
+    # The title and notes name the moves above a thousand and say every REVERSED reading stays below it
+    big = {a for a, v in sens.items() if abs(v) >= 1000}
+    assert big == {a for a in sens if a.startswith(("copies: both counted", "blanks: zero"))}, \
+        f"moves of a thousand or more are now {sorted(big)}: reword backup B1"
+    assert all(abs(v) < 1000 for a, v in sens.items() if a.startswith("REVERSED")), "a REVERSED reading moves 1,000+: reword B1"
     s = d.slide("The two biggest moves both copy the book: counting copies twice and counting blanks as zero",
-                f"Backup. All eleven alternative readings, each swapping one step of our chain. Only two move the "
+                f"Backup. All {len(sens)} alternative readings, each swapping one step of our chain. Only two move the "
                 f"match with the book by more than a thousand positions: counting both copies of a trade "
                 f"({signed(f['d_copies'])}) and counting a blank quantity as zero ({signed(f['d_zero'])}). Both copy "
                 "what the book seems to do, so a better match there tells us how the book is built, not that the "
@@ -674,12 +700,14 @@ def b_r3(d):
                 "little either way. So the choice matters little for the numbers; what it needs is a contract that "
                 "says what REVERSED means (question 1).\n\n"
                 "Sources: 02_reversed_side_view.csv.", label="B2")
-    table(s, ["Under R3, the position…", f"Positions (of {n(f['r3_total'])})"], [
-        ["lands in the same place", n(f["r3_total"] - f["r3_changed"])],
-        ["now agrees three ways", n(f["r3_to_agree"])],
-        ["now becomes a break", n(f["r3_to_break"])],
-        ["now can't be tested", n(f["r3_to_ne"])],
-    ], widths=[7.0, 5.1], size=18, row_h=0.65)
+    rows = [["lands in the same place", n(f["r3_total"] - f["r3_changed"])],
+            ["now agrees three ways", n(f["r3_to_agree"])],
+            ["now becomes a break", n(f["r3_to_break"])],
+            ["now can't be tested", n(f["r3_to_ne"])]]
+    if f["r3_other"]:
+        rows.append(["moves to another pattern", n(f["r3_other"])])
+    table(s, ["Under R3, the position…", f"Positions (of {n(f['r3_total'])})"], rows, widths=[7.0, 5.1], size=18,
+          row_h=0.65)
 
 
 def b_register(d):

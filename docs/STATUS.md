@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-10-22 (plain-language team guide added; Check-in 2 deck drafted, dry run next)
+Last updated: 2026-10-23 (code review of notebook 02 and the deck scripts; review fixes applied, deck rebuilt)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
@@ -25,6 +25,13 @@ Last updated: 2026-10-22 (plain-language team guide added; Check-in 2 deck draft
   still in the row; the book appears to drop their units (D-047, `outputs/02_blank_quantity.csv`, new rule
   `TXN_BLANK_QUANTITY_EVIDENCE`, catalog entry 2). Agreed: for Check-in 2 we show where the data is broken and how we
   treat it; we do not correct it.
+- **Code review (23 Oct):** notebook 02 checked rule by rule against RULES.md, and bug-hunted with the deck and figure
+  scripts. Fixed: the `sign_conflict` flag now covers negative rows of any status, and a blank-quantity rebook is not
+  evaluable (D-048); R3 no longer subtracts a REVERSED row with nothing to offset (D-049); the wrong-sign holding is
+  right for a negative SELL; the deck and figure scripts compute or assert their claims instead of typing them. The
+  rebook line, two flag counts in `outputs/02_break_classes.csv` and one slide 7 speaker-note sentence moved; the
+  headline numbers did not. Deck rebuilt. Review finding for later: 10 rules in RULES.md have no code yet and 5 are
+  only partly coded (Job B below).
 
 ## Next: before Check-in 2
 
@@ -51,7 +58,16 @@ Last updated: 2026-10-22 (plain-language team guide added; Check-in 2 deck draft
   - conflicting copies that differ only on fields that don't change a quantity (could become testable)
 
 - Tag the repo `checkin2`; `docs/checkins/checkin2/` becomes frozen.
-- Move notebook 02's code into `src/` + `run_all.py` (D-012): one command rebuilds every number.
+- Move notebook 02's code into `src/` + `run_all.py` (D-012): one command rebuilds every number. Two steps, so each
+  can be checked: (1) move what exists, and prove every output is unchanged; (2) add the rules RULES.md states but no
+  code runs yet, one at a time, as entries in a rule table (rule id, testable and fail conditions, config key for the
+  threshold). Not coded today: `ACC_NOT_OPEN_ON_TRADE_DATE`, `ACC_REQUIRED_FIELDS`, `SEC_IDENTIFIER_VALID`,
+  `TXN_SECURITY_NOT_MASTERED`, `TXN_TIMESTAMPS_IN_ORDER`, `TXN_AFTER_CUTOFF`, `NAV_SHARE_CLASS_MAPPING`,
+  `NAV_OPEN_ISSUES_BEFORE_RELEASE` (needs materiality), `CA_ALL_HOLDERS_ADJUSTED` (needs a posting log). Partly coded:
+  `TXN_DUPLICATE` (same economics, new ID), `TXN_FIELDS_VALID` (T+2 in business days, amount tolerance, blank
+  price), `TXN_CORRECTION_LINK` (same account and security), `FX_RATE_VALID` (uniqueness, rate > 0, day-on-day band),
+  `PRC_QUOTE_ELIGIBLE` (coverage and freshness, D-041). Thresholds these need are not in the config yet (T+2 limit,
+  feed latency, FX band, NAV materiality).
 - Check-in 3 list (brief §8): full-data reconciliation, quality checks, scores with impact and coverage,
   sensitivity and stress tests, roadmap, working executive view, complete slide draft.
 - Final (brief §5, §7): three defect traces and two cleared look-alikes; timeliness by feed and day; scores at
@@ -94,7 +110,7 @@ Docs known to disagree with a higher source. Fix, then remove the line.
 - `notebooks/01_explore_tables.ipynb` labels negative quantities "confirmed (sign contradicts gross_amount)" (also
   in `outputs/01_defect_log.csv`). D-043 says gross_amount confirms the size only. Reword when notebook 01 is next
   rerun.
-- `docs/checkins/checkin2/STORY.md` cites register checksum `d43040c69f8c`; FINDINGS.md is now `b29e95bb9740`.
+- `docs/checkins/checkin2/STORY.md` cites register checksum `d43040c69f8c`; FINDINGS.md is now `d7e752f55f0a`.
   Spot-checked 22 Oct: the story's numbers are unchanged in the current outputs. Update its checksum line.
 - `docs/checkins/checkin2/CHECKIN2_PLAN.md` §2, blank-quantity row: "blank-as-zero ... is evidence of the book's
   convention". D-047 refines this: the blanks are real trades and the book appears to drop their units.

@@ -3,7 +3,7 @@
 *For teammates, before working on the Check-in 2 deck. About fifteen minutes. Read it first, then
 [STORY.md](STORY.md) (one broken trade, end to end). Frozen after Check-in 2.*
 
-*Every number here comes from the run whose register checksum is `b29e95bb9740`. If the checksum at the top of
+*Every number here comes from the run whose register checksum is `d7e752f55f0a`. If the checksum at the top of
 [FINDINGS.md](../../FINDINGS.md) is different, the notebook has been rerun and some numbers below may be out of date.
 Small markers like [^three] say which file each number comes from; the list is at the bottom. The requirements
 themselves live in the brief: this guide links to it and puts it in our words, it does not replace it.*
@@ -77,7 +77,7 @@ The direction is one way only: **rules find the problems, people (and AI) only e
    - the official list and the custodian agree on a number the trades don't explain: 717 holdings[^classes]
    - the official list and the custodian hold the opposite sign to the trades: 216 holdings[^classes]
    - holdings with no trade behind them: 384[^register]
-   - rebooked trades that keep the old money amount: 3,337 trade rows[^register]
+   - rebooked trades that keep the old money amount: 3,333 trade rows[^register]
    - fund rows where the arithmetic fails: 40[^nav]; securities where the vendors disagree: 388, or differ by about
      100 times: 10[^vendor]
 2. **A second traced mistake for the final:** a price 100 times too big ([D-014](../../DECISIONS.md)). The final
@@ -196,7 +196,7 @@ The [Working Guide](../../../reference/03_Student_Working_Guide.md) §8 lists th
     2,605 of the 5,539 breaks, so about half have a cause; rows with `is a break` = yes add up to
     5,539, rows with `not evaluable` to 2,836.
 [^register]: `outputs/02_defect_register.csv`, lines "Position with no contributing trade" (384), "Rebook changes the
-    quantity but keeps the cancelled gross_amount" (3,337), "Negative trade quantity" (655), "Book and custodian count
+    quantity but keeps the cancelled gross_amount" (3,333), "Negative trade quantity" (655), "Book and custodian count
     duplicate copies as trades" (2,021), "Closed position not reported" (42).
 [^nav]: `outputs/02_nav_check.csv`: 40 rows with result `fail` out of 2,000.
 [^vendor]: `outputs/02_vendor_check.csv`: result "spread above threshold" (388) and "scale flag (ratio near 100)" (10).

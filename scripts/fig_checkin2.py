@@ -77,11 +77,14 @@ groups = [("Trades disagree with book + custodian", ["rebuild is the odd one out
           ("Custodian disagrees with both", ["custodian is the odd one out"]),
           ("Held by only one or two sources", ["rebuild + book, no custodian", "book + custodian, no trades",
                                                "rebuild only, nets to zero", "rebuild only, nonzero"]),
-          ("All three differ", ["all three differ", "book is the odd one out"])]
+          ("All three differ", ["all three differ"]),
+          ("Book disagrees with both", ["book is the odd one out"])]
 counts = [int(t.reindex(patterns).fillna(0).sum()) for _, patterns in groups]
 covered = {p for _, patterns in groups for p in patterns} | {"all three agree"}
 assert set(t.index) <= covered, f"patterns not drawn: {set(t.index) - covered}"
 assert sum(counts) + int(t["all three agree"]) == int(t.sum()), "groups do not add up to the union"
+# The book-only bar is drawn only when some key has that pattern (none in the release)
+groups, counts = zip(*[(g, c) for g, c in zip(groups, counts) if c or g[0] != "Book disagrees with both"])
 bars([label for label, _ in groups], counts, {0}, [f"{c:,}" for c in counts], "10_three_way.png", size=(8.6, 4.6),
      fontsize=16)
 

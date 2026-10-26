@@ -5,7 +5,7 @@ answers are our Check-in 1 framework (`scripts/framework.json`, report in
 [CHECKIN1_REPORT.md](../checkin1/CHECKIN1_REPORT.md) §3), put in plain words, with what the data has shown since.
 Read [TEAM_GUIDE.md](TEAM_GUIDE.md) first.*
 
-*Every number here comes from the run whose register checksum is `b29e95bb9740`. If the checksum at the top of
+*Every number here comes from the run whose register checksum is `d7e752f55f0a`. If the checksum at the top of
 [FINDINGS.md](../../FINDINGS.md) is different, the notebook has been rerun and some numbers below may be out of date.
 Small markers like [^reg] say which file each number comes from; the list is at the bottom.*
 

@@ -49,18 +49,29 @@ def t(hop, table, field):
 security_id = t("source", "transactions", "security_id")
 fund_id = t("downstream", "accounts", "fund_id")
 
+snapshot = {r["item"]: r["value"] for r in read_csv("02_run_info.csv")}["as_of_date"]
 vendor = [r for r in read_csv("02_vendor_check.csv") if r["security_id"] == security_id]
-nav = [r for r in read_csv("02_nav_check.csv") if r["fund_id"] == fund_id]
+nav = [r for r in read_csv("02_nav_check.csv") if r["fund_id"] == fund_id and r["as_of_day"][:10] == snapshot]
 if len(vendor) != 1 or not nav:
-    sys.exit(f"no vendor check row for {security_id} or no NAV rows for {fund_id}")
+    sys.exit(f"no vendor check row for {security_id} or no NAV rows for {fund_id} on {snapshot}")
 vendor = vendor[0]
+
+# The boxes after the first say "the check passed, but the record is wrong". Stop if the traced key no longer fits.
+story = {"the book equals our rebuild": t("position", "rebuild (main chain)", "book equals the raw rebuild") == "True",
+         "the custodian equals the book": t("custodian", "comparison_positions", "custodian equals the book") == "True",
+         "the vendor check passed": vendor["result"] == "pass",
+         "the security is in securities": t("downstream", "securities", "asset_class") != "not in securities"}
+broken = [claim for claim, holds in story.items() if not holds]
+if broken:
+    sys.exit(f"the traced key no longer fits figure 08 ({', '.join(broken)} is false): redraw the story")
 
 quantity = t("source", "transactions", "quantity")
 implied = t("source", "transactions", "gross_amount / price")
 book = t("position", "positions", "quantity")
 custodian = t("custodian", "comparison_positions", "quantity")
 bps = float(t("downstream", "derived", "indicative exposure (bps of fund net assets)"))
-nav_result = "adds up" if all(r["result"] == "pass" for r in nav) else "does not add up"
+results = {r["result"] for r in nav}
+nav_result = "does not add up" if "fail" in results else "can't be checked" if "not evaluable" in results else "adds up"
 
 steps = [
     dict(tag="Front office", title="The trade", status="fail", check="Trade check",

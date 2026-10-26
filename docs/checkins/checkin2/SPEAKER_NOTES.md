@@ -4,17 +4,17 @@
 
 ## Slide cover: Check-in 2: the method gate
 
-Cover. One sentence: today we show how we work the data, follow one broken trade through the platform, and ask to be cleared to build the full analysis. Every number on the slides is written by a script from notebook 02's outputs (register checksum b29e95bb9740).
+Cover. One sentence: today we show how we work the data, follow one broken trade through the platform, and ask to be cleared to build the full analysis. Every number on the slides is written by a script from notebook 02's outputs (register checksum d7e752f55f0a).
 
 ## Slide 1: Our rebuild runs on all 1.41M trades, and 98.7% of the positions we can test agree across all three sources
 
-This is the answer first. We rebuilt every holding by adding up its trades from zero: BUY adds, SELL subtracts. That ran on all 1,409,533 trade rows in 55 s, live in notebook 02.
+This is the answer first. We rebuilt every holding by adding up its trades from zero: BUY adds, SELL subtracts. That ran on all 1,409,533 trade rows in 62 s, live in notebook 02.
 
 Then we compared three sources for every position: our rebuild, the book of record (the platform's own list of holdings) and the custodian (the outside bank that holds the securities). 471,583 of the 478,026 positions we can test agree in all three: 98.7%.
 
 We leave 2,836 positions out of that rate on purpose: we can't test them, mostly because one of their trades has a blank quantity (2,791). Unknown is not wrong and not right, so it sits beside the rate, not inside it (D-046).
 
-5,539 positions disagree. We give each one cause; 2,605 have no cause yet and stay visible. And agreement is not proof: 634 agreeing positions contain a negative BUY. That is the trade we follow on slide 6.
+5,539 positions disagree. We give each one cause; 2,605 have no cause yet and stay visible. And agreement is not proof: 637 agreeing positions contain a negative BUY. That is the trade we follow on slide 6.
 
 Sources: 02_row_ledger.csv (load transactions), 02_run_info.csv (runtime), 02_three_way_summary.csv (all three agree; not evaluable rows), 02_break_classes.csv (is a break = yes; cause unexplained; sign_conflict_keys on all three agree).
 
@@ -58,7 +58,7 @@ The two big named causes are conventions the book and custodian seem to share: c
 
 2,605 breaks fit no rule, mostly where the custodian disagrees with both the book and the trades (1,886). We show them rather than force them into a class; opening them is our first task after today.
 
-Flags sit on top of the class: 634 positions that agree three ways still contain a negative BUY. That's where the next slide starts.
+Flags sit on top of the class: 637 positions that agree three ways still contain a negative BUY. That's where the next slide starts.
 
 Sources: 02_break_classes.csv (is a break = yes, keys by cause; sign_conflict_keys on all three agree).
 
@@ -78,7 +78,7 @@ The brief asks for proposed checks on price data and ledger arithmetic. We ran t
 
 Ledger arithmetic: for every fund share class, net assets divided by shares outstanding must equal the NAV per share, the price investors buy and sell at. It fails on 40 of 2,000 rows. Which input is wrong we can't tell yet.
 
-Vendor prices: three vendors quote each held security. On 388 of 6,000 securities their prices differ by more than 0.5%; 15 have no quote to compare. On 10 the highest and lowest are about 100 times apart (ratio 80 to 125), the signature of a price per 100 against per unit. We flag it and never correct it automatically. Thresholds live in the config; judges can change them.
+Vendor prices: on the snapshot date the held securities have quotes from three vendors on 5,970 securities, from two on 30 and from none on 15. On 388 of 6,000 securities their prices differ by more than 0.5%; 15 have no quote to compare. On 10 the highest and lowest are about 100 times apart (ratio 80 to 125), the signature of a price per 100 against per unit. We flag it and never correct it automatically. Thresholds live in the config; judges can change them.
 
 Proposed, not run: coverage (does every holding have a price), freshness (is the price from the right day and time), FX rates (the USD rate is not exactly 1: question for you).
 
@@ -120,7 +120,7 @@ Questions in full: docs/STATUS.md, 'Open questions for faculty' (numbers in brac
 
 ## Slide B1: The two biggest moves both copy the book: counting copies twice and counting blanks as zero
 
-Backup. All eleven alternative readings, each swapping one step of our chain. Only two move the match with the book by more than a thousand positions: counting both copies of a trade (+2,032) and counting a blank quantity as zero (+2,611). Both copy what the book seems to do, so a better match there tells us how the book is built, not that the reading is right. Every REVERSED reading moves fewer than a thousand, so our REVERSED choice barely changes the result.
+Backup. All 11 alternative readings, each swapping one step of our chain. Only two move the match with the book by more than a thousand positions: counting both copies of a trade (+2,032) and counting a blank quantity as zero (+2,611). Both copy what the book seems to do, so a better match there tells us how the book is built, not that the reading is right. Every REVERSED reading moves fewer than a thousand, so our REVERSED choice barely changes the result.
 
 Sources: 02_sensitivities.csv (compared with positions, matched vs main chain).
 

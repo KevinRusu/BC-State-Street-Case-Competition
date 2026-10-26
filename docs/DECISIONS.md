@@ -394,3 +394,28 @@ Made while building notebook 02 and fixing review findings. Source: *build log*,
   repair). Check-in 2 shows where the data is broken; it does not correct it (team, 21 Oct).
 - **Instead of:** "a blank means the trade never happened or was cancelled" (contradicted by the status, the money,
   the pipeline and the book's own count), or blank-as-zero.
+
+### D-048 · 23 Oct · Code review fixes: the sign_conflict flag and blank-quantity rebooks (refines D-008, D-032)
+
+- **Decision:** (1) `sign_conflict` is set on every key that has a negative-quantity row of **any** status, as D-008
+  and D-032 state; before, only rows still in the main chain were looked at, so a negative row that was CANCELLED or
+  REVERSED left its key unflagged. The sizes used for the wrong-sign holding still come from the main chain, because
+  only those rows move the rebuilt quantity. (2) A rebook whose own quantity or whose cancelled original's quantity is
+  blank is **not evaluable** for "Rebook changes the quantity but keeps the cancelled gross_amount" and for the
+  `rebook_old_gross` flag; before, a blank counted as a "new quantity".
+- **Why:** the Check-in 2 code review (23 Oct). A blank is unknown, not a different number (D-009, D-027). Effect,
+  against the outputs before the fix: `outputs/02_break_classes.csv` (`sign_conflict_keys` on "all three agree",
+  `rebook_old_gross_keys` on the blank-quantity pattern) and the rebook line in `outputs/02_defect_register.csv`;
+  nothing else moved.
+- **Also:** the wrong-sign holding is now the rebuild minus twice what the rebuild used for the negative rows, which
+  is right for a negative SELL too (the release has only negative BUYs, so no number moved).
+
+### D-049 · 23 Oct · R3: a REVERSED row with nothing to offset makes its key not evaluable (refines D-026)
+
+- **Decision:** under R3, a REVERSED row whose BOOKED original is not among the rows still in the chain (no link, or
+  a link to an ID that is not there) counts 0 and marks its key not evaluable.
+- **Why:** R3 means one offset per original; with no original there is nothing to offset, and subtracting the row
+  anyway would invent a movement (Dataset Guide §3: prevent double offsets; §2: missing references stay visible).
+  Every REVERSED row in the release links to a BOOKED original, so no number moved; the case is tested on made-up
+  rows in notebook 02.
+- **Instead of:** treating an unlinked REVERSED row as its own original and subtracting it (the code before 23 Oct).

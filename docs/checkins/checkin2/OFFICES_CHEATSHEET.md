@@ -1,6 +1,6 @@
 # Cheat sheet: the three offices
 
-*Short version of [OFFICES.md](OFFICES.md). Numbers from register checksum `b29e95bb9740`; sources at the bottom.*
+*Short version of [OFFICES.md](OFFICES.md). Numbers from register checksum `d7e752f55f0a`; sources at the bottom.*
 
 **Flow:** front → middle → back. Fed from the side by the **account list**, the **security list**, and three
 **independent sources** (custodian, price vendors, FX provider).

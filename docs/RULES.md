@@ -52,7 +52,7 @@ Last updated: 2026-10-21
 
 | Suggested id | What it tests | If it fails | Notes |
 |---|---|---|---|
-| `CA_TERMS_COMPLETE` | Before ex_date: action_type supported; required terms present AND only the terms the type needs (e.g. cash_rate only where cash is paid); target_security_id present AND mastered for MERGER / SPINOFF; date order valid for the type (definition still to agree with the data owner) | hold | Event quarantined until terms and target are complete. From the data: all 200 events carry a cash_rate (even splits) and 87 of 200 have ex_date after effective_date. Whether that is wrong depends on what effective_date means per type, so we must agree a definition first |
+| `CA_TERMS_COMPLETE` | Before ex_date: action_type supported; required terms present AND only the terms the type needs (e.g. cash_rate only where cash is paid); target_security_id present AND mastered for MERGER / SPINOFF; date order valid for the type (definition still to agree with the data owner) | hold | Event quarantined until terms and target are complete. Extra terms and an ex_date after effective_date are flagged unresolved, not held, until the definitions are agreed (D-016). From the data: all 200 events carry a cash_rate (even splits) and 87 of 200 have ex_date after effective_date. Whether that is wrong depends on what effective_date means per type, so we must agree a definition first |
 | `CA_ALL_HOLDERS_ADJUSTED` | After effective_date: every account holding the source security on ex_date shows the adjustment (needs a per-account posting log, which we do not have) | flag | Not testable yet: no posting log |
 
 ## 5. Position check
