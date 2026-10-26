@@ -79,7 +79,7 @@ For Check-in 1 the brief asks for seven pieces. Each has a section below and a s
 
 Data moves through the five stages the brief names: **Accounts, Securities, Transactions, Positions, NAV and ledger.** Accounts and securities are the **master data**, the reference lists of *who* and *what* that everything else looks up. We place each stage in the office that owns it and mark the six handoffs where data moves on.
 
-![Control map](figures/01_control_map.png)
+![Control map](../../figures/01_control_map.png)
 
 | # | Handoff | What must hold |
 |---|---|---|
@@ -110,7 +110,7 @@ Six of the seven checks are **preventive**: they stop bad data before it moves. 
 
 For each type of problem, the brief asks for the earliest stage that could catch it, the evidence that needs, and the consequence of missing it. We cover the six problem families the brief names, plus account problems and NAV arithmetic.
 
-![Detection-point model](figures/03_detection_matrix.png)
+![Detection-point model](../../figures/03_detection_matrix.png)
 
 How to read a row: *missing or unknown IDs* (for example, a trade that uses a security we do not know) can be caught at the **Securities** stage by the **security check**. If it slips into the trades, the cost multiplies by 10; once it reaches positions and the NAV, by 100, because every holder of that security is now wrong.
 
@@ -122,11 +122,11 @@ The brief asks us to follow one real trade and one master record through the tab
 
 **Journey 1: a clean trade.** Trade `TXN100000380` buys 1,612 shares on 1 June. Quantity times price equals the amount, it settles the next business day, and it was booked four minutes after it arrived, well before the cutoff. The account was open and the security known. Rebuilding the holding from its four trades gives **2,028 shares**, exactly what our book and the custodian say. The evidence stops at two points: nothing confirms the trade actually settled, and there is no cash or fee data to rebuild the fund's net assets.
 
-![Journey 1](figures/06_journey_trade_simple.png)
+![Journey 1](../../figures/06_journey_trade_simple.png)
 
 **Journey 2: the spin-off nobody set up.** Security `SEC937640` is used by 309 trades in 107 accounts and feeds 94 fund NAVs: one master record with a large blast radius. On 11 June it had a **spin-off** (event `CA00093`): the company split off part of itself, and holders received shares of a new security, `SEC204363`. That new security was **never added to the security list**. It was still traded 64 times and is held in 63 accounts (the custodian agrees), but it has **no price**, so those holdings cannot be valued.
 
-![Journey 2](figures/07_journey_security_simple.png)
+![Journey 2](../../figures/07_journey_security_simple.png)
 
 ### 3.5 KPIs by office
 
