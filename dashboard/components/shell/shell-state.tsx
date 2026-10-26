@@ -1,0 +1,22 @@
+"use client";
+
+import { createContext, useContext, useState } from "react";
+
+// Whether the left menu and the right panel are open: two header buttons hide them so the map can fill the screen.
+type Shell = { menuOpen: boolean; panelOpen: boolean; toggleMenu: () => void; togglePanel: () => void };
+
+const ShellContext = createContext<Shell>({ menuOpen: true, panelOpen: true, toggleMenu: () => {}, togglePanel: () => {} });
+
+export function ShellProvider({ children }: { children: React.ReactNode }) {
+  const [menuOpen, setMenuOpen] = useState(true);
+  const [panelOpen, setPanelOpen] = useState(true);
+  return (
+    <ShellContext.Provider
+      value={{ menuOpen, panelOpen, toggleMenu: () => setMenuOpen((o) => !o), togglePanel: () => setPanelOpen((o) => !o) }}
+    >
+      {children}
+    </ShellContext.Provider>
+  );
+}
+
+export const useShell = () => useContext(ShellContext);

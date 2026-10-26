@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# Build the dashboard's store from the made-up fixture (tests/fixtures/small) and test it: the store's tables here,
+# the trace logic with vitest in dashboard/, then a production build of the app (type check; reads no store).
+# Everything goes to tests/runs/store_fixture, never to outputs/. Stop `npm run dev` first: the build shares
+# dashboard/.next. Needs `npm install` in dashboard/ once.
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+W=tests/runs/store_fixture
+rm -rf "$W"
+mkdir -p "$W"
+export RECONCILIATION_DATA=tests/fixtures/small/manifest.csv
+export RECONCILIATION_OUTPUTS=$W
+export STORE_PATH=$W/store.duckdb          # relative on purpose: the builder and the app both start at the repo root
+
+tests/run_notebook.sh                       # notebook 02 on the fixture: the register the store copies
+uv run --quiet python scripts/build_store.py > "$W/build_store.log"
+uv run --quiet python - <<'PY'
+import os, duckdb
+con = duckdb.connect(os.environ['STORE_PATH'], read_only=True)
+def one(sql):
+    return con.sql(sql).fetchone()
+assert one("SELECT count(*) FROM map_nodes WHERE rows <> manifest_rows")[0] == 0, 'a table lost rows'
+assert one("SELECT status, repeated_keys FROM join_health WHERE join_id = 'pipeline_txn' AND side = 'left'") == ('fan_out', 1)
+assert one("SELECT orphan_keys, orphan_rows, sample_orphans FROM join_health "
+           "WHERE join_id = 'price_fx' AND side = 'left'") == (1, 2, 'EUR/2026-07-09'), 'date normalisation'
+assert one("SELECT count(*) FROM join_health WHERE join_id = 'book_custodian' AND status <> 'ok'")[0] == 0
+assert one("SELECT count(*) FROM register")[0] > 0, 'no register copied'
+assert one("SELECT count(*) FROM demo_traces")[0] > 0, 'no demo traces'
+# The map's grid, who handles each table, where its data comes from, and one place per register line.
+assert one("SELECT count(*) FROM map_offices")[0] == 4
+assert one("SELECT count(*) FROM map_stages")[0] == 4
+assert one("SELECT count(*) FROM map_nodes WHERE owner = '' OR place = ''")[0] == 0
+assert one("SELECT place FROM map_nodes WHERE id = 'transactions'")[0] == 'Front + middle office · Transactions'
+assert one("SELECT place FROM map_nodes WHERE id = 'prices'")[0] == 'Independent source · checked by the middle office'
+assert one("SELECT office FROM map_nodes WHERE id = 'corporate_actions'")[0] == 'middle'
+assert one("SELECT label, source_values FROM map_sources WHERE node_id = 'transactions'") == ('1 trade system', 'FIXTURE_OMS')
+assert one("SELECT label, source_values FROM map_sources WHERE node_id = 'prices'") == ('2 price vendors', 'FIXTURE_V1; FIXTURE_V2')
+assert one("SELECT label, source_values FROM map_sources WHERE node_id = 'comparison_positions'") == ('custodian feed', 'CUSTODIAN_FEED')
+assert one("SELECT evidence, source_values FROM map_sources WHERE node_id = 'accounts'") == ('reasoning', '')
+assert one("SELECT count(*) FROM map_edges WHERE handoff IS NOT NULL AND owner = ''")[0] == 0
+assert one("SELECT count(*) FROM register WHERE map_id = ''")[0] == 0, 'a register line has no place on the map'
+assert one("SELECT count(*) FROM rule_catalog WHERE contains(test || on_fail || note, '\\')")[0] == 0, \
+    'a Markdown escape (\\|) split a rule cell'
+import sys; sys.path.insert(0, 'scripts')
+from build_store import source_label, table_cells
+assert source_label('{n} trade system{s}', []) is None, 'a blank source column must drop the chip'
+assert source_label('{n} trade system{s}', ['A', 'B']) == '2 trade systems'
+assert source_label('custodian feed', ['CUSTODIAN_FEED']) == 'custodian feed'
+assert table_cells(r' \|a − b\| ≤ 0.01 | reject | note ') == ['|a − b| ≤ 0.01', 'reject', 'note'], 'escaped pipes'
+# The graph check refuses edits that would hide a finding, show the wrong owner or drop a line from the map.
+import copy, build_store
+def rejected(change):
+    graph = copy.deepcopy(build_store.GRAPH)
+    change({e['id']: e for e in graph['edges']})
+    try:
+        build_store.check_graph(build_store.rule_catalog(), build_store.load_framework(), graph)
+    except AssertionError:
+        return True
+    return False
+def move_to_lookup(edges):
+    edges['price_check']['rules'].remove('PRC_QUOTE_ELIGIBLE')
+    edges['price_security']['rules'].append('PRC_QUOTE_ELIGIBLE')
+assert not rejected(lambda edges: None)
+assert rejected(move_to_lookup), 'a finding counted on a hidden lookup line'
+assert rejected(lambda edges: edges['nav_check'].update(check='Account check')), 'check does not match its handoff'
+assert rejected(lambda edges: edges['account_check'].update(to_handle='tpo')), 'unknown handle'
+assert rejected(lambda edges: edges['booking'].update(tag_at=5)), 'tag outside its line'
+padded = duckdb.connect()
+padded.sql("CREATE TABLE t AS SELECT * FROM (VALUES ('  '), ('OMS '), ('OMS'), (NULL)) v(c)")
+assert build_store.distinct_values(padded, 't', 'c') == ['OMS'], 'blank and padded source labels'
+print('store checks OK')
+PY
+# Without a register the store still builds: the map simply has no counts.
+E=tests/runs/store_noregister
+rm -rf "$E" && mkdir -p "$E"
+RECONCILIATION_OUTPUTS=$E STORE_PATH=$PWD/$E/store.duckdb uv run --quiet python scripts/build_store.py > "$E/build_store.log"
+grep -q 'map without rule counts' "$E/build_store.log"
+uv run --quiet python -c "
+import duckdb
+c = duckdb.connect('$E/store.duckdb', read_only=True)
+n = lambda t: c.sql(f'SELECT count(*) FROM {t}').fetchone()[0]
+assert n('register') == 0 and n('map_offices') == 4 and n('map_sources') > 0 and n('map_edges') > 0
+print('no-register build OK')"
+(cd dashboard && npm test --silent && npm run build --silent > "../$W/next_build.log" && echo 'next build OK')
