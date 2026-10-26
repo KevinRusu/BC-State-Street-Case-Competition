@@ -1,0 +1,4 @@
+security_id,cusip,isin,ticker,security_name,asset_class,currency,exchange_mic,issuer_country,coupon_rate,maturity_date,par_value
+FXSEC1,FXCUSIP01,FX0000000001,FXA,Fixture Equity A,EQUITY,USD,XFIX,US,,,
+FXSEC2,FXCUSIP02,FX0000000002,FXB,Fixture Equity B,EQUITY,EUR,XFIX,DE,,,
+FXSEC3,FXCUSIP03,FX0000000003,FXC,Fixture Equity C,EQUITY,USD,XFIX,US,,,

@@ -1,0 +1,4 @@
+account_id,account_name,fund_id,share_class,account_type,base_currency,domicile,strategy,custodian,open_date,close_date,status
+FXACC1,Fixture Account One,FXFUND1,A,INSTITUTIONAL,USD,US,EQUITY_CORE,FIXTURE_CUSTODIAN,2020-01-02,,OPEN
+FXACC2,Fixture Account Two,FXFUND1,B,INSTITUTIONAL,USD,US,EQUITY_CORE,FIXTURE_CUSTODIAN,2020-01-02,,OPEN
+FXACC3,Fixture Account Three,FXFUND1,A,INSTITUTIONAL,EUR,LU,EQUITY_CORE,FIXTURE_CUSTODIAN,2021-03-01,,OPEN

@@ -1,0 +1,72 @@
+# Thresholds and treatment choices for notebooks/02_reconcile.ipynb (Check-in 2 method gate).
+# Change a value here and rerun the notebook; no number below is repeated in the code.
+# Written before the results were looked at (docs/checkins/checkin2/CHECKIN2_PLAN.md §2 and §3).
+
+[snapshot]
+as_of_date = "2026-07-10"            # Dataset Guide valuation snapshot; cut-off for both rebuild versions
+
+[robustness]
+shuffle_seed = 0                     # 0 = rows as delivered; any other number shuffles every table's rows after
+                                     # loading. Every aggregate must stay the same (only keep_first / keep_second
+                                     # sensitivities depend on row order, by definition)
+
+[tolerances]
+quantity_match_tolerance = 1e-6      # absolute units; only absorbs float noise in stored quantities
+gross_amount_tolerance = 0.01        # currency units; gross_amount is stored to the cent
+derived_units_tolerance = 0.01       # units; a blank quantity is derived only if gross_amount / price is this close to a
+                                     # whole number (sensitivity only, D-047)
+
+[policies]
+# The main chain. Each choice is shown beside its alternatives in the sensitivity table.
+conflicting_pairs = "not_evaluable"  # not_evaluable | keep_first | keep_second | drop_both
+reversed_main = "R1"                 # R1 (REVERSED row is a status; BOOKED-only) | R3 (one offset per original). R4 is refused: double offset
+reversed_side = "R3"                 # the reading shown beside the main one on the keys with a reversal
+negatives = "raw"                    # raw (keep the sign, flag the key) | not_evaluable. Absolute value is a sensitivity only
+blanks = "not_evaluable"             # not_evaluable. Blank-as-zero and gross_amount / price are sensitivities only
+holding_date = "trade"               # trade | settlement (the other one is reported beside it)
+
+[classification]
+# Cause rules, tested in this order on (odd source - rebuild); the first match sets the main class.
+cause_rules = [
+    "book_counts_duplicate_copies",     # difference = signed quantity of the removed copies on the key
+    "book_double_offsets_reversed",     # difference = minus the signed REVERSED quantities on the key
+    "duplicates_and_reversed",          # difference = the sum of the two above
+    "custodian_settlement_date_basis",  # custodian quantity = the settlement-date rebuild
+    "sign_flipped_position",            # odd source = minus the rebuild (added 16 Oct after the first run: see notebook section 5)
+]
+
+[trace]
+# The one evidenced trace: a key with this flag, present and evaluable in all three sources,
+# with no other flag; the first by the sort columns below.
+flag = "sign_conflict"
+sort_by = ["account_id", "security_id", "transaction_id"]
+
+[nav]
+tolerance = 0.000001                 # nav_per_share is stored to 6 decimals; one unit of the 6th decimal
+
+[prices]
+spread_threshold = 0.005             # (max - min) / mean across vendors; 0.5% from brief Appendix A (illustrative)
+scale_ratio_low = 80                 # max / min in [80, 125] = within 0.1 of a factor 100 on a log10 scale:
+scale_ratio_high = 125               # percent-of-par vs per-unit, or a unit error; never auto-corrected
+
+[fx]
+reporting_currency = "USD"           # Dataset Guide: USD is the reporting convention; prices in it need no FX rate
+
+[corporate_actions]
+# Required terms per action type (Dataset Guide §4 conventions). A type with no ratio convention for
+# extinguished units cannot be applied without inventing one, so it is quarantined by rule.
+[corporate_actions.SPLIT]
+required = ["ratio"]                 # post-event units per pre-event unit
+unused = ["cash_rate", "target_security_id"]
+[corporate_actions.MERGER]
+required = ["ratio", "target_security_id"]   # target units per source unit; target must be in securities
+unused = []
+[corporate_actions.SPINOFF]
+required = ["ratio", "target_security_id"]   # additional target units per source unit; parent remains
+unused = ["cash_rate"]
+[corporate_actions.CASH_DIVIDEND]
+required = ["cash_rate"]             # cash per eligible source unit, source security currency
+unused = ["ratio", "target_security_id"]
+[corporate_actions.REDEMPTION]
+required = ["cash_rate", "extinguished_units_convention"]   # the Guide gives no ratio convention for redemptions
+unused = ["target_security_id"]

@@ -1,0 +1,3 @@
+ledger_id,fund_id,share_class,net_assets,as_of_date,shares_outstanding,nav_per_share
+FXL1,FXFUND1,A,1000000.00,2026-07-10,100000,10.000000
+FXL2,FXFUND1,B,500000.00,2026-07-10,40000,12.500000
