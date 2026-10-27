@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Anomaly flags and evidence status</title>
+  <style>/*__CSS__*/</style>
+</head>
+<body>
+<main>
+  <header class="masthead">
+    <div><span class="brand-rule" aria-hidden="true"></span><strong>BC CASE COMPETITION</strong><span class="masthead-divider"> / </span><span>Evidence explorer</span></div>
+    <span id="snapshot" class="snapshot"></span>
+  </header>
+  <section class="intro" aria-labelledby="page-title">
+    <div><p class="eyebrow">DATA QUALITY · FRONT TO BACK</p><h1 id="page-title">Anomaly flags and evidence status.</h1><p class="subtitle">One record may contribute multiple flags.</p></div>
+    <div class="export-actions"><button id="export-svg" type="button">Export SVG</button><button id="export-png" type="button">Export PNG <span aria-hidden="true">↗</span></button></div>
+  </section>
+  <form class="filters" aria-label="Findings filters" onsubmit="return false">
+    <label>Population<select id="population"></select></label>
+    <label>Evidence status<select id="status"><option value="">All evidence statuses</option></select></label>
+    <label>Category focus<select id="category"><option value="">All categories</option></select></label>
+    <button id="reset" type="button">Reset filters</button>
+  </form>
+  <section class="metrics" aria-label="Selected population summary">
+    <div><span class="metric-label">ANOMALY FLAGS</span><strong id="flag-total">—</strong><span id="flag-context" class="metric-context"></span></div>
+    <div><span class="metric-label">DISTINCT AFFECTED ENTITIES</span><strong id="entity-total">—</strong><span id="entity-context" class="metric-context"></span></div>
+    <div class="metric-explainer"><span class="metric-label">HOW TO READ THIS VIEW</span><p>Category → anomaly → evidence status</p><p class="metric-context">Classification, not a history of propagation or remediation.</p></div>
+  </section>
+  <div class="chart-heading"><span id="population-note"></span><span id="selection-note"></span></div>
+  <p class="mobile-hint">Scroll the diagram horizontally to see all three columns. The data table below is also scrollable.</p>
+  <div id="chart-scroll" role="region" aria-label="Sankey diagram; scroll horizontally on smaller screens" tabindex="0"><div id="chart"></div></div>
+  <p id="empty-state" class="empty-state" hidden></p>
+  <div id="tooltip" class="tooltip" role="status" hidden></div>
+  <p id="assessment-note" class="assessment-note"></p>
+  <p id="announcer" class="sr-only" aria-live="polite"></p>
+  <details class="data-detail" open>
+    <summary>Accessible data table <span id="table-count"></span></summary>
+    <div class="table-scroll"><table><caption class="sr-only">Counts and evidence assessments for the current filters</caption><thead><tr><th scope="col">Category / anomaly</th><th scope="col">Evidence status</th><th scope="col" class="numeric">Flags</th><th scope="col" class="numeric">% of selected flags</th><th scope="col">Definition & source</th></tr></thead><tbody id="table-body"></tbody></table></div>
+  </details>
+  <details class="data-detail"><summary>Counting rules, coverage & limitations</summary><div id="methodology" class="methodology"></div></details>
+  <footer><span>Private synthetic competition data · Local use</span><span>Provisional State Street-inspired palette; not verified official branding.</span></footer>
+</main>
+<script type="application/json" id="findings-data">__FINDINGS_DATA__</script>
+<script>/*__JS__*/</script>
+</body>
+</html>
