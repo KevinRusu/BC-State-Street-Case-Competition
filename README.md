@@ -43,6 +43,18 @@ data_dictionary.csv
 To rebuild a figure, run its script with an output path, for example
 `uv run python scripts/fig_detection.py docs/figures/03_detection_matrix.png`.
 
+## Anomaly Sankey
+
+Run `uv run python scripts/build_sankey.py`, then open `outputs/sankey/index.html`
+in a browser. The offline view provides population, category and evidence-status
+filters, an accessible table, and SVG / high-resolution PNG export. It counts
+flags within one population at a time; distinct affected entities are shown
+separately. The same record-level findings CSV and Parquet can feed the companion
+UpSet chart. Generated data and exports stay private under `outputs/`.
+
+See [the Sankey guide](docs/notes/SANKEY_GUIDE.md) for counting grains,
+assessment provenance, limitations and validation commands.
+
 ## Working conventions
 
 - **Never modify `data/`.** Derived tables go in `outputs/`.
