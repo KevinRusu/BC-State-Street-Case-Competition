@@ -55,6 +55,17 @@ UpSet chart. Generated data and exports stay private under `outputs/`.
 See [the Sankey guide](docs/notes/SANKEY_GUIDE.md) for counting grains,
 assessment provenance, limitations and validation commands.
 
+## Anomaly overlap / UpSet
+
+Run `uv run python scripts/build_upset.py`, then open `outputs/upset/index.html`.
+This refreshes the shared findings and both charts. The UpSet groups unique
+entities by exact selected-flag combinations, including single-flag records.
+It provides check/status/population filters, record-evidence previews, an
+all-combination table and CSV, plus SVG / high-resolution PNG export. Counted
+populations remain separate; overlap is not presented as correlation or causation.
+
+See [the UpSet guide](docs/notes/UPSET_GUIDE.md) for counting and validation details.
+
 ## Working conventions
 
 - **Never modify `data/`.** Derived tables go in `outputs/`.

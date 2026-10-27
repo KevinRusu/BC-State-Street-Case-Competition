@@ -22,13 +22,8 @@ def browser_payload(findings, metadata, theme):
     return {**metadata, "theme":theme, "groups":[{"population":p,"check_id":cid,"status":s,"entities":sorted(ids)} for (p,cid,s),ids in sorted(groups.items())]}
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, help="Output directory (default: outputs/sankey)")
-    args = parser.parse_args()
-    root = Path(__file__).resolve().parents[1]
-    output = args.output.resolve() if args.output else root / "outputs/sankey"
-    findings, metadata = build_findings(root, output)
+def write_sankey(root, output, findings, metadata):
+    """Render the companion from the exact same findings used by another view."""
     theme = json.loads((root / "web/visualization-theme.json").read_text(encoding="utf-8"))
     payload = browser_payload(findings, metadata, theme)
     encoded = json.dumps(payload, separators=(",",":"), ensure_ascii=False).replace("<", "\\u003c")
@@ -37,6 +32,16 @@ def main():
     html = html.replace("/*__JS__*/", (root / "web/sankey.js").read_text(encoding="utf-8"))
     html = html.replace("__FINDINGS_DATA__", encoded)
     (output / "index.html").write_text(html, encoding="utf-8")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, help="Output directory (default: outputs/sankey)")
+    args = parser.parse_args()
+    root = Path(__file__).resolve().parents[1]
+    output = args.output.resolve() if args.output else root / "outputs/sankey"
+    findings, metadata = build_findings(root, output)
+    write_sankey(root, output, findings, metadata)
     print(f"Built {len(findings):,} flags across {len(metadata['populations'])} separate populations.")
     for pop in metadata["populations"].values():
         print(f"  {pop['label']}: {pop['flag_count']:,} flags / {pop['affected_entities']:,} affected {pop['unit']}")
