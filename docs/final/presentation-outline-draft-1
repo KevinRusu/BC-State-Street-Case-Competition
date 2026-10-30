@@ -1,0 +1,64 @@
+# Final presentation: loose outline
+
+*Draft, 30 Oct. This is a starting point, not a plan we have agreed. It **can and should change** as the analysis
+lands, after Check-in 3 feedback, and after every dry run. Edit it freely; git keeps the history.*
+
+*No numbers are typed here on purpose (CLAUDE.md: never type a number into a doc by hand). Each slide names the
+`outputs/` file or doc its number should come from. Items marked **(not built yet)** depend on work still open in
+[STATUS.md](../STATUS.md).*
+
+## The format
+
+- 15 minutes, then 10 minutes of questions. 12 to 15 slides, plus a backup appendix that does not count
+  ([brief §7](../../reference/01_Student_Brief.md#7-what-you-submit)).
+- Audience: a Chief Data Officer and their leadership team.
+- Every member speaks. Expect a live record-level trace and an assumption change during Q&A.
+- Rough budget: about 1 minute per slide, and 3 minutes for the dashboard demo.
+
+## The thesis (one sentence)
+
+**Agreement isn't proof.** Downstream checks can't catch a defect that came in upstream, because every later check
+compares it with something carrying the same mistake. So the controls have to sit where the data enters.
+
+Every slide should support this sentence or be cut.
+
+## Slides
+
+| # | Slide (working headline) | What it shows | Evidence from | Speaker |
+|---|---|---|---|---|
+| 1 | Title | Team, one-line thesis | | TBD |
+| 2 | One trade that passed every check | Cold open: the negative-quantity BUY from capture to NAV, booked and never stopped | [STORY.md](../checkins/checkin2/STORY.md), `docs/figures/08_journey_negative_buy.png`, [catalog entry 1](../DEFECT_CATALOG.md) | TBD |
+| 3 | The platform looks healthy | All trades rebuilt; share of testable positions where rebuild, book and custodian agree | `outputs/02_three_way_summary.csv`, `outputs/02_run_info.csv` | TBD |
+| 4 | The twist: the book and the custodian agree, and they are both wrong | Positions where book and custodian match each other but not the trades; the custodian follows the book's habits (duplicate copies, every REVERSED row, dropped blank-quantity units) | `outputs/02_break_classes.csv`, `docs/figures/10_three_way.png` | TBD |
+| 5 | Our architecture | Control map: stages against the three offices, the checks on each handoff | Dashboard data map, or `docs/figures/01_control_map.png` (redraw to match the dashboard grid) | TBD |
+| 6 | Where defects enter vs. where they are found | Each defect class: where it entered, where it surfaced, the earliest check that could catch it | [DEFECT_CATALOG.md](../DEFECT_CATALOG.md), `docs/figures/03_detection_matrix.png` | TBD |
+| 7 | Live demo | Executive view → one break → record trace, start to finish | Dashboard **(executive view not built yet)** | TBD |
+| 8 | Three defects, traced | One line each: negative BUY, spin-off target missing, 100x price | Catalog; **(second and third traces not built yet)** | TBD |
+| 9 | What looked wrong but wasn't | Two cleared look-alikes and what cleared them | Closed positions (cleared); **(second one not chosen yet)** | TBD |
+| 10 | Why it matters | Accounts and funds affected, value at risk, NAV impact in bps; exposure, not loss; no double counting | **(exposure / severity work not built yet)** | TBD |
+| 11 | Scorecard by office | Account, domain and platform scores with coverage beside each; KPIs each office owns | **(scores not built yet)**; KPI table from Check-in 1 | TBD |
+| 12 | Early warning | Leading indicators, including timeliness by feed and day | **(timeliness not built yet)** | TBD |
+| 13 | What to build first | Three recommendations, each tied to a defect class, owner, cost, dependency (e.g. capture-time sign and quantity checks plus a unique-ID check on resends; master-data gate before corporate actions; independent custodian reconciliation and price scale checks) | Roadmap **(not written yet)** | TBD |
+| 14 | What we don't know | Limitations, unresolved findings, the inputs that would resolve them; stress test results | [FINDINGS.md](../FINDINGS.md) (unresolved list), **(injected-defect stress test not built yet)** | TBD |
+| 15 | Close | Back to the one trade: where it would now be stopped | | TBD |
+
+## Backup appendix (not counted)
+
+- Reconciliation waterfall and sensitivities (`docs/figures/09_waterfall.png`, `docs/figures/11_sensitivities.png`)
+- Full findings register ([FINDINGS.md](../FINDINGS.md)) and defect catalog
+- Price checks, NAV arithmetic, corporate-action quarantine
+- KPI formulas, denominators and score weights
+- Persona wireframes for the front, middle and back office
+- Reproducibility: run commands, runtime, row-shuffle and threshold tests
+
+## Q&A prep
+
+- Practise a live trace on a record the judges pick, not one we chose.
+- Practise one config change on the spot (a threshold or vendor priority) and say what moved.
+- Each member should be able to answer "where does this number come from?" for their slide.
+
+## Open questions about this outline
+
+- Lead with the one trade (slide 2) or with the architecture? Current draft: the trade first, for the hook.
+- Demo in the middle (slide 7) or near the end? The middle keeps energy up; the end is safer if it breaks.
+- Which three recommendations, once the severity ranking exists?
