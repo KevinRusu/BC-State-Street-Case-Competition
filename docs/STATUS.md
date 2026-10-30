@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-10-23 (code review of notebook 02 and the deck scripts; review fixes applied, deck rebuilt)
+Last updated: 2026-10-30 (severity analysis added; D-050)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
@@ -32,6 +32,8 @@ Last updated: 2026-10-23 (code review of notebook 02 and the deck scripts; revie
   rebook line, two flag counts in `outputs/02_break_classes.csv` and one slide 7 speaker-note sentence moved; the
   headline numbers did not. Deck rebuilt. Review finding for later: 10 rules in RULES.md have no code yet and 5 are
   only partly coded (Job B below).
+
+- **Error severity (30 Oct):** `notebooks/03_error_severity.ipynb` adds NAV sensitivity and distinct-account breadth using notebook 02's existing detections (D-050). Run the notebook to rebuild `outputs/03_severity.csv` and its fund, record and account drill-downs plus plot. Valuation coverage and scenario assumptions accompany each measure; unknown dollar effects remain visible. The severity chart now uses lettered markers, an aligned scenario/value key, and separate unknown-impact cards; PNG and PDF exports are available in `outputs/`. Dashboard integration and verified bond quote/quantity conventions remain future work.
 
 ## Next: before Check-in 2
 
