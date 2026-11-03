@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>Which anomaly flags occur together?</title><style>/*__CSS__*/</style></head>
+<body><main>
+  <header class="masthead"><div><span class="brand-rule" aria-hidden="true"></span><strong>BC CASE COMPETITION</strong><span class="masthead-divider"> / </span><span>Evidence explorer</span></div><div class="companion-links"><a id="sankey-link" href="../sankey/index.html">Sankey companion ↗</a><span id="snapshot" class="snapshot"></span></div></header>
+  <section class="intro" aria-labelledby="page-title"><div><p class="eyebrow">DATA QUALITY · CO-OCCURRENCE</p><h1 id="page-title">Which anomaly flags occur together?</h1><p class="subtitle">Unique records grouped by their combination of selected flags.</p></div><div class="export-actions"><button id="export-svg" type="button">Export SVG</button><button id="export-png" type="button">Export PNG</button><button id="export-csv" type="button">Export all combinations · CSV</button></div></section>
+  <form class="filters" aria-label="UpSet filters" onsubmit="return false">
+    <label>Population<select id="population"></select></label>
+    <label>Evidence status<select id="status"><option value="">All evidence statuses</option></select></label>
+    <label>Category preset<select id="category"><option value="">All available categories</option></select></label>
+    <button id="reset" type="button">Reset filters</button>
+  </form>
+  <details id="check-picker" class="check-picker"><summary><span id="check-selection-label"></span><span class="check-picker-action">Change checks</span></summary><div class="check-selection-actions"><button id="select-all" type="button">Select all available</button><button id="select-none" type="button">Clear selection</button></div><fieldset id="checks"><legend class="sr-only">Checks included in exact combinations</legend></fieldset></details>
+  <section class="metrics upset-metrics" aria-label="Records and selected flag summary">
+    <div><span class="metric-label">RECORDS WITH SELECTED FLAGS</span><strong id="entity-total">—</strong><span id="entity-context" class="metric-context"></span></div>
+    <div><span class="metric-label">SELECTED FLAG COUNT</span><strong id="flag-total">—</strong><span class="metric-context">One record can contribute several flags</span></div>
+    <div><span class="metric-label">RECORDS WITH 2+ SELECTED FLAGS</span><strong id="multiple-total">—</strong><span id="multiple-context" class="metric-context"></span></div>
+  </section>
+  <div class="view-controls"><label>Order combinations<select id="sort"><option value="count">Largest count first</option><option value="size">Most selected flags first</option></select></label><label>Combinations shown<select id="limit"><option value="6">Largest 6</option><option value="12" selected>Largest 12</option><option value="24">Largest 24</option><option value="0">All combinations</option></select></label><label class="toggle-label"><input id="multiple-only" type="checkbox">Focus chart on records with 2+ selected flags</label></div>
+  <div class="chart-heading"><span id="population-note"></span><span id="selection-note"></span></div>
+  <p class="mobile-hint">Scroll the chart horizontally to inspect every combination. Select a bar or a matrix column to see record evidence.</p>
+  <div id="chart-scroll" role="region" aria-label="UpSet chart; scroll horizontally for more combinations" tabindex="0"><div id="chart"></div></div>
+  <p id="empty-state" class="empty-state" hidden></p>
+  <p id="omission-note" class="assessment-note"></p>
+  <div class="counting-summary"><p id="no-flags-note"></p><p>Combinations are exclusive relative to the selected checks and evidence statuses. Muted dots mean no selected flag, not a passed check. Co-occurrence does not establish correlation or causation.</p></div>
+  <section id="record-panel" class="record-panel" aria-labelledby="record-title" hidden><div class="record-heading"><div><p class="eyebrow">CONTRIBUTING RECORDS</p><h2 id="record-title"></h2><p id="record-context"></p></div><button id="close-records" type="button">Close selection</button></div><div class="table-scroll"><table><caption class="sr-only">Contributing records in the selected exact combination</caption><thead><tr><th scope="col">Stable entity key</th><th scope="col">Selected check membership & assessment</th><th scope="col">Evidence</th></tr></thead><tbody id="record-body"></tbody></table></div><p id="record-preview-note" class="metric-context"></p></section>
+  <details class="data-detail"><summary>Accessible table · all exact combinations <span id="table-count"></span></summary><div class="table-scroll"><table><caption class="sr-only">All combinations for the selected checks, statuses and optional multiple-flag focus, including combinations hidden by the chart limit</caption><thead><tr><th scope="col">Exact combination</th><th scope="col" class="numeric">Unique records</th><th scope="col" class="numeric">% of records with selected flags</th><th scope="col" class="numeric">Selected checks</th><th scope="col">Chart / evidence</th></tr></thead><tbody id="table-body"></tbody></table></div></details>
+  <details class="data-detail"><summary>Check totals, unevaluable inputs & excluded mappings</summary><div id="coverage"></div></details>
+  <details class="data-detail"><summary>Counting rules & source limitations</summary><div id="methodology" class="methodology"></div></details>
+  <div id="tooltip" class="tooltip" role="status" hidden></div><p id="announcer" class="sr-only" aria-live="polite"></p>
+  <footer><span>Private synthetic competition data · Local use</span><span>Provisional State Street-inspired palette; not verified official branding.</span></footer>
+</main><script type="application/json" id="upset-data">__UPSET_DATA__</script><script>/*__MODEL__*/</script><script>/*__JS__*/</script></body></html>

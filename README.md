@@ -69,6 +69,29 @@ Run from the repo root. Both run the committed notebook headless, without rebuil
   threshold changed, and checks that only what should move does. About 4 GB RAM per run; it leaves the default
   run in `outputs/`.
 
+## Anomaly Sankey
+
+Run `uv run python scripts/build_sankey.py`, then open `outputs/sankey/index.html`
+in a browser. The offline view provides population, category and evidence-status
+filters, an accessible table, and SVG / high-resolution PNG export. It counts
+flags within one population at a time; distinct affected entities are shown
+separately. The same record-level findings CSV and Parquet can feed the companion
+UpSet chart. Generated data and exports stay private under `outputs/`.
+
+See [the Sankey guide](docs/SANKEY_GUIDE.md) for counting grains,
+assessment provenance, limitations and validation commands.
+
+## Anomaly overlap / UpSet
+
+Run `uv run python scripts/build_upset.py`, then open `outputs/upset/index.html`.
+This refreshes the shared findings and both charts. The UpSet groups unique
+entities by exact selected-flag combinations, including single-flag records.
+It provides check/status/population filters, record-evidence previews, an
+all-combination table and CSV, plus SVG / high-resolution PNG export. Counted
+populations remain separate; overlap is not presented as correlation or causation.
+
+See [the UpSet guide](docs/UPSET_GUIDE.md) for counting and validation details.
+
 ## Working conventions
 
 - **Never modify `data/`.** Derived tables go in `outputs/`.
