@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-10-23 (code review of notebook 02 and the deck scripts; review fixes applied, deck rebuilt)
+Last updated: 2026-10-27 (one lean 7-slide Check-in 2 deck replaces the two earlier decks)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
@@ -40,8 +40,9 @@ Last updated: 2026-10-23 (code review of notebook 02 and the deck scripts; revie
 | Review the catalog draft (six entries now): one teammate per entry checks the prose and fills *Reviewed by* | `docs/DEFECT_CATALOG.md` | |
 | Read the team guide first: the project, the six Check-in 2 items, the three statuses and how to put the numbers on slides, in plain words | `docs/checkins/checkin2/TEAM_GUIDE.md` | everyone |
 | Read the story before the dry run (one broken trade, end to end, with the detours and the cleared flag) | `docs/checkins/checkin2/STORY.md` | everyone |
-| Deck **drafted 21 Oct**: 10 slides + 3 backup, speaker notes beside it. Rebuild after any notebook rerun: `uv run python scripts/fig_trace_journey.py docs/figures && uv run python scripts/fig_checkin2.py && uv run python scripts/build_checkin2_deck.py` (the last one checks the deck rules). Team: read it and correct wording | `docs/checkins/checkin2/Checkin2.pptx`, `docs/checkins/checkin2/SPEAKER_NOTES.md` | |
-| **Next: dry run.** Each member explains one slide and one number, using SPEAKER_NOTES.md | | |
+| **Deck (27 Oct, replaces both earlier decks)**: 7 slides, one per brief §8 item (the last item has two), for 8–10 minutes beside the live dashboard. No cover, no question slide. Each slide: the deliverable as the header, the finding in one sentence, one chart or table, short cards; short speaker notes beside it. Rebuild after a notebook rerun: `uv run python scripts/build_checkin2_deck.py` (a rerun overwrites hand edits) | `docs/checkins/checkin2/Checkin2.pptx`, `SPEAKER_NOTES.md` | team |
+| **Study guide (27 Oct)**: every Check-in 2 item, the ten tables, the code and tests explained from zero, with one worked example per idea and the source file of every number | `docs/checkins/checkin2/STUDY_GUIDE.md` | everyone |
+| **Next: dry run.** Each member explains one slide and one number, using DECK_BRIEF.md §4 | | |
 
 ## Next: after Check-in 2
 
@@ -110,6 +111,8 @@ Docs known to disagree with a higher source. Fix, then remove the line.
 - `notebooks/01_explore_tables.ipynb` labels negative quantities "confirmed (sign contradicts gross_amount)" (also
   in `outputs/01_defect_log.csv`). D-043 says gross_amount confirms the size only. Reword when notebook 01 is next
   rerun.
+- `docs/checkins/checkin2/DECK_BRIEF.md` §4–§5 walk through the old 10-slide deck (cover, slides 1–10, backups). The
+  deck is now 7 slides (`scripts/build_checkin2_deck.py`); the numbers and §7 sources still hold.
 - `docs/checkins/checkin2/STORY.md` cites register checksum `d43040c69f8c`; FINDINGS.md is now `d7e752f55f0a`.
   Spot-checked 22 Oct: the story's numbers are unchanged in the current outputs. Update its checksum line.
 - `docs/checkins/checkin2/CHECKIN2_PLAN.md` §2, blank-quantity row: "blank-as-zero ... is evidence of the book's

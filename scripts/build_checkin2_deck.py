@@ -1,15 +1,19 @@
 """Builds the Check-in 2 deck (docs/checkins/checkin2/Checkin2.pptx) and its speaker notes (SPEAKER_NOTES.md).
 
+Seven slides, one per item on the brief's Check-in 2 "Bring this" list (brief §8); the last item has two slides. No
+cover and no question slide: the dashboard is shown live beside it.
+
 Step by step:
-1. facts() reads every number and ID from notebook 02's outputs (outputs/02_*.csv), the open faculty questions from
-   docs/STATUS.md and the register checksum from docs/FINDINGS.md. Nothing on a slide is typed in: rerun notebook 02,
-   scripts/fig_trace_journey.py and scripts/fig_checkin2.py, then this script, and the deck follows the data.
-2. One function per slide writes its title (the message, as a sentence), one visual (a figure, a small table or one
-   big number), at most three bullets, and its speaker notes with the source file of each number.
-3. The look follows the Check-in 1 slides built by scripts/build_slides.py: Arial, the deck's blue (#001AFF) for
-   titles and table headers, thin grey lines between table rows, white space, text of 14 pt or more.
-4. check_deck() reopens the saved file and fails if a slide breaks the deck rules (one visual, three bullets, small
-   tables, 14 pt, no record IDs except the traced trade's), then prints the titles in order.
+1. facts() reads every number and ID from notebook 02's outputs (outputs/02_*.csv) and the register checksum from
+   docs/FINDINGS.md. Nothing on a slide is typed in: rerun notebook 02, scripts/fig_trace_journey.py, then this
+   script, and the deck follows the data.
+2. One function per slide writes the deliverable as the header, the finding as one sentence under it, one exhibit (a
+   native chart the team can edit, a small table or the trace figure), at most three short cards, and short speaker
+   notes that end with the source file of each number.
+3. The look: Arial, navy headers, the deck's blue (#001AFF) for numbers and what to look at, grey for the rest,
+   tinted cards without borders, text of 14 pt or more.
+4. check_deck() reopens the saved file and fails if a slide breaks the deck rules (one exhibit, short boxes, small
+   tables, 14 pt, no record IDs except the traced trade's, no filler phrases), then prints the headers in order.
 
 Run from the repo root: uv run python scripts/build_checkin2_deck.py
 """
@@ -20,10 +24,13 @@ from pathlib import Path
 import pandas as pd
 from lxml import etree
 from pptx import Presentation
+from pptx.chart.data import CategoryChartData
 from pptx.dml.color import RGBColor
+from pptx.enum.chart import XL_CHART_TYPE, XL_LABEL_POSITION, XL_TICK_LABEL_POSITION
+from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.oxml.ns import qn
-from pptx.util import Emu, Inches, Pt
+from pptx.util import Inches, Pt
 
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUTS, FIGURES = ROOT / "outputs", ROOT / "docs" / "figures"
@@ -34,10 +41,19 @@ BLUE = RGBColor(0x00, 0x1A, 0xFF)
 INK = RGBColor(0x1A, 0x1A, 0x2E)
 GREY = RGBColor(0x5F, 0x63, 0x68)
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
+NAVY = RGBColor(0x14, 0x1B, 0x4D)
+TINT = RGBColor(0xEE, 0xF1, 0xFF)          # cards
+PALE = RGBColor(0xF3, 0xF4, 0xF6)          # secondary cards
+GREY_BAR = RGBColor(0xB8, 0xBC, 0xC8)
+AMBER = RGBColor(0xE0, 0x8A, 0x00)         # held back
+GREEN = RGBColor(0x1E, 0x7E, 0x34)
+GREEN_TINT = RGBColor(0xE6, 0xF4, 0xEA)    # cleared
 LINE = "C9CCD6"
 LEFT, WIDTH = Inches(0.6), Inches(12.13)
-BODY_TOP = Inches(1.55)
+BODY_TOP = Inches(1.75)
+BODY_BOTTOM = Inches(6.8)
 MIN_PT = 14
+ITEMS = 6                                   # brief §8, Check-in 2 "Bring this"
 
 
 # --------------------------------------------------------------------------------------------------- numbers
@@ -63,6 +79,13 @@ def pct(part, whole, digits=1):
     return f"<{10 ** -digits:g}%" if 0 < share < 10 ** -digits / 2 else f"{share:.{digits}f}%"
 
 
+def quick_notes(say, points, asked, sources):
+    """Speaker notes as quick notes: the one line to say, the key points, likely questions with short answers, and the
+    source files of the numbers."""
+    return "\n".join([f"SAY: {say}", "", "KEY POINTS"] + [f"- {p}" for p in points]
+                     + ["", "IF ASKED"] + [f"- {q} → {a}" for q, a in asked] + ["", f"Sources: {sources}"])
+
+
 def facts():
     """Every number and ID the deck shows, read from the outputs. Keys are named after what they mean."""
     f = {}
@@ -84,6 +107,7 @@ def facts():
     f["rate"] = pct(f["agree"], f["testable"])
     f["rebuild_odd"] = int(keys["rebuild is the odd one out"])
     f["custodian_odd"] = int(keys["custodian is the odd one out"])
+    f["three_keys_all"] = int(keys.get("all three differ", 0))
     bvc = t[t["comparison"] == "book vs custodian"].set_index("group or pattern")["keys"].astype(int)
     f["bvc_only_book"], f["bvc_only_custodian"] = int(bvc["only in positions"]), int(bvc["only in comparison_positions"])
     f["bvc_matched"], f["bvc_different"] = int(bvc["matched"]), int(bvc["different"])
@@ -99,30 +123,21 @@ def facts():
     f["unexplained"] = f["cause"].get("unexplained", 0)
     agree_row = bc[bc["main_class"] == "all three agree"].iloc[0]
     f["agree_with_negative"] = int(agree_row["sign_conflict_keys"])
+    f["break_rows"] = [(r["pattern"], r["cause"], int(r["keys"])) for _, r in breaks.iterrows()]
 
     w = read("02_waterfall.csv")
     w = w[w["compared with"] == "positions"].set_index("code")
     for code, name in [("C0", "raw"), ("BOOKED-only", "booked"), ("C7", "chain")]:
         f[f"diff_{name}"], f[f"union_{name}"] = int(w.loc[code, "different"]), int(w.loc[code, "keys in union"])
     f["settlement_delta"] = int(w.loc["C7s", "matched"]) - int(w.loc["C7", "matched"])
-    f["extra_diff"] = f["diff_chain"] - f["diff_booked"]
 
     s = read("02_sensitivities.csv")
-    s = s[s["compared with"] == "positions"].set_index("alternative")["matched vs main chain"].astype(int)
-    f["sens"] = s.to_dict()
+    s = s[s["compared with"] == "positions"].set_index("alternative")
+    s = s["matched vs main chain"].astype(int)
     pick = lambda prefix: int(s[[a for a in s.index if a.startswith(prefix)]].iloc[0])
     f["d_r3"], f["d_r4"] = pick("REVERSED: R3"), pick("REVERSED: R4")
     f["d_copies"], f["d_abs"] = pick("copies: both counted"), pick("negatives: absolute value")
-    f["d_zero"], f["d_keep_first"] = pick("blanks: zero"), pick("conflicting pairs: keep_first")
-
-    bq = read("02_blank_quantity.csv").set_index("measure")
-    f["blank_rows"] = int(bq.loc["rows with a blank quantity", "count"])
-    f["blank_derivable"] = int(bq.loc["derivable: whole number of units, no link to another trade", "count"])
-    keyrow = bq.loc["keys with a blank row in the main chain: evaluable once blanks are derived"]
-    f["blank_testable"], f["blank_keys"] = int(keyrow["count"]), int(keyrow["out of"])
-    f["blank_match_book"] = int(bq.loc["derived rebuild equals the book", "count"])
-    back = bq.loc["rows with a quantity: gross_amount / price gives it exactly"]
-    f["backtest_exact"], f["backtest_rows"] = int(back["count"]), int(back["out of"])
+    f["d_zero"] = pick("blanks: zero")
 
     dp = read("02_duplicate_profile.csv").set_index("measure")
     both = dp.loc["of the book positions holding a copy: transaction_count counts both copies"]
@@ -130,15 +145,31 @@ def facts():
     f["copy_ids"] = int(dp.loc["repeated transaction_ids that are copies (exact or date format only)", "count"])
     f["publish_gap"] = f"{float(dp.loc['minutes between the two publishes: median', 'count']):.0f}"
 
+    bq = read("02_blank_quantity.csv").set_index("measure")
+    f["blank_rows"] = int(bq.loc["rows with a blank quantity", "count"])
+    f["blank_derivable"] = int(bq.loc["derivable: whole number of units, no link to another trade", "count"])
+
+    cc = read("01_cross_check.csv").set_index("check")["this notebook"]       # notebook 01
+    f["spin_secs"] = int(cc["missing spin-off targets traded and held"])
+    f["spin_trades"] = int(cc["missing spin-off targets: transaction rows"])
+    f["spin_positions"] = int(cc["missing spin-off targets: position rows"])
+    f["spin_prices"] = int(cc["missing spin-off targets: price rows"])
+
     reg = read("02_defect_register.csv").set_index("finding")
-    line = lambda name: reg.loc[name]
     f["status_counts"] = reg["status"].value_counts().to_dict()
     f["findings"] = len(reg)
     f["reg"] = {name: (int(r["affected"]), int(r["eligible"]), int(r["not evaluable"])) for name, r in reg.iterrows()}
-    f["ex_after"] = (int(line("ex_date after effective_date")["affected"]), int(line("ex_date after effective_date")["population"]))
+    ex = reg.loc["ex_date after effective_date"]
+    f["ex_after"] = (int(ex["affected"]), int(ex["population"]))
 
     tr = read("02_trace.csv")
     trace = {(r["hop"], r["field"]): r["value"] for _, r in tr.iterrows()}
+    f["trace"] = trace
+    import ast
+    share_field = ("pipeline", "share of negative quantities by source_system")
+    note = tr.set_index(["hop", "field"]).loc[share_field, "note"]
+    f["share_negative"] = ast.literal_eval(trace[share_field])
+    f["share_all"] = ast.literal_eval(re.search(r"\{.*?\}", note).group(0))
     f["trace_id"] = trace[("source", "transaction_id")]
     f["trace_type"] = trace[("source", "transaction_type")]
     f["trace_qty"] = n(trace[("source", "quantity")])
@@ -147,62 +178,47 @@ def facts():
     f["trace_wrong_sign"] = n(trace[("position", "quantity under the wrong-sign reading")])
     f["trace_bps"] = f"{float(trace[('downstream', 'indicative exposure (bps of fund net assets)')]):.0f}"
     f["trace_source"] = trace[("source", "source_system")]
-    f["trace_cust_same"] = trace[("custodian", "positions with a negative-quantity trade: custodian equals the book")]
     f["trace_partners"] = int(trace[("source", "other records of this trade")])
+    assert f["trace_book"] == f["trace_custodian"], "the trace's book and custodian differ: reword slide 3"
 
     partners = read("02_negative_partners.csv")
     f["partner_ids"] = partners["transaction_id"].nunique()
     f["partner_wrong_sign"] = partners.loc[partners["reading_supported"] == "wrong sign", "transaction_id"].nunique()
-    # The trace note says every negative trade with a partner is a BUY and every partner supports wrong sign (D-043)
-    assert set(partners["transaction_type"]) <= {"BUY"}, "a negative trade with a partner is not a BUY: reword slide 6"
-    assert f["partner_wrong_sign"] == f["partner_ids"], "not every partner supports wrong sign: revisit D-043 and slide 6"
+    # Slide 3 says every negative BUY with a second record supports the wrong-sign reading (D-043)
+    assert set(partners["transaction_type"]) <= {"BUY"}, "a negative trade with a partner is not a BUY: reword slide 3"
+    assert f["partner_wrong_sign"] == f["partner_ids"], "not every partner supports wrong sign: revisit D-043, slide 3"
 
-    nav = read("02_nav_check.csv")["result"].value_counts()
+    nav_check = read("02_nav_check.csv")
+    nav = nav_check["result"].value_counts()
     f["nav_fail"], f["nav_rows"] = int(nav.get("fail", 0)), int(nav.sum())
-    vendor_check = read("02_vendor_check.csv")
+    fund = nav_check[nav_check["fund_id"] == trace[("downstream", "fund_id")]]
+    f["trace_fund"], f["trace_fund_rows"] = trace[("downstream", "fund_id")], len(fund)
+    f["trace_fund_pass"] = int((fund["result"] == "pass").sum())
+    vendor_check = read("02_vendor_check.csv").set_index("security_id")
+    f["trace_spread"] = pct(float(vendor_check.loc[trace[("source", "security_id")], "spread"]), 1, 2)
+    f["trace_vendors"] = int(vendor_check.loc[trace[("source", "security_id")], "vendors"])
     vendor = vendor_check["result"]
     f["vendor_spread"] = int((vendor == "spread above threshold").sum())
     f["vendor_scale"] = int((vendor == "scale flag (ratio near 100)").sum())
     f["vendor_not_comparable"] = int(vendor.str.contains("not evaluable").sum())
-    f["vendor_no_quote"] = int((vendor == "no quote (not evaluable)").sum())
     f["vendor_evaluable"] = len(vendor) - f["vendor_not_comparable"]
-    per_count = vendor_check["vendors"].astype(int).value_counts().sort_index(ascending=False)
-    words = {0: "none", 1: "one", 2: "two", 3: "three"}
-    parts = [f"from {words.get(k, k)} on {n(c)}" for k, c in per_count.items()]
-    parts[0] = parts[0].replace(" on ", " vendors on ", 1) + " securities"
-    f["vendor_coverage"] = ", ".join(parts[:-1]) + (" and " if len(parts) > 1 else "") + parts[-1]
-    f["vendor_not_comparable_text"] = (f"{n(f['vendor_no_quote'])} have no quote to compare"
-                                       if f["vendor_not_comparable"] == f["vendor_no_quote"] else
-                                       f"{n(f['vendor_not_comparable'])} can't be compared "
-                                       f"({n(f['vendor_no_quote'])} have no quote at all)")
     import tomllib
     with open(ROOT / "config" / "reconciliation.toml", "rb") as stream:
         prices = tomllib.load(stream)["prices"]
     f["spread_threshold"] = f"{100 * prices['spread_threshold']:g}%"
-    f["scale_band"] = f"{prices['scale_ratio_low']:g} to {prices['scale_ratio_high']:g}"
 
     ca = read("02_ca_readiness.csv")
     f["ca_events"] = len(ca)
     f["ca_supported"] = int((ca["verdict"] == "supported").sum())
     f["ca_quarantined"] = int((ca["verdict"] == "quarantined").sum())
-    f["ca_types"] = (ca.groupby(["action_type", "verdict", "reason codes"])
-                     .agg(events=("action_id", "size"), release=("what would release it", "first")).reset_index())
-    f["ca_holders"] = {r["action_id"]: int(r["candidate holders"]) for _, r in ca.iterrows()}
+    f["ca_types"] = ca.groupby(["action_type", "verdict", "reason codes"]).size().reset_index(name="events")
 
     side = read("02_reversed_side_view.csv")
     side.columns = ["main", "side", "keys"]
     side["keys"] = side["keys"].astype(int)
-    changed = side[side["main"] != side["side"]]
-    f["r3_total"], f["r3_changed"] = int(side["keys"].sum()), int(changed["keys"].sum())
-    f["r3_to_agree"] = int(changed.loc[changed["side"] == "all three agree", "keys"].sum())
-    f["r3_to_ne"] = int(changed.loc[changed["side"].str.startswith("not evaluable"), "keys"].sum())
-    breaks_ = {"rebuild is the odd one out", "book is the odd one out", "custodian is the odd one out", "all three differ"}
-    f["r3_to_break"] = int(changed.loc[changed["side"].isin(breaks_) & ~changed["main"].isin(breaks_), "keys"].sum())
-    f["r3_other"] = f["r3_changed"] - f["r3_to_agree"] - f["r3_to_ne"] - f["r3_to_break"]
+    f["r3_total"] = int(side["keys"].sum())
+    f["r3_changed"] = int(side.loc[side["main"] != side["side"], "keys"].sum())
 
-    status = (ROOT / "docs" / "STATUS.md").read_text()
-    block = status.split("## Open questions for faculty", 1)[1].split("\n## ", 1)[0]
-    f["questions"] = re.findall(r"^\d+\. (.+)$", block, re.M)
     findings_md = (ROOT / "docs" / "FINDINGS.md").read_text()
     f["checksum"] = re.search(r"Register checksum: `([0-9a-f]+)`", findings_md).group(1)
     return f
@@ -214,47 +230,69 @@ def style_run(run, size, color=INK, bold=False, italic=False):
     run.font.color.rgb = color
 
 
+def add_runs(paragraph, parts, size, color=INK):
+    """`parts` is a string or a list of (text, style); style 'b' = bold, 'a' = bold accent blue, 'i' = italic grey."""
+    for text, kind in ([(parts, "")] if isinstance(parts, str) else parts):
+        run = paragraph.add_run()
+        style_run(run, size, BLUE if kind == "a" else GREY if kind == "i" else color,
+                  bold=kind in ("b", "a"), italic=kind == "i")
+        run.text = text
+
+
+def fill_frame(tf, paragraphs, size, color=INK, space=6, align=PP_ALIGN.LEFT):
+    """Write paragraphs (each a string or a list of parts) into a text frame."""
+    for i, parts in enumerate(paragraphs):
+        p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+        p.alignment = align
+        p.space_after = Pt(space)
+        add_runs(p, parts, size, color)
+
+
 def text_box(slide, x, y, w, h, text, size=18, color=INK, bold=False, align=PP_ALIGN.LEFT, name=None,
              anchor=MSO_ANCHOR.TOP):
     tb = slide.shapes.add_textbox(x, y, w, h)
     if name:
         tb.name = name
     tf = tb.text_frame; tf.word_wrap = True; tf.vertical_anchor = anchor
-    tf.margin_left = tf.margin_right = 0
+    tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
     p = tf.paragraphs[0]; p.alignment = align
     style_run(p.add_run(), size, color, bold)
     p.runs[0].text = text
     return tb
 
 
-def add_runs(paragraph, parts, size):
-    """`parts` is a string or a list of (text, style); style 'i' = italic grey (evidence marks), 'b' = bold."""
-    for text, kind in ([(parts, "")] if isinstance(parts, str) else parts):
-        style_run(paragraph.add_run(), size, GREY if kind == "i" else INK, bold=kind == "b", italic=kind == "i")
-        paragraph.runs[-1].text = text
+def card(slide, x, y, w, h, heading, body, fill=TINT, heading_color=BLUE, size=16, big=None, name="Card"):
+    """A tinted rounded box: a small bold heading, an optional big number, then short paragraphs."""
+    shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, x, y, w, h)
+    shape.name = "BigNumber" if big else name
+    shape.adjustments[0] = 0.06
+    shape.fill.solid(); shape.fill.fore_color.rgb = fill
+    shape.line.fill.background()
+    shape.shadow.inherit = False
+    tf = shape.text_frame; tf.word_wrap = True; tf.vertical_anchor = MSO_ANCHOR.TOP
+    tf.margin_left = tf.margin_right = Inches(0.22); tf.margin_top = tf.margin_bottom = Inches(0.16)
+    paragraphs = ([[(heading, "")]] if heading else []) + ([[(big, "")]] if big else []) + body
+    fill_frame(tf, paragraphs, size, space=5)
+    first = 0
+    if heading:
+        style_run(tf.paragraphs[0].runs[0], 14, heading_color, bold=True)
+        tf.paragraphs[0].runs[0].text = heading.upper()
+        first = 1
+    if big:
+        style_run(tf.paragraphs[first].runs[0], 36, BLUE, bold=True)
+    return shape
 
 
-def bullets(slide, x, y, w, h, items, size=18):
-    """At most three bullets (checked in check_deck), each a string or a list of (text, style) parts."""
-    tb = slide.shapes.add_textbox(x, y, w, h)
-    tb.name = "Bullets"
-    tf = tb.text_frame; tf.word_wrap = True
-    tf.margin_left = tf.margin_right = 0
-    for i, item in enumerate(items):
-        p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
-        p.space_after = Pt(10)
-        pPr = p._p.get_or_add_pPr()
-        pPr.set("marL", str(Inches(0.28))); pPr.set("indent", str(-Inches(0.28)))
-        clr = etree.SubElement(pPr, qn("a:buClr"))
-        etree.SubElement(clr, qn("a:srgbClr"), val="001AFF")
-        etree.SubElement(pPr, qn("a:buFont"), typeface="Arial")
-        etree.SubElement(pPr, qn("a:buChar"), char="•")
-        add_runs(p, item, size)
-    return tb
+def stack(slide, x, w, cards, top=BODY_TOP, gap=Inches(0.2)):
+    """Cards one under another in a column: each item is (height in inches, card keyword arguments)."""
+    y = top
+    for h, kw in cards:
+        card(slide, x, y, w, Inches(h), **kw)
+        y += Inches(h) + gap
 
 
 def set_border(cell, side, color=LINE, width=6350):
-    """One cell border (side L, R, T or B) as a thin solid line, or none (as in scripts/build_slides.py)."""
+    """One cell border (side L, R, T or B) as a thin solid line, or none."""
     tcPr = cell._tc.get_or_add_tcPr()
     tag = qn(f"a:ln{side}")
     for old in tcPr.findall(tag):
@@ -271,7 +309,7 @@ def set_border(cell, side, color=LINE, width=6350):
 
 
 def table(slide, header, rows, widths, top=BODY_TOP, size=16, row_h=0.62, head_h=0.5, left=LEFT, width=WIDTH):
-    """Blue header row, plain rows with a thin grey line under each, a blue line under the last (build_slides.py)."""
+    """Navy header row, plain rows with a thin grey line under each. A cell may be a list of parts."""
     scale = width / Inches(sum(widths))
     shape = slide.shapes.add_table(len(rows) + 1, len(header), left, top, width, Inches(head_h + row_h * len(rows)))
     tbl = shape.table
@@ -287,24 +325,80 @@ def table(slide, header, rows, widths, top=BODY_TOP, size=16, row_h=0.62, head_h
         tbl.rows[i].height = Inches(head_h if i == 0 else row_h)
         for j, value in enumerate(values):
             cell = tbl.cell(i, j)
-            cell.margin_left = cell.margin_right = Inches(0.1)
+            cell.margin_left = cell.margin_right = Inches(0.12)
             cell.margin_top = cell.margin_bottom = Inches(0.05)
             cell.vertical_anchor = MSO_ANCHOR.MIDDLE
-            p = cell.text_frame.paragraphs[0]
             cell.text_frame.word_wrap = True
-            style_run(p.add_run(), size, WHITE if i == 0 else INK, bold=i == 0)
-            p.runs[0].text = str(value)
+            p = cell.text_frame.paragraphs[0]
             if i == 0:
-                cell.fill.solid(); cell.fill.fore_color.rgb = BLUE
+                add_runs(p, [(str(value), "b")], size, WHITE)
+                cell.fill.solid(); cell.fill.fore_color.rgb = NAVY
                 for side in "LRTB":
                     set_border(cell, side, color=None)
             else:
+                add_runs(p, value if isinstance(value, list) else str(value), size)
                 cell.fill.background()
                 for side in "LRT":
                     set_border(cell, side, color=None)
-                last = i == len(rows)
-                set_border(cell, "B", color="001AFF" if last else LINE, width=12700 if last else 6350)
+                set_border(cell, "B", color=LINE)
     return shape
+
+
+def bar_chart(slide, x, y, w, h, categories, values, colors, title=None, labels=None):
+    """A native horizontal bar chart (editable in PowerPoint): first category on top, value labels at the bar ends,
+    no axis or gridlines. `colors` gives one colour per bar; `labels` optionally replaces the value labels."""
+    data = CategoryChartData()
+    data.categories = categories
+    data.add_series("value", values)
+    frame = slide.shapes.add_chart(XL_CHART_TYPE.BAR_CLUSTERED, x, y, w, h, data)
+    frame.name = "Chart"
+    chart = frame.chart
+    chart.has_legend = False
+    chart.font.name = "Arial"; chart.font.size = Pt(14); chart.font.color.rgb = INK
+    if title:
+        chart.has_title = True
+        chart.chart_title.text_frame.text = title
+        style_run(chart.chart_title.text_frame.paragraphs[0].runs[0], 16, INK, bold=True)
+    else:
+        chart.has_title = False
+    plot = chart.plots[0]
+    plot.gap_width = 55
+    plot.vary_by_categories = False
+    series = plot.series[0]
+    series.invert_if_negative = False
+    for i, color in enumerate(colors):
+        point = series.points[i]
+        point.format.fill.solid(); point.format.fill.fore_color.rgb = color
+        dPt = series._element.get_or_add_dPt_for_point(i)        # a negative bar keeps its colour too
+        if dPt.find(qn("c:invertIfNegative")) is None:
+            dPt.idx.addnext(etree.Element(qn("c:invertIfNegative"), val="0"))
+    plot.has_data_labels = True
+    dl = plot.data_labels
+    dl.number_format = '+#,##0;"−"#,##0;0' if any(v < 0 for v in values) else '#,##0'
+    dl.number_format_is_linked = False
+    dl.position = XL_LABEL_POSITION.OUTSIDE_END
+    dl.font.size = Pt(14); dl.font.color.rgb = INK
+    if labels:
+        for i, text in enumerate(labels):
+            tf = series.points[i].data_label.text_frame
+            tf.text = text
+            style_run(tf.paragraphs[0].runs[0], 14, INK)
+            series.points[i].data_label.position = XL_LABEL_POSITION.OUTSIDE_END
+    cat = chart.category_axis
+    cat.reverse_order = True
+    cat.has_major_gridlines = False
+    cat.format.line.color.rgb = RGBColor(0xB0, 0xB4, 0xC0)
+    cat.tick_labels.font.size = Pt(14)
+    cat.tick_label_position = XL_TICK_LABEL_POSITION.LOW
+    val = chart.value_axis
+    val.visible = False
+    val.has_major_gridlines = False
+    top = max(max(values), 0)
+    low = min(min(values), 0)
+    span = top - low
+    val.maximum_scale = top + 0.28 * span          # room for the labels at the bar ends
+    val.minimum_scale = low - (0.28 * span if low < 0 else 0)
+    return frame
 
 
 def picture(slide, name, left, top, width=None, height=None, shape_name="Figure"):
@@ -318,21 +412,20 @@ class Deck:
         self.f = facts_
         self.prs = Presentation()
         self.prs.slide_width, self.prs.slide_height = Inches(13.333), Inches(7.5)
-        self.notes = []          # (label, title, notes) for SPEAKER_NOTES.md
-        self.count = 0
+        self.notes = []          # (number, deliverable, finding, notes) for SPEAKER_NOTES.md
 
-    def slide(self, title, notes, label=None):
+    def slide(self, item, deliverable, finding, notes):
+        """A slide for brief §8 item `item`: the deliverable as the header, the finding under it."""
         s = self.prs.slides.add_slide(self.prs.slide_layouts[6])     # blank layout
-        if label != "cover":
-            self.count += 1
-            label = label or str(self.count)
-            text_box(s, LEFT, Inches(0.35), WIDTH, Inches(1.05), title, size=26, color=BLUE, bold=True, name="Title",
-                     anchor=MSO_ANCHOR.TOP)
-            text_box(s, LEFT, Inches(7.0), Inches(8), Inches(0.35), "Check-in 2 · method gate", size=14, color=GREY)
-            text_box(s, Inches(11.73), Inches(7.0), Inches(1), Inches(0.35), label, size=14, color=GREY,
-                     align=PP_ALIGN.RIGHT)
+        number = len(self.notes) + 1
+        text_box(s, LEFT, Inches(0.4), WIDTH, Inches(0.55), deliverable, size=28, color=NAVY, bold=True, name="Title")
+        text_box(s, LEFT, Inches(1.0), WIDTH, Inches(0.5), finding, size=20, color=INK, name="Finding")
+        text_box(s, LEFT, Inches(7.0), Inches(8), Inches(0.3), f"Check-in 2 · item {item} of {ITEMS}", size=14,
+                 color=GREY)
+        text_box(s, Inches(11.73), Inches(7.0), Inches(1), Inches(0.3), str(number), size=14, color=GREY,
+                 align=PP_ALIGN.RIGHT)
         s.notes_slide.notes_text_frame.text = notes
-        self.notes.append((label, title, notes))
+        self.notes.append((number, deliverable, finding, notes))
         return s
 
     def save(self):
@@ -340,460 +433,426 @@ class Deck:
         self.prs.save(DECK)
         lines = ["# Check-in 2: speaker notes", "",
                  "*Generated by `scripts/build_checkin2_deck.py` with the deck; do not edit by hand (rerun the script). "
-                 "About one minute per slide. Use your own words; the source file of each number is at the end of "
-                 "each note.*", ""]
-        for label, title, notes in self.notes:
-            lines += [f"## Slide {label}: {title}", "", notes, ""]
+                 "About a minute and a half per slide. Use your own words; the source file of each number is at the "
+                 f"end of each note. Register checksum `{self.f['checksum']}`.*", ""]
+        for number, deliverable, finding, notes in self.notes:
+            lines += [f"## Slide {number}: {deliverable}", "", f"*{finding}*", "", notes, ""]
         NOTES_MD.write_text("\n".join(lines))
 
 
 # --------------------------------------------------------------------------------------------------- slides
-def cover(d):
+# Most slides: a wide exhibit on the left, cards on the right.
+COL1_W, GAP = Inches(7.6), Inches(0.35)
+COL2_X = LEFT + COL1_W + GAP
+COL2_W = LEFT + WIDTH - COL2_X
+CHART_H = BODY_BOTTOM - BODY_TOP
+
+
+def s_reconciliation(d):
     f = d.f
-    s = d.slide("Check-in 2: the method gate",
-                "Cover. One sentence: today we show how we work the data, follow one broken trade through the "
-                "platform, and ask to be cleared to build the full analysis. Every number on the slides is written "
-                f"by a script from notebook 02's outputs (register checksum {f['checksum']}).", label="cover")
-    text_box(s, LEFT, Inches(2.2), WIDTH, Inches(1.2), "Check-in 2: the method gate", size=44, color=BLUE, bold=True)
-    text_box(s, LEFT, Inches(3.4), WIDTH, Inches(0.8), "One broken trade, from the trading desk to the fund",
-             size=24, color=INK)
-    text_box(s, LEFT, Inches(5.6), WIDTH, Inches(0.8),
-             f"Full data, snapshot {f['snapshot']} · every number from notebook 02 · register checksum {f['checksum']}",
-             size=14, color=GREY)
-
-
-def s_answer(d):
-    f = d.f
-    s = d.slide(f"Our rebuild runs on all {f['trade_rows_m']} trades, and {f['rate']} of the positions we can test "
-                "agree across all three sources",
-                f"This is the answer first. We rebuilt every holding by adding up its trades from zero: BUY adds, SELL "
-                f"subtracts. That ran on all {n(f['trade_rows'])} trade rows in {f['runtime']}, live in notebook 02.\n\n"
-                f"Then we compared three sources for every position: our rebuild, the book of record (the platform's "
-                f"own list of holdings) and the custodian (the outside bank that holds the securities). "
-                f"{n(f['agree'])} of the {n(f['testable'])} positions we can test agree in all three: {f['rate']}.\n\n"
-                f"We leave {n(f['not_evaluable'])} positions out of that rate on purpose: we can't test them, mostly "
-                f"because one of their trades has a blank quantity ({n(f['not_evaluable_blank'])}). Unknown is not "
-                f"wrong and not right, so it sits beside the rate, not inside it (D-046).\n\n"
-                f"{n(f['breaks'])} positions disagree. We give each one cause; {n(f['unexplained'])} have no cause yet "
-                f"and stay visible. And agreement is not proof: {n(f['agree_with_negative'])} agreeing positions "
-                f"contain a negative BUY. That is the trade we follow on slide 6.\n\n"
-                "Sources: 02_row_ledger.csv (load transactions), 02_run_info.csv (runtime), 02_three_way_summary.csv "
-                "(all three agree; not evaluable rows), 02_break_classes.csv (is a break = yes; cause unexplained; "
-                "sign_conflict_keys on all three agree).")
-    text_box(s, LEFT, Inches(2.0), Inches(5.4), Inches(1.6), f["rate"], size=96, color=BLUE, bold=True, name="BigNumber")
-    text_box(s, LEFT, Inches(3.75), Inches(5.2), Inches(1.4),
-             f"{n(f['agree'])} of {n(f['testable'])} positions we can test: trades, book and custodian agree",
-             size=18, color=GREY)
-    bullets(s, Inches(6.5), Inches(2.1), Inches(6.2), Inches(4.5), [
-        f"Rebuild: sum every trade per holding; runs on all {f['trade_rows_m']} rows in {f['runtime']}.",
-        f"{n(f['not_evaluable'])} can't be tested, mostly a blank quantity.",
-        f"{n(f['breaks'])} disagree; {n(f['unexplained'])} not yet explained.",
-    ], size=20)
-
-
-def s_waterfall(d):
-    f = d.f
-    s = d.slide("Cleaning the trades raises the differences with the book, because the book counts duplicate "
-                "trade copies that we count once",
-                f"How we got to our rebuild, step by step. Each bar counts positions where a rebuild differs from the "
-                f"book of record. Every row as delivered: {n(f['diff_raw'])} of {n(f['union_raw'])}. The Guide's "
-                f"shared benchmark, BOOKED rows only: {n(f['diff_booked'])} of {n(f['union_booked'])}. Our chain: "
-                f"{n(f['diff_chain'])} of {n(f['union_chain'])}.\n\n"
-                "Our chain is stricter than the benchmark in one main way: when the same trade arrives twice, we "
-                f"count it once. {n(f['copy_ids'])} trades arrived twice; both copies came in together and were "
-                f"published twice, a median {f['publish_gap']} minutes apart, which looks like a resend (inferred). "
-                f"The book counts both copies on {n(f['copy_positions_counted'])} of {n(f['copy_positions'])} "
-                f"positions that hold one. Counting both, as the book does, would add {n(f['d_copies'])} matches, "
-                f"about the size of the {n(f['extra_diff'])} extra differences against the benchmark.\n\n"
-                "So more differences here is not a worse rebuild: it shows a convention of the book that we question "
-                "(D-044, faculty question 4).\n\n"
-                "Sources: 02_waterfall.csv (C0, BOOKED-only, C7 vs positions: different, keys in union); "
-                "02_duplicate_profile.csv; 02_sensitivities.csv (copies: both counted).")
-    picture(s, "09_waterfall.png", LEFT, BODY_TOP + Inches(0.1), width=WIDTH)
-    bullets(s, LEFT, Inches(5.35), WIDTH, Inches(1.5), [
-        "Book of record: the platform's official list of what each account holds.",
-        f"Counting both copies, as the book does, would add {n(f['d_copies'])} matches.",
-    ])
-
-
-def s_decisions(d):
-    f = d.f
-    blank = f"{n(f['blank_testable'])} of {n(f['blank_keys'])} become testable; {n(f['blank_match_book'])} match the book"
-    s = d.slide("Where the data is unclear, we chose the cautious reading and measured the other one",
-                "Every choice we made, with the other reading and its effect, measured by rerunning the whole chain "
-                "with that one step swapped. The effect is the change in positions that match the book, out of "
-                f"{n(f['union_chain'])}.\n\n"
-                f"REVERSED: we keep the original and read REVERSED as a status (R1, the Guide's benchmark). Offsetting "
-                f"each original once (R3) changes {signed(f['d_r3'])} matches; offsetting every REVERSED row (R4, what "
-                f"the book seems to do) {signed(f['d_r4'])}, but that is a double offset, so we never use it.\n\n"
-                f"Copies: we count a trade once; counting both {signed(f['d_copies'])}. Negative quantities: we keep "
-                f"the sign and flag it; the absolute value {signed(f['d_abs'])}. Copies that disagree with each other "
-                f"are not evaluable; keeping the first changes {signed(f['d_keep_first'])}.\n\n"
-                f"Blank quantities: we can't test them. Counting a blank as zero adds {n(f['d_zero'])} matches, but "
-                f"the money and price in the same row give the size: then {blank}. So the book seems to drop the "
-                f"units of real trades (D-047). Settlement date instead of trade date: {signed(f['settlement_delta'])}.\n\n"
-                "Sources: 02_sensitivities.csv (matched vs main chain, vs positions); 02_blank_quantity.csv "
-                "(positions); 02_waterfall.csv (C7s minus C7 matched).")
-    table(s, ["Where the data is unclear", "Our choice", "The other reading", f"Effect (of {n(f['union_chain'])})"], [
-        ["REVERSED trade", "Original stands (R1)", "Offset each original once (R3)", f"{signed(f['d_r3'])} matched"],
-        ["Same trade sent twice", "Count it once", "Count both, as the book does", f"{signed(f['d_copies'])} matched"],
-        ["Negative BUY quantity", "Keep the sign, flag it", "Absolute value", f"{signed(f['d_abs'])} matched"],
-        ["Blank quantity", "Can't be tested", "Size = money ÷ price", blank],
-        ["Holding date", "Trade date", "Settlement date", f"{signed(f['settlement_delta'])} matched"],
-    ], widths=[2.6, 2.6, 3.3, 3.6], size=16, row_h=0.58)
-    bullets(s, LEFT, Inches(5.3), WIDTH, Inches(1.6), [
-        "Not evaluable: we can't test it, so it never counts as a match.",
-        "We never repair silently: no absolute values, no blank as zero.",
-    ])
-
-
-def s_three_way(d):
-    f = d.f
-    s = d.slide(f"On {n(f['rebuild_odd'])} positions the book and the custodian agree with each other, "
-                "but not with the trades",
-                f"Three sources for every position, {n(f['union'])} in all. {n(f['agree'])} agree in all three. "
-                f"The chart shows the rest, by who disagrees.\n\n"
-                f"The biggest group is the turning point of our story: on {n(f['rebuild_odd'])} positions the book "
-                f"and the custodian hold the same number, and our trades say something else. Normally two sources "
-                f"agreeing means we trust the number. Here the custodian seems to follow the book's own conventions, "
-                f"counting duplicate copies and subtracting every REVERSED row, so its agreement is not independent. "
-                f"Slide 5 shows which conventions.\n\n"
-                f"The custodian is the odd one out on {n(f['custodian_odd'])}. Book against custodian alone: "
-                f"{n(f['bvc_only_book'])} positions are in the book only, {n(f['bvc_only_custodian'])} at the custodian "
-                f"only; for {n(f['no_cust_keys'])} of those our trades exist and agree with the book on "
-                f"{n(f['no_cust_agree'])}, which points to a gap in the custodian's file (inferred).\n\n"
-                "Sources: 02_three_way_summary.csv (rebuild vs book vs custodian patterns; book vs custodian rows).")
-    picture(s, "10_three_way.png", LEFT, BODY_TOP + Inches(0.15), width=Inches(8.1))
-    bullets(s, Inches(9.0), BODY_TOP + Inches(0.3), Inches(3.75), Inches(4.8), [
-        "Custodian: the outside bank that holds the securities, our second opinion.",
-        f"{n(f['agree'])} of {n(f['union'])} positions agree three ways.",
-        f"{n(f['bvc_only_book'])} positions are in the book but not at the custodian.",
-    ])
+    s = d.slide(1, "Position reconstruction and reconciliation",
+                f"{n(f['agree'])} of {n(f['testable'])} testable holdings ({f['rate']}) agree in all three sources",
+                quick_notes(
+                    f"We rebuilt every holding from its trades and compared it with the book and the custodian: "
+                    f"{f['rate']} of the holdings we can test agree in all three.",
+                    [f"Recount: start at zero, a BUY adds, a SELL subtracts, up to the trade date. All "
+                     f"{n(f['trade_rows'])} trade rows, in {f['runtime']}.",
+                     "Three sources: our recount, the book (positions, the platform's own record) and the custodian "
+                     "(comparison_positions, the outside bank's record).",
+                     f"{n(f['not_evaluable'])} holdings can't be tested, {n(f['not_evaluable_blank'])} because a trade "
+                     "has a blank quantity. They sit beside the rate, not inside it.",
+                     f"Chart: the Guide's BOOKED-only version differs from the book on {n(f['diff_booked'])}, ours on "
+                     f"{n(f['diff_chain'])}. The gap is duplicates: the book counts both copies on "
+                     f"{n(f['copy_positions_counted'])} of {n(f['copy_positions'])} holdings with a copy; we count one.",
+                     f"Lead-in to slide 3: {n(f['agree_with_negative'])} holdings that agree still contain a BUY with "
+                     "a negative quantity. Agreement is not proof."],
+                    [("Why are the can't-test holdings outside the rate?",
+                      "Unknown is neither right nor wrong. Counting them either way would bias the rate."),
+                     ("Why not use the BOOKED-only version, it matches the book better?",
+                      "It matches because it also counts duplicate copies twice, the same as the book."),
+                     ("Does it really run on everything?",
+                      f"Yes, tests/run_notebook.sh rebuilds every output in about {f['runtime']}.")],
+                    "02_row_ledger.csv, 02_run_info.csv, 02_three_way_summary.csv, 02_waterfall.csv (C0, BOOKED-only, "
+                    "C7 vs positions), 02_duplicate_profile.csv, 02_break_classes.csv."))
+    bar_chart(s, LEFT, BODY_TOP, COL1_W, CHART_H,
+              ["Every trade as delivered", "BOOKED trades only (Guide's benchmark)", "Ours: duplicates counted once"],
+              [f["diff_raw"], f["diff_booked"], f["diff_chain"]], [GREY_BAR, GREY_BAR, BLUE],
+              title="Holdings that differ from the book",
+              labels=[f"{n(f['diff_raw'])} of {n(f['union_raw'])}", f"{n(f['diff_booked'])} of {n(f['union_booked'])}",
+                      f"{n(f['diff_chain'])} of {n(f['union_chain'])}"])
+    stack(s, COL2_X, COL2_W, [
+        (1.45, dict(heading="Trades rebuilt", big=f["trade_rows_m"], body=[f"every row, in {f['runtime']}"])),
+        (1.6, dict(heading="Can't be tested", big=n(f["not_evaluable"]),
+                    body=[f"holdings, {n(f['not_evaluable_blank'])} with a blank quantity"])),
+        (1.6, dict(heading="Why ours differs more", fill=PALE, heading_color=GREY, size=15, body=[
+            f"The book counts both copies of a duplicated trade ({n(f['copy_positions_counted'])} of "
+            f"{n(f['copy_positions'])} holdings with a copy). We count it once."]))])
 
 
 def s_breaks(d):
     f = d.f
-    c = f["cause"]
-    rows = [("Book counts duplicate copies", c.get("book_counts_duplicate_copies", 0)),
-            ("Book subtracts every REVERSED row", c.get("book_double_offsets_reversed", 0)),
-            ("Both of the above", c.get("duplicates_and_reversed", 0)),
-            ("Opposite sign to the trades", c.get("sign_flipped_position", 0)),
-            ("No rule fits: unexplained", c.get("unexplained", 0))]
-    assert sum(v for _, v in rows) == f["breaks"], "the cause rows do not add up to the breaks"
-    s = d.slide(f"Most breaks have a named cause; the {n(f['unexplained'])} we can't explain stay visible",
-                f"A break is a difference that must be explained; it is not automatically an error. Each of the "
-                f"{n(f['breaks'])} breaks gets exactly one cause. The rules are tested in a fixed order that we wrote "
-                "in the config before counting, and the first rule that fits wins, so nothing is counted twice.\n\n"
-                "The two big named causes are conventions the book and custodian seem to share: counting duplicate "
-                "copies, and subtracting every REVERSED row. Whether these are defects or intended is a question for "
-                "you (slide 10), so they are unresolved, not errors.\n\n"
-                f"{n(f['unexplained'])} breaks fit no rule, mostly where the custodian disagrees with both the book and "
-                f"the trades ({n(f['custodian_odd'])}). We show them rather than force them into a class; opening "
-                "them is our first task after today.\n\n"
-                f"Flags sit on top of the class: {n(f['agree_with_negative'])} positions that agree three ways still "
-                "contain a negative BUY. That's where the next slide starts.\n\n"
-                "Sources: 02_break_classes.csv (is a break = yes, keys by cause; sign_conflict_keys on all three "
-                "agree).")
-    table(s, ["Cause (first rule that fits)", "Positions", f"Share of {n(f['breaks'])} breaks"],
-          [[name, n(v), pct(v, f["breaks"], 0)] for name, v in rows], widths=[6.5, 2.6, 3.0], size=16, row_h=0.55)
-    bullets(s, LEFT, Inches(5.3), WIDTH, Inches(1.6), [
-        "Each break gets one cause, from rules fixed before counting.",
-        f"{n(f['agree_with_negative'])} positions that agree three ways still contain a negative BUY.",
-    ])
+    rows = f["break_rows"]
+    total = lambda cause, pattern=None: sum(v for p, c, v in rows if c == cause and (pattern is None or p == pattern))
+    bars = [("Book and custodian count duplicates twice", total("book_counts_duplicate_copies"), True),
+            ("Custodian differs from both", total("unexplained", "custodian is the odd one out"), False),
+            ("Book and custodian agree, trades don't", total("unexplained", "rebuild is the odd one out"), False),
+            ("Book and custodian subtract every REVERSED", total("book_double_offsets_reversed"), True),
+            ("Opposite sign to the trades", total("sign_flipped_position"), True),
+            ("Duplicates and REVERSED together", total("duplicates_and_reversed"), True),
+            ("All three differ", total("unexplained", "all three differ"), False)]
+    assert sum(v for _, v, _ in bars) == f["breaks"], "slide 2 bars do not add up to the breaks"
+    named = sum(v for _, v, k in bars if k)
+    assert f["breaks"] - named == f["unexplained"]
+    s = d.slide(2, "First break classification",
+                f"{n(f['breaks'])} breaks: {n(named)} have a named cause, {n(f['unexplained'])} have none yet",
+                quick_notes(
+                    f"{n(f['breaks'])} holdings don't agree in all three sources; each gets exactly one cause, and "
+                    f"{n(f['unexplained'])} have no cause yet.",
+                    ["A break is a difference to explain, not automatically an error.",
+                     f"Step 1, who disagrees: our recount alone on {n(f['rebuild_odd'])}, the custodian alone on "
+                     f"{n(f['custodian_odd'])}, all three on {n(f['three_keys_all'])}.",
+                     "Step 2, why: a fixed list of causes in a fixed order, first fit wins. Written before we "
+                     "counted, so every break has one cause and the bars add up.",
+                     f"Largest named causes: duplicates counted twice ({n(bars[0][1])}) and every REVERSED row "
+                     f"subtracted ({n(bars[3][1])}). Both are things the book and custodian do together.",
+                     f"Book = custodian ≠ trades on {n(f['rebuild_odd'])}: the custodian repeats the book's "
+                     "conventions, so their agreement is weak evidence."],
+                    [("Why unresolved and not errors?",
+                      "Counting duplicates twice and subtracting REVERSED rows may be deliberate conventions of the "
+                      "book. That is our open question to you."),
+                     (f"What is in the {n(f['custodian_odd'])} where the custodian differs?",
+                      "Not opened yet. It is the first job after today."),
+                     ("Does the order of the causes change the counts?",
+                      f"Only where two causes fit. Here that is {n(bars[5][1])} holdings, duplicates and REVERSED "
+                      "together, and they have their own bar.")],
+                    "02_break_classes.csv (is a break = yes); 02_three_way_summary.csv."))
+    bar_chart(s, LEFT, BODY_TOP, COL1_W, CHART_H, [b for b, _, _ in bars], [v for _, v, _ in bars],
+              [BLUE if k else GREY_BAR for _, _, k in bars], title="Breaks by most likely cause")
+    stack(s, COL2_X, COL2_W, [
+        (2.25, dict(heading="How a cause is assigned", body=[
+            "Fixed list, fixed order, first fit wins: one cause per break.",
+            [("Blue: named cause. Grey: none yet.", "i")]])),
+        (2.25, dict(heading="Book = custodian ≠ trades", big=n(f["rebuild_odd"]), body=[
+            "holdings. The custodian repeats the book's conventions."]))])
 
 
 def s_trace(d):
     f = d.f
-    s = d.slide("A broken trade passes every check after the point where it entered",
-                f"At Check-in 1 we followed a clean trade: it passed every check (small picture, top left). Today we "
-                f"follow a broken one, {f['trace_id']}, picked by a written rule, not by hand.\n\n"
-                f"Observed: it is a {f['trace_type']} of {f['trace_qty']} shares, sent by {f['trace_source']} and booked. "
-                f"A quantity is never negative, so the record is wrong for sure. The money paid confirms the size but "
-                f"not the side, so two readings fit: wrong sign (a BUY of the positive amount) or wrong type (a SELL). "
-                f"We lean to wrong sign: of the {f['partner_ids']} negative BUYs that have a second record, all "
-                f"{f['partner_wrong_sign']} support it. "
-                + ("But this trade has none.\n\n" if f["trace_partners"] == 0 else
-                   f"This trade has {f['trace_partners']}: see 02_trace.csv.\n\n") +
-                f"The book holds {f['trace_book']} and so does the custodian, so every later check passes: the "
-                f"reconciliation, the custodian, the price, the NAV arithmetic. If the sign is wrong the holding "
-                f"should be {f['trace_wrong_sign']}: an exposure of about {f['trace_bps']} basis points of the fund's "
-                "net assets. If the type is wrong, zero. Exposure, never a loss. The only place to stop it is at trade "
-                "capture: reject a quantity that isn't above zero.\n\n"
-                "Sources: 02_trace.csv (all hops); 02_negative_partners.csv; figures 06 and 08.")
-    thumb_w = Inches(2.7)
-    picture(s, "06_journey_trade_simple.png", LEFT, Inches(1.4), width=thumb_w, shape_name="Thumbnail")
-    text_box(s, LEFT, Inches(2.48), Inches(3.3), Inches(0.3), "Check-in 1: the clean trade", size=14, color=GREY)
-    bullets(s, Inches(3.75), Inches(1.4), Inches(9.0), Inches(1.4), [
-        [("Observed: ", "i"), (f"{f['trace_type']} of {f['trace_qty']}, booked; book and custodian both hold "
-                               f"{f['trace_book']}.", "")],
-        [("Inferred: ", "i"), ("wrong sign (leaning) or wrong type.", "")],
-        f"Exposure: ~{f['trace_bps']} bps if the sign is wrong, 0 if the type is; not a loss.",
-    ], size=16)
-    journey = picture(s, "08_journey_negative_buy.png", 0, Inches(2.85), height=Inches(4.1))
-    journey.left = int((d.prs.slide_width - journey.width) / 2)          # centred, aspect ratio kept
+    qty = f["trace_qty"].lstrip("−")
+    neg = f["reg"]["Negative trade quantity"]
+    tp = lambda field: f["trace"][("pipeline", field)][11:16]            # HH:MM of a pipeline timestamp
+    share = lambda system, of="negative": pct(f[f"share_{of}"][system], 1)
+    s = d.slide(3, "One evidenced trace",
+                f"A {f['trace_type']} of {f['trace_qty']} shares passes every check after trade entry",
+                quick_notes(
+                    f"One BUY of {f['trace_qty']} shares is wrong when it enters, and every later check passes because "
+                    "each one compares it with a copy of the same mistake.",
+                    [f"Front office, trade capture: {f['trace_id']}, {f['trace_type']} {f['trace_qty']} from "
+                     f"{f['trace_source']}, status BOOKED. A quantity is never negative, so the record is confirmed "
+                     "wrong (observed).",
+                     f"Pipeline: received {tp('received_timestamp')}, booked {tp('booked_timestamp')}, published "
+                     f"{tp('published_timestamp')}, cutoff {tp('cutoff_timestamp')}. On time; nothing changes the "
+                     "sign.",
+                     "Master data: account open, security known. Clean.",
+                     f"Middle office, position: its four trades add up to {f['trace_book']}, and the book says "
+                     f"{f['trace_book']}. The match hides the problem.",
+                     f"Custodian: also {f['trace_book']}. On positions with a negative BUY, the custodian equals the "
+                     f"book on {f['trace'][('custodian', 'positions with a negative-quantity trade: custodian equals the book')]}.",
+                     f"Price: {f['trace_vendors']} vendors within {f['trace_spread']}, passes. Back office: NAV "
+                     f"arithmetic passes on {f['trace_fund_pass']} of {f['trace_fund_rows']} rows of fund "
+                     f"{f['trace_fund']}.",
+                     f"Which field is wrong: money ÷ price = {qty} gives the size, not the side. Wrong sign (BUY "
+                     f"+{qty}, our lean: all {f['partner_ids']} negative BUYs with a second record point that way) or "
+                     f"wrong type (SELL {qty}, then the book is right).",
+                     f"Exposure: about {f['trace_bps']} bp of fund net assets if the sign is wrong, 0 if the type is. "
+                     "Exposure, not a loss.",
+                     f"Fix: the trade check at capture rejects quantity ≤ 0. Owner: trade operations lead (middle "
+                     f"office). It would flag {n(neg[0])} of {n(neg[1])} trades."],
+                    [("Why this trade?", "A written rule picked it: the first holding with a negative BUY and no other "
+                      "problem. Not chosen by hand."),
+                     ("Is it one broken system?",
+                      f"No. {f['trace_source']} sends {share(f['trace_source'])} of the negative quantities and "
+                      f"{share(f['trace_source'], 'all')} of all trades; the other sources match their share too."),
+                     ("Why not just drop the minus sign?",
+                      "It might be a SELL. We correct a row only when its side is known."),
+                     ("What does this trade have to settle it?",
+                      "No second record, so its own data can't decide. It needs the order side or the cash direction "
+                      "from the source." if f["trace_partners"] == 0 else
+                      f"{f['trace_partners']} second records: see 02_trace.csv.")],
+                    "02_trace.csv (all hops); 02_negative_partners.csv; 02_defect_register.csv (negative trade "
+                    "quantity); 02_vendor_check.csv; 02_nav_check.csv; figure 08."))
+    journey = picture(s, "08_journey_negative_buy.png", LEFT, BODY_TOP - Inches(0.1), width=WIDTH)
+    crop = 0.3                     # the figure's own note boxes at the bottom: the cards below say the same, larger
+    journey.crop_bottom = crop
+    journey.height = int(journey.height * (1 - crop))
+    w, gap = (WIDTH - 2 * Inches(0.3)) / 3, Inches(0.3)
+    y, h = Inches(5.2), Inches(1.6)
+    card(s, LEFT, y, w, h, "What it should say", [
+        [("Wrong sign: ", "b"), (f"BUY +{qty} (our lean)", "")],
+        [("Wrong type: ", "b"), (f"SELL {qty}", "")]], size=15)
+    card(s, LEFT + w + gap, y, w, h, "Exposure", [
+        f"About {f['trace_bps']} bp of fund net assets if the sign is wrong; 0 if the type is."], size=15)
+    card(s, LEFT + 2 * (w + gap), y, w, h, "Control", [
+        f"At trade capture, reject quantity ≤ 0. Owner: trade operations. Flags {n(neg[0])} trades."], size=15)
 
 
 def s_checks(d):
     f = d.f
-    s = d.slide(f"The fund arithmetic fails on {n(f['nav_fail'])} of {n(f['nav_rows'])} rows, and "
-                f"{n(f['vendor_scale'])} securities have vendor prices about 100 times apart",
-                "The brief asks for proposed checks on price data and ledger arithmetic. We ran two of them on the "
-                "full data and wrote the rest as rules with a denominator.\n\n"
-                f"Ledger arithmetic: for every fund share class, net assets divided by shares outstanding must equal "
-                f"the NAV per share, the price investors buy and sell at. It fails on {n(f['nav_fail'])} of "
-                f"{n(f['nav_rows'])} rows. Which input is wrong we can't tell yet.\n\n"
-                f"Vendor prices: on the snapshot date the held securities have quotes {f['vendor_coverage']}. "
-                f"On {n(f['vendor_spread'])} of {n(f['vendor_evaluable'])} securities their prices differ by more than "
-                f"{f['spread_threshold']}; {f['vendor_not_comparable_text']}. On {n(f['vendor_scale'])} the highest and lowest are "
-                f"about 100 times apart (ratio {f['scale_band']}), the signature of a price per 100 against per unit. "
-                "We flag it and never correct it automatically. Thresholds live in the config; judges can change them.\n\n"
-                "Proposed, not run: coverage (does every holding have a price), freshness (is the price from the "
-                "right day and time), FX rates (the USD rate is not exactly 1: question for you).\n\n"
-                "Sources: 02_nav_check.csv (result); 02_vendor_check.csv (result); config/reconciliation.toml [prices].")
-    table(s, ["Check", "Tested on", "Result", "Status"], [
-        ["Fund arithmetic: net assets ÷ shares = NAV per share", f"{n(f['nav_rows'])} fund rows",
-         f"{n(f['nav_fail'])} fail", "Run"],
-        [f"Vendor prices differ by more than {f['spread_threshold']}", f"{n(f['vendor_evaluable'])} held securities",
-         f"{n(f['vendor_spread'])} flagged", "Run"],
-        ["Vendor prices about 100× apart", f"{n(f['vendor_evaluable'])} held securities",
-         f"{n(f['vendor_scale'])} flagged", "Run"],
-        ["Price coverage, freshness, FX rates", "Rule and denominator written", "–", "Proposed"],
-    ], widths=[5.2, 3.2, 2.0, 1.7], size=16, row_h=0.6)
-    bullets(s, LEFT, Inches(4.9), WIDTH, Inches(1.9), [
-        "NAV: a fund's value per share.",
-        "A 100× gap suggests per-100 against per-unit prices: flagged, never fixed.",
-        "The price check passed our broken trade: it can't see wrong units.",
-    ])
+    r = f["reg"]
+    cover, fresh = r["Held security with no price at all"], r["Preferred vendor has no valid price on a date"]
+    usd = r["USD rate to USD is not 1"]
+    # The notes say the holdings with no price are the spin-off securities never set up (notebook 01 cross-check)
+    assert cover[0] == f["spin_positions"] and f["spin_prices"] == 0, "unpriced holdings are not the spin-off targets"
+    ran, proposed = [("Ran", "a")], [("Proposed", "i")]
+    s = d.slide(4, "Proposed checks for price data and ledger arithmetic",
+                f"NAV arithmetic fails on {n(f['nav_fail'])} of {n(f['nav_rows'])} rows; {n(f['vendor_scale'])} "
+                "securities are priced about 100× apart",
+                quick_notes(
+                    "The brief asks us to propose these checks. Three already ran on all the data, two are written "
+                    "as rules with an early count, and we flag what they find, we don't fix it.",
+                    [f"NAV arithmetic (back office, fund accounting lead): net assets ÷ shares outstanding = NAV per "
+                     f"share. Fails on {n(f['nav_fail'])} of {n(f['nav_rows'])} rows. We can't tell yet which of the "
+                     "three numbers is wrong.",
+                     f"Vendor spread (middle office, pricing lead): on {n(f['vendor_spread'])} of "
+                     f"{n(f['vendor_evaluable'])} securities the vendors differ by more than {f['spread_threshold']}.",
+                     f"Scale: on {n(f['vendor_scale'])} securities one vendor is about 100× another, likely a "
+                     "per-unit vs per-100 quote. Flagged, never fixed automatically.",
+                     f"Coverage (proposed): {n(cover[0])} holdings sit on a security with no price at all. They are "
+                     f"the {n(f['spin_secs'])} spin-off securities that were never set up (slide 5).",
+                     f"Freshness (proposed): the first-choice vendor has no valid price on {n(fresh[0])} of "
+                     f"{n(fresh[1])} security-days."],
+                    [("Is a failed NAV row a NAV error?",
+                      "Not proven. The data has no cash or accruals, so we call it a difference to investigate."),
+                     ("Can you change a threshold?",
+                      "Yes: spread_threshold in config/reconciliation.toml, then rerun the notebook (about a minute)."),
+                     ("What about FX?", f"The USD to USD rate is not exactly 1 on {n(usd[0])} rows. Error or "
+                      "convention is an open question to you.")],
+                    "02_nav_check.csv; 02_vendor_check.csv; 02_defect_register.csv (held security with no price; "
+                    "preferred vendor has no valid price; USD rate to USD); 01_cross_check.csv; "
+                    "config/reconciliation.toml [prices]."))
+    table(s, ["Check", "Status", "Result on all the data"], [
+        ["NAV arithmetic: net assets ÷ shares = NAV per share", ran,
+         f"Fails on {n(f['nav_fail'])} of {n(f['nav_rows'])} rows"],
+        [f"Vendor prices differ by more than {f['spread_threshold']}", ran,
+         f"{n(f['vendor_spread'])} of {n(f['vendor_evaluable'])} securities"],
+        ["One vendor about 100× another (unit or scale)", ran, f"{n(f['vendor_scale'])} securities, flagged, not fixed"],
+        ["Coverage: every holding has a price", proposed, f"{n(cover[0])} of {n(cover[1])} holdings have none"],
+        ["Freshness: first-choice vendor has a valid price", proposed,
+         f"Missing on {n(fresh[0])} of {n(fresh[1])} security-days"],
+    ], widths=[5.4, 1.6, 5.1], size=16, row_h=0.62, head_h=0.5)
+    card(s, LEFT, Inches(5.55), WIDTH, Inches(1.2), None, [
+        [("Limits sit in config/reconciliation.toml: ", "b"),
+         ("change one and rerun. A failed NAV row is not a proven NAV error: the data has no cash or accruals.", "")]],
+        fill=PALE)
 
 
 def s_catalog(d):
     f = d.f
     r = f["reg"]
+    c = f["status_counts"]
     neg, blank = r["Negative trade quantity"], r["Book leaves out the units of trades with a blank quantity"]
     dup, spin = r["Book and custodian count duplicate copies as trades"], r["Corporate-action target security missing from securities"]
     cust, clear = r["Position in the book with no custodian record"], r[
         "Closed position not reported (trades net to zero, absent from book and custodian)"]
-    s = d.slide("Five defect classes go forward, and one flag turned out to be fine",
-                "The defect catalog: five classes with a full write-up (rule, where it entered, why it matters, the "
-                "fix), spread across trade capture, the pipeline, master data and the custodian feed. Each names the "
-                "check that would stop it and its owner.\n\n"
-                f"Negative BUYs: {n(neg[0])} of {n(neg[1])} trade rows; the record is confirmed wrong, its correct value "
-                f"is not. Blank quantities: the size is still in the row on {n(f['blank_derivable'])} of "
-                f"{n(f['blank_rows'])}, and the book drops the units on {n(blank[0])} of {n(blank[1])} testable "
-                f"positions. Duplicate copies: the book and custodian count them on {n(dup[0])} positions. Spin-off "
-                f"targets: {n(spin[0])} of {n(spin[1])} new securities were never set up, then traded and held without "
-                f"a price. Custodian gaps: {n(cust[0])} positions in the book have no custodian record.\n\n"
-                f"The cleared flag: {n(clear[0])} positions whose trades net to zero and that neither source lists. Rule "
-                "written before looking: a closed position isn't listed. Independent evidence: neither source stores "
-                "a single zero-quantity row anywhere. What would reopen it: one zero row, or a later record.\n\n"
-                f"The register behind it has {f['findings']} findings (backup B3).\n\n"
-                "Sources: 02_defect_register.csv (the six lines named in the table and bullet); "
-                "02_blank_quantity.csv; docs/DEFECT_CATALOG.md.")
-    table(s, ["Defect", "Where it entered", "Status", "How many"], [
-        ["Negative-quantity BUYs", "Trade capture", "Record confirmed; fix unknown", f"{n(neg[0])} of {n(neg[1])} trades"],
-        ["Book drops the units of blank-quantity trades", "Trade capture", "Rows confirmed; book unresolved",
-         f"{n(blank[0])} of {n(blank[1])} positions"],
-        ["Duplicate copies counted by the book", "Pipeline (publish)", "Copies confirmed; count unresolved",
-         f"{n(dup[0])} of {n(dup[1])} positions"],
-        ["Spin-off targets never set up", "Master data", "Confirmed", f"{n(spin[0])} of {n(spin[1])} spin-offs"],
-        ["Custodian missing holdings", "Custodian feed", "Unresolved", f"{n(cust[0])} of {n(cust[1])} positions"],
-    ], widths=[4.1, 2.4, 3.3, 2.9], size=15, row_h=0.6)
-    bullets(s, LEFT, Inches(5.4), WIDTH, Inches(1.4), [
-        f"Cleared: {n(clear[0])} closed positions; neither source ever lists a zero holding, so their absence is normal.",
-    ])
+    s = d.slide(5, "Defect catalog",
+                f"{f['findings']} findings: {c.get('confirmed', 0)} confirmed, {c.get('unresolved', 0)} unresolved, "
+                f"{c.get('cleared', 0)} cleared. Five go forward",
+                quick_notes(
+                    f"{f['findings']} findings in the register; these five go forward because each enters at a "
+                    "different point on the platform, and one flag was cleared.",
+                    ["1. Negative BUYs. Front office: the row already had the minus sign when it arrived from the "
+                     "source system. Caught by the trade check, owner trade operations lead (middle office). Observed.",
+                     f"2. Blank quantities. Front office, same point: the quantity was blank on arrival. Real trades: "
+                     f"the size follows from money ÷ price on {n(f['blank_derivable'])} of {n(f['blank_rows'])}. Same "
+                     "check and owner. Observed.",
+                     f"3. Duplicates. Middle office, booking pipeline: {n(f['copy_ids'])} trade IDs are received once "
+                     f"in a batch, then published twice, a median {f['publish_gap']} minutes apart. Copies observed; "
+                     "\"a resend\" is our reading. Trade check, trade operations lead.",
+                     f"4. Spin-offs never set up. Middle office, security master: the event names a new security that "
+                     f"was never added. It was still traded and held: {n(f['spin_secs'])} securities, "
+                     f"{n(f['spin_trades'])} trades, {n(f['spin_positions'])} position rows, {n(f['spin_prices'])} "
+                     "prices. Corporate action check, corporate actions lead. Observed.",
+                     f"5. Missing at the custodian. Outside source: the custodian's feed into reconciliation. The "
+                     f"trades back the book on {n(f['no_cust_agree'])} of {n(f['no_cust_keys'])}. Position check, "
+                     "reconciliation lead. Inferred, so unresolved.",
+                     f"Cleared: {n(clear[0])} holdings whose trades net to zero are in neither source. The rule was "
+                     "written first (a closed holding is not listed); neither source ever lists a zero holding."],
+                    [("Who owns a defect?",
+                      "The stage where it entered. Items 1 and 2 enter in the front office, but the check that "
+                      "catches them is middle office's trade check."),
+                     ("What would reopen the cleared flag?", "A zero-quantity row in either source."),
+                     ("What would settle 3 and 5?",
+                      "A message ID or resend flag on each trade; the custodian confirming or denying each holding.")],
+                    "02_defect_register.csv; 02_blank_quantity.csv; 02_duplicate_profile.csv; 01_cross_check.csv; "
+                    "02_three_way_summary.csv; docs/DEFECT_CATALOG.md."))
+    table(s, ["Problem", "How many", "Status", "Where it entered"], [
+        ["BUYs with a negative quantity", f"{n(neg[0])} of {n(neg[1])} trades",
+         "Confirmed; correct value unresolved", "Trade entry"],
+        ["Trades with no quantity, left out by the book", f"{n(blank[0])} of {n(blank[1])} holdings",
+         "Confirmed; effect unresolved", "Trade entry"],
+        ["Duplicates counted twice by book and custodian", f"{n(dup[0])} holdings", "Unresolved", "Pipeline"],
+        ["Spin-off securities never set up", f"{n(spin[0])} of {n(spin[1])} events", "Confirmed", "Security master"],
+        ["Holdings missing at the custodian", f"{n(cust[0])} holdings", "Unresolved", "Custodian feed"],
+    ], widths=[4.4, 2.7, 3.1, 2.0], size=15, row_h=0.58, head_h=0.48)
+    card(s, LEFT, Inches(5.45), WIDTH, Inches(1.3), "Cleared: closed holdings", [
+        f"{n(clear[0])} holdings whose trades net to zero are in neither source. Neither source ever lists a zero "
+        "holding, so these are closed."], fill=GREEN_TINT, heading_color=GREEN)
+
+
+def s_reversed(d):
+    f = d.f
+    bars = [("REVERSED: cancel the original once", f["d_r3"], BLUE),
+            ("REVERSED: cancel at every REVERSED row", f["d_r4"], AMBER),
+            ("Duplicates: count both copies", f["d_copies"], GREY_BAR),
+            ("No quantity: count as zero", f["d_zero"], GREY_BAR),
+            ("Negative quantity: drop the minus", f["d_abs"], GREY_BAR)]
+    s = d.slide(6, "Treatment of ambiguous reversals",
+                f"Reading REVERSED the other way changes {n(f['r3_changed'])} of the {n(f['r3_total'])} holdings "
+                "that have one",
+                quick_notes(
+                    "The data doesn't say whether a REVERSED row undoes its trade. We read it as a label, then reran "
+                    "everything with each alternative to see how much it matters.",
+                    ["Our reading: REVERSED is a label, the original trade still counts. That is the Guide's "
+                     "benchmark.",
+                     f"Cancel the original once: {signed(f['d_r3'])} matches with the book. It changes "
+                     f"{n(f['r3_changed'])} of the {n(f['r3_total'])} holdings that have a REVERSED row.",
+                     f"Cancel at every REVERSED row: {signed(f['d_r4'])}. It looks like what the book does, but some "
+                     "trades have two REVERSED rows and would be cancelled twice. Not used.",
+                     f"Grey bars: counting both duplicate copies ({signed(f['d_copies'])}) and blanks as zero "
+                     f"({signed(f['d_zero'])}) match more because they copy the book's habits.",
+                     f"Settlement date instead of trade date: {signed(f['settlement_delta'])}. The book counts a "
+                     "trade on its trade date."],
+                    [("What would settle REVERSED?",
+                      "A written rule for the event, for example one reversal per original. Open question to you."),
+                     ("Why not take the reading that matches the book best?",
+                      "The book is one of the sources we are testing, so matching it is not the test.")],
+                    "02_sensitivities.csv (vs positions, matched vs main chain); 02_reversed_side_view.csv; "
+                    "02_waterfall.csv (C7s vs C7 matched)."))
+    bar_chart(s, LEFT, BODY_TOP, COL1_W, CHART_H, [b for b, _, _ in bars], [v for _, v, _ in bars],
+              [c for _, _, c in bars], title=f"Change in holdings that match the book (of {n(f['union_chain'])})",
+              labels=[signed(v) + (" (not used)" if c == AMBER else "") for _, v, c in bars])
+    stack(s, COL2_X, COL2_W, [
+        (1.6, dict(heading="Our reading", body=["REVERSED is a label: the original trade still counts."])),
+        (1.6, dict(heading="Not used", heading_color=AMBER, body=[
+            f"Cancelling at every REVERSED row ({signed(f['d_r4'])}): some trades would be cancelled twice."])),
+        (1.45, dict(heading="Grey bars", fill=PALE, heading_color=GREY, size=15, body=[
+            "Bigger gains come from copying the book's habits, not from a better reading."]))])
 
 
 def s_corporate_actions(d):
     f = d.f
-    release = {"": "–", "MISSING_TARGET_SECURITY_ID": "The resulting security named",
-               "NO_RATIO_CONVENTION": "A rule for the units removed",
-               "TARGET_NOT_MASTERED": "The new security set up"}
-    types = f["ca_types"].sort_values(["verdict", "events"], ascending=[False, False])
+    why = {"MISSING_TARGET_SECURITY_ID": "no target security given",
+           "NO_RATIO_CONVENTION": "no rule for the units that disappear",
+           "TARGET_NOT_MASTERED": "target security not in the master"}
     names = {"CASH_DIVIDEND": "Cash dividend", "SPINOFF": "Spin-off"}
-    rows = [[names.get(t, t.capitalize()), n(e), "Applied" if v == "supported" else "Held back",
-             release.get(rc, text or "–")]        # the notebook's own wording for any code without a short label
-            for t, v, rc, e, text in types[["action_type", "verdict", "reason codes", "events", "release"]].itertuples(index=False)]
-    s = d.slide(f"{n(f['ca_supported'])} of {n(f['ca_events'])} corporate actions can be applied; "
-                f"{n(f['ca_quarantined'])} are held back because a term we need is missing",
-                "Corporate actions are company events that change holdings: a split, a merger, a spin-off, a dividend, "
-                "a redemption. For each type we wrote down the terms it needs before counting (the Guide's "
-                "conventions).\n\n"
-                f"{n(f['ca_supported'])} of {n(f['ca_events'])} events have every term they need. "
-                f"{n(f['ca_quarantined'])} are held back: mergers name no resulting security, redemptions have no rule "
-                "for the units that disappear, and spin-offs point to a new security that was never set up. Held back "
-                "means we don't apply them and we don't guess; the table says what would release each one.\n\n"
-                f"{n(f['ex_after'][0])} of {n(f['ex_after'][1])} events have an ex-date after their effective date. We "
-                "flag them as unresolved rather than hold them back, because it depends on how the dates are defined: "
-                "a question for you.\n\n"
-                "The event-adjusted holdings come in the final, kept apart from the trade-only rebuild so nothing is "
-                "counted twice.\n\n"
-                "Sources: 02_ca_readiness.csv (action_type, verdict, reason codes); 02_defect_register.csv "
-                "(ex_date after effective_date).")
-    table(s, ["Event type", "Events", "Verdict", "What would release it"], rows,
-          widths=[3.0, 1.6, 2.4, 5.1], size=16, row_h=0.52)
-    bullets(s, LEFT, Inches(5.25), WIDTH, Inches(1.6), [
-        "Corporate action: a company event (split, merger…) that changes holdings.",
-        "Held back: not applied, not guessed, until the term arrives.",
-        f"{n(f['ex_after'][0])} of {n(f['ex_after'][1])} have ex-date after effective date: flagged until dates are "
-        "defined.",
-    ])
-
-
-def s_questions(d):
-    f = d.f
-    q = f["questions"]
-    groups = [("The book's conventions", [1, 4], "Is there a REVERSED contract (one reversal per original)? "
-               "Are duplicates and REVERSED rows counted on purpose?"),
-              ("Negative BUYs", [8], "Wrong sign or wrong type? We need the order side or the cash direction."),
-              ("Definitions", [2, 3], "Ex-date or effective date for corporate actions? Is a USD rate that isn't 1 an "
-               "error?"),
-              ("Ways of working", [5, 6, 7], "May we cite CSSF 24/856 for NAV materiality? Which AI tools are "
-               "approved? How should we package the dashboard?")]
-    covered = sorted(i for _, ids, _ in groups for i in ids)
-    assert covered == list(range(1, len(q) + 1)), f"the slide groups questions {covered}, STATUS has {len(q)}"
-    s = d.slide(f"We ask to be cleared to build the full analysis, and need your view on {len(q)} questions",
-                "What we ask today: clear us to build the full analysis on this method.\n\n"
-                "The questions, by topic. Each one changes a decision. If REVERSED has a contract, or the book's "
-                "conventions are intended, two of our break causes become explained instead of defects. The order "
-                "side or cash direction settles every negative BUY. The date definitions decide the "
-                f"{n(f['ex_after'][0])} flagged corporate actions. The rest is how we work.\n\n"
-                "What we know we haven't done yet, and will do next: open the groups we have only counted (the "
-                "unexplained breaks, the positions with no trades, the rebooks that keep the old amount, the NAV "
-                "fails and vendor flags); then scores with coverage, stress tests and the executive view for "
-                "Check-in 3.\n\n"
-                "Questions in full: docs/STATUS.md, 'Open questions for faculty' (numbers in brackets in the "
-                "table's first column map to it).")
-    table(s, ["Topic", "Question"], [[f"{t} ({', '.join(str(i) for i in ids)})", text] for t, ids, text in groups],
-          widths=[3.4, 8.7], size=16, row_h=0.85)
-    bullets(s, LEFT, Inches(5.7), WIDTH, Inches(1.0), [
-        "Next, once cleared: open the groups we have only counted, then scores and stress tests.",
-    ])
-
-
-def b_sensitivities(d):
-    f = d.f
-    sens = f["sens"]
-    # The title and notes name the moves above a thousand and say every REVERSED reading stays below it
-    big = {a for a, v in sens.items() if abs(v) >= 1000}
-    assert big == {a for a in sens if a.startswith(("copies: both counted", "blanks: zero"))}, \
-        f"moves of a thousand or more are now {sorted(big)}: reword backup B1"
-    assert all(abs(v) < 1000 for a, v in sens.items() if a.startswith("REVERSED")), "a REVERSED reading moves 1,000+: reword B1"
-    s = d.slide("The two biggest moves both copy the book: counting copies twice and counting blanks as zero",
-                f"Backup. All {len(sens)} alternative readings, each swapping one step of our chain. Only two move the "
-                f"match with the book by more than a thousand positions: counting both copies of a trade "
-                f"({signed(f['d_copies'])}) and counting a blank quantity as zero ({signed(f['d_zero'])}). Both copy "
-                "what the book seems to do, so a better match there tells us how the book is built, not that the "
-                "reading is right. Every REVERSED reading moves fewer than a thousand, so our REVERSED choice barely "
-                "changes the result.\n\n"
-                "Sources: 02_sensitivities.csv (compared with positions, matched vs main chain).", label="B1")
-    height = Inches(5.2)
-    picture(s, "11_sensitivities.png", LEFT, BODY_TOP + Inches(0.1), height=height)
-
-
-def b_r3(d):
-    f = d.f
-    s = d.slide(f"Reading REVERSED the other way (R3) changes the outcome of {n(f['r3_changed'])} of the "
-                f"{n(f['r3_total'])} positions with a reversal",
-                f"Backup. Our main reading (R1) keeps the original trade and treats REVERSED as a status. The other "
-                f"reading (R3) offsets each original once. We reran the {n(f['r3_total'])} positions that have a "
-                f"REVERSED row under R3: {n(f['r3_total'] - f['r3_changed'])} land in the same place. The rest move a "
-                "little either way. So the choice matters little for the numbers; what it needs is a contract that "
-                "says what REVERSED means (question 1).\n\n"
-                "Sources: 02_reversed_side_view.csv.", label="B2")
-    rows = [["lands in the same place", n(f["r3_total"] - f["r3_changed"])],
-            ["now agrees three ways", n(f["r3_to_agree"])],
-            ["now becomes a break", n(f["r3_to_break"])],
-            ["now can't be tested", n(f["r3_to_ne"])]]
-    if f["r3_other"]:
-        rows.append(["moves to another pattern", n(f["r3_other"])])
-    table(s, ["Under R3, the position…", f"Positions (of {n(f['r3_total'])})"], rows, widths=[7.0, 5.1], size=18,
-          row_h=0.65)
-
-
-def b_register(d):
-    f = d.f
-    c = f["status_counts"]
-    s = d.slide(f"The register holds {f['findings']} findings: {c.get('confirmed', 0)} confirmed, "
-                f"{c.get('unresolved', 0)} unresolved, {c.get('cleared', 0)} cleared",
-                "Backup. Every finding is one line in the register, with its rule, where it entered, how many records "
-                "it affects out of how many we could test, and example IDs produced by the code. The five classes on "
-                "slide 8 are the ones with a full write-up.\n\n"
-                "Sources: 02_defect_register.csv (status); docs/FINDINGS.md.", label="B3")
-    table(s, ["Status", "Findings", "What it means"], [
-        ["Confirmed", n(c.get("confirmed", 0)), "The data proves it: a failed test, matching IDs"],
-        ["Unresolved", n(c.get("unresolved", 0)), "It fails a test, but we can't yet prove it is an error"],
-        ["Cleared", n(c.get("cleared", 0)), "It looked wrong; a stated rule and independent evidence show it's fine"],
-    ], widths=[2.4, 1.8, 7.9], size=18, row_h=0.7)
+    types = f["ca_types"].sort_values(["verdict", "events"], ascending=[False, False])
+    held = types[types["verdict"] != "supported"]
+    assert set(held["reason codes"]) <= set(why), f"new hold-back reasons {set(held['reason codes']) - set(why)}"
+    label = lambda t, v: f"{names.get(t, t.capitalize())}: {'can apply' if v == 'supported' else 'held back'}"
+    by_type = lambda verdict, reasons=None: ", ".join(
+        f"{names.get(t, t.capitalize()).lower()} {e}" + (f" ({reasons[rc]})" if reasons else "")
+        for t, v, rc, e in zip(types["action_type"], types["verdict"], types["reason codes"], types["events"])
+        if v == verdict)
+    s = d.slide(6, "Treatment of unsupported corporate actions",
+                f"{n(f['ca_supported'])} of {n(f['ca_events'])} corporate actions can be applied; "
+                f"{n(f['ca_quarantined'])} are held back",
+                quick_notes(
+                    "Before counting, we wrote down the terms each event type needs. Events with all of them can be "
+                    "applied; the rest are held back, not guessed.",
+                    [f"Can apply: {by_type('supported')}.",
+                     f"Held back: {by_type('quarantined', why)}.",
+                     "The spin-offs are the same problem as catalog item 4: the new security was never set up in the "
+                     "security master.",
+                     f"Flagged, not held back: {n(f['ex_after'][0])} of {n(f['ex_after'][1])} have an ex-date after "
+                     "the effective date. Whether that is wrong depends on how the two dates are defined.",
+                     "Owner: corporate actions lead. The check runs before the ex-date and holds the event.",
+                     "Applying the supported events is a separate scenario for the final, kept apart from today's "
+                     "recount so nothing is counted twice."],
+                    [("Why not guess the merger target?",
+                      "A guess changes holdings with no evidence. Holding the event back can be undone."),
+                     ("Does the data show which accounts were adjusted?",
+                      "No. corporate_actions lists issuer events, not an application log per account."),
+                     ("Ex-date after effective date?", "Open question to you: which definition the data uses.")],
+                    "02_ca_readiness.csv (action_type, verdict, reason codes); 02_defect_register.csv (ex_date after "
+                    "effective_date)."))
+    bar_chart(s, LEFT, BODY_TOP, COL1_W, CHART_H, [label(t, v) for t, v in zip(types["action_type"], types["verdict"])],
+              [int(e) for e in types["events"]], [BLUE if v == "supported" else AMBER for v in types["verdict"]],
+              title=f"The {n(f['ca_events'])} corporate actions, by type")
+    stack(s, COL2_X, COL2_W, [
+        (2.45, dict(heading="What's missing", body=[
+            [(f"{names.get(t, t.capitalize())}: ", "b"), (why[rc], "")]
+            for t, rc in zip(held["action_type"], held["reason codes"])])),
+        (2.1, dict(heading="Flagged, not held back", big=f"{n(f['ex_after'][0])} of {n(f['ex_after'][1])}", body=[
+            "ex-date after effective date"], fill=PALE, heading_color=GREY))])
 
 
 # --------------------------------------------------------------------------------------------------- checks
 ID = re.compile(r"\b(?:ACC|SEC|TXN|CA0|LDG|FND|POS|CMP)\d+")
+CARD_WORDS, FINDING_WORDS = 25, 18
+FILLER = ["never hidden", "heart of", "turning point", "on purpose", "stay visible", "crucially", "importantly",
+          "it's worth", "key takeaway"]
 
 
 def shape_text(shape):
     if shape.has_text_frame:
-        return [(p, shape.text_frame) for p in shape.text_frame.paragraphs]
+        return list(shape.text_frame.paragraphs)
     if shape.has_table:
-        return [(p, None) for row in shape.table.rows for cell in row.cells for p in cell.text_frame.paragraphs]
+        return [p for row in shape.table.rows for cell in row.cells for p in cell.text_frame.paragraphs]
     return []
 
 
-WORDS = []        # (slide, words in its bullets), printed by main()
-
-
-def check_deck(trace_id):
-    prs = Presentation(DECK)
-    problems, titles = [], []
-    for number, s in enumerate(prs.slides):
-        names = [sh.name for sh in s.shapes]
-        title = next((sh.text_frame.text for sh in s.shapes if sh.name == "Title"), None)
-        if number == 0:
-            continue                                                       # the cover
-        titles.append(title)
-        if not title:
-            problems.append(f"slide {number}: no title")
-        visuals = [sh for sh in s.shapes if sh.has_table or sh.name in ("Figure", "BigNumber")]
-        if len(visuals) != 1:
-            problems.append(f"slide {number}: {len(visuals)} visuals")
+def check_deck(trace_id, path=DECK):
+    """The deck rules: a header and a one-sentence finding on every slide; one main exhibit (a chart, table or figure);
+    tables of at most 5 rows and 4 columns; text of 14 pt or more; cards of at most 25 words; no record IDs but the
+    trace's; no filler phrases on the slides or in the notes."""
+    prs = Presentation(path)
+    problems, headers = [], []
+    for number, s in enumerate(prs.slides, 1):
+        named = {sh.name: sh for sh in s.shapes}
+        header, finding = named.get("Title"), named.get("Finding")
+        if not (header and finding):
+            problems.append(f"slide {number}: no header or finding")
+            continue
+        headers.append(f"{header.text_frame.text} | {finding.text_frame.text}")
+        if len(finding.text_frame.text.split()) > FINDING_WORDS:
+            problems.append(f"slide {number}: finding has {len(finding.text_frame.text.split())} words")
+        exhibits = [sh for sh in s.shapes if sh.has_table or sh.has_chart or sh.name == "Figure"]
+        if len(exhibits) != 1:
+            problems.append(f"slide {number}: {len(exhibits)} exhibits")
+        text = [s.notes_slide.notes_text_frame.text]
         for sh in s.shapes:
             if sh.has_table and (len(sh.table.rows) - 1 > 5 or len(sh.table.columns) > 4):
                 problems.append(f"slide {number}: table {len(sh.table.rows) - 1}x{len(sh.table.columns)}")
-            for p, _ in shape_text(sh):
+            for p in shape_text(sh):
+                line = "".join(r.text for r in p.runs)
+                text.append(line)
                 for r in p.runs:
                     if r.font.size is not None and r.font.size.pt < MIN_PT:
                         problems.append(f"slide {number}: {r.font.size.pt} pt text {r.text[:30]!r}")
-                for match in ID.findall("".join(r.text for r in p.runs)):
+                for match in ID.findall(line):
                     if match != trace_id:
                         problems.append(f"slide {number}: record ID {match}")
-        body = [sh for sh in s.shapes if sh.name == "Bullets"]
-        if body:
-            paragraphs = [p for p in body[0].text_frame.paragraphs if p.text.strip()]
-            words = sum(len(p.text.split()) for p in paragraphs)
-            if len(paragraphs) > 3:
-                problems.append(f"slide {number}: {len(paragraphs)} bullets")
-            WORDS.append((number, words))
-            if words > 35:
-                problems.append(f"slide {number}: {words} words in the bullets")
-        if "Thumbnail" in names and number != 6:
-            problems.append(f"slide {number}: unexpected thumbnail")
-    return titles, problems
+            if sh.name in ("Card", "BigNumber") and len(sh.text_frame.text.split()) > CARD_WORDS:
+                problems.append(f"slide {number}: {len(sh.text_frame.text.split())} words in a card")
+        for phrase in FILLER:
+            if phrase in " ".join(text).lower():
+                problems.append(f"slide {number}: filler phrase {phrase!r}")
+    return headers, problems
 
 
 def main():
     f = facts()
     d = Deck(f)
-    for build in [cover, s_answer, s_waterfall, s_decisions, s_three_way, s_breaks, s_trace, s_checks, s_catalog,
-                  s_corporate_actions, s_questions, b_sensitivities, b_r3, b_register]:
+    for build in [s_reconciliation, s_breaks, s_trace, s_checks, s_catalog, s_reversed, s_corporate_actions]:
         build(d)
     d.save()
-    titles, problems = check_deck(f["trace_id"])
-    for i, title in enumerate(titles, 1):
-        print(f"{i:>2}. {title}")
+    headers, problems = check_deck(f["trace_id"])
+    for i, header in enumerate(headers, 1):
+        print(f"{i}. {header}")
     if problems:
         print("\n".join(problems))
         sys.exit("deck check failed")
-    print("words in the bullets per slide:", ", ".join(f"{s}: {w}" for s, w in WORDS))
-    print(f"wrote {DECK.relative_to(ROOT)} and {NOTES_MD.relative_to(ROOT)}: {len(titles)} slides, deck check passed")
+    print(f"wrote {DECK.relative_to(ROOT)} and {NOTES_MD.relative_to(ROOT)}: {len(headers)} slides, deck check passed")
 
 
 if __name__ == "__main__":
