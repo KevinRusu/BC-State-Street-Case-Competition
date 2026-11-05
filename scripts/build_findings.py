@@ -25,7 +25,8 @@ COLUMNS = ['finding', 'stage', 'unit', 'affected', 'eligible', 'not evaluable', 
 
 
 def checksum(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()[:12]
+    """The register's fingerprint, the same on Windows and Mac (scripts/check_docs.py uses this one too)."""
+    return hashlib.sha256(path.read_bytes().replace(b'\r\n', b'\n')).hexdigest()[:12]
 
 
 def cell(value):
