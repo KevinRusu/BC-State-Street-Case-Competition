@@ -3,7 +3,8 @@ import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import { FindingDots, SourceChip } from "@/components/common";
 import type { Counts } from "@/lib/findings";
 import { HOP_STATUS, toneColor, toneText } from "@/lib/status";
-import type { HopStatus, MapNode } from "@/lib/types";
+import { findingSummary, traceTone } from "@/lib/trace-findings";
+import type { HopStatus, MapNode, RegisterMark } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export const NODE_WIDTH = 180;
@@ -14,6 +15,7 @@ export type TableNodeData = {
   selected: boolean;
   dimmed: boolean;
   traceStatus?: HopStatus;
+  traceFindings?: RegisterMark[];
 };
 export type TableNodeType = Node<TableNodeData, "table">;
 
@@ -23,10 +25,14 @@ const SLOTS = [["", 50], ["-a", 30], ["-b", 70]] as const;
 
 /** A table on the map: name, where its data comes from, and how many register findings count on it. */
 export function TableNode({ data }: NodeProps<TableNodeType>) {
-  const { node, counts, selected, dimmed, traceStatus } = data;
-  const ring = traceStatus ? toneColor(HOP_STATUS[traceStatus].tone) : selected ? "var(--brand-line)" : undefined;
+  const { node, counts, selected, dimmed, traceStatus, traceFindings = [] } = data;
+  const finding = findingSummary(traceFindings);
+  const tone = traceStatus ? traceTone(traceStatus, traceFindings) : undefined;
+  const linkWarning = traceStatus === "missing" || (traceStatus === "fan_out" && finding?.tone === "ok");
+  const ring = tone ? toneColor(tone) : selected ? "var(--brand-line)" : undefined;
   return (
     <div
+      data-trace-tone={tone}
       className={cn(
         "relative flex flex-col items-start gap-1.5 rounded-[10px] bg-card px-3 pt-3.5 pb-2.5 text-card-foreground shadow-[0_1px_3px_rgba(16,24,40,0.14)] transition-all",
         dimmed && "opacity-30",
@@ -49,8 +55,12 @@ export function TableNode({ data }: NodeProps<TableNodeType>) {
         <SourceChip key={source.label} source={source} />
       ))}
       {traceStatus && (
-        <span className="text-[10px] font-medium" style={{ color: toneText(HOP_STATUS[traceStatus].tone) }}>
-          {HOP_STATUS[traceStatus].label}
+        <span
+          className="text-[10px] font-medium"
+          style={{ color: toneText(tone!) }}
+          title={[HOP_STATUS[traceStatus].label, ...traceFindings.map((m) => m.finding)].join("; ")}
+        >
+          {linkWarning ? HOP_STATUS[traceStatus].label : finding?.label ?? HOP_STATUS[traceStatus].label}
         </span>
       )}
       {(counts.confirmed > 0 || counts.unresolved > 0 || counts.cleared > 0) && (

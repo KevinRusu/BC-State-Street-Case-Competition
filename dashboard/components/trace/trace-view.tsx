@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { HOP_STATUS, REGISTER_STATUS, fmt, worstHop } from "@/lib/status";
+import { locateFindings, markCounts } from "@/lib/trace-findings";
 import type { DemoTrace, Hop, HopStatus, MapData, TraceResult } from "@/lib/types";
 import { TimelineStep } from "./timeline-step";
 
@@ -17,10 +18,36 @@ type Props = { map: MapData; demos: DemoTrace[]; query: string; trace: TraceResu
 
 const STORY_PREVIEW = 8;
 
-export function TraceView({ map, demos, query, trace }: Props) {
+/** Reset the search draft for a new record without resetting the expanded story list. */
+function TraceSearch({ query }: { query: string }) {
   const router = useRouter();
   const [value, setValue] = useState(query);
   const [pending, startTransition] = useTransition();
+  const go = (id: string) => startTransition(() => router.push(`/trace?id=${encodeURIComponent(id.trim())}`));
+
+  return (
+    <form
+      className="flex w-full max-w-md gap-2"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (value.trim()) go(value);
+      }}
+    >
+      <Input
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        placeholder="TXN…, ACC…, SEC…, POS…, CA…, LDG…, FND… or ACC…/SEC…"
+        className="font-mono"
+        aria-label="Record ID"
+      />
+      <Button type="submit" disabled={pending}>
+        {pending ? <Loader2 className="animate-spin" /> : <Search />} Trace
+      </Button>
+    </form>
+  );
+}
+
+export function TraceView({ map, demos, query, trace }: Props) {
   const [allStories, setAllStories] = useState(false);
 
   const highlight = useMemo<TraceHighlight | undefined>(() => {
@@ -33,10 +60,12 @@ export function TraceView({ map, demos, query, trace }: Props) {
       }
       return Object.fromEntries(Object.entries(out).map(([k, v]) => [k, worstHop(v)]));
     };
-    return { nodes: group((h) => h.table), edges: group((h) => h.edge) };
+    return {
+      nodes: group((h) => h.table), edges: group((h) => h.edge),
+      findings: locateFindings(trace.hops, trace.marks),
+    };
   }, [trace]);
 
-  const go = (id: string) => startTransition(() => router.push(`/trace?id=${encodeURIComponent(id.trim())}`));
   const stories = allStories ? demos : demos.slice(0, STORY_PREVIEW);
 
   return (
@@ -49,24 +78,7 @@ export function TraceView({ map, demos, query, trace }: Props) {
               Type any ID and follow it through every join, from capture to NAV. The trail lights up on the map.
             </p>
           </div>
-          <form
-            className="flex w-full max-w-md gap-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (value.trim()) go(value);
-            }}
-          >
-            <Input
-              value={value}
-              onChange={(event) => setValue(event.target.value)}
-              placeholder="TXN…, ACC…, SEC…, POS…, CA…, LDG…, FND… or ACC…/SEC…"
-              className="font-mono"
-              aria-label="Record ID"
-            />
-            <Button type="submit" disabled={pending}>
-              {pending ? <Loader2 className="animate-spin" /> : <Search />} Trace
-            </Button>
-          </form>
+          <TraceSearch key={query} query={query} />
         </div>
 
         {demos.length > 0 && (
@@ -82,13 +94,13 @@ export function TraceView({ map, demos, query, trace }: Props) {
                   title={demo.source}
                   className={`flex max-w-xs items-center gap-2 rounded-lg bg-block px-2.5 py-1.5 text-xs ring-1 transition-colors hover:bg-muted ${demo.recordId === query ? "ring-brand-line" : "ring-transparent"}`}
                 >
-                  <Dot tone={demo.status === "trace" ? "ok" : REGISTER_STATUS[demo.status] ?? "info"} />
+                  <Dot tone={REGISTER_STATUS[demo.status] ?? "info"} />
                   <span className="truncate">{demo.label}</span>
                   <span className="shrink-0 font-mono text-muted-foreground">{demo.recordId}</span>
                 </Link>
               ))}
               {demos.length > STORY_PREVIEW && (
-                <Button variant="ghost" size="sm" onClick={() => setAllStories(!allStories)}>
+                <Button variant="ghost" size="sm" aria-expanded={allStories} onClick={() => setAllStories(!allStories)}>
                   {allStories ? "Show fewer" : `Show all ${demos.length}`}
                 </Button>
               )}
@@ -124,8 +136,11 @@ export function TraceView({ map, demos, query, trace }: Props) {
                 animate={false}
                 trace={highlight}
                 onSelect={(selection) => {
-                  if (selection?.kind !== "node") return;
-                  document.querySelector(`[data-hop-table="${selection.id}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  if (!selection) return;
+                  const candidates = trace?.found ? trace.hops.filter((h) => selection.kind === "node"
+                    ? h.table === selection.id : h.edge === selection.id) : [];
+                  const hop = candidates.find((h) => highlight?.findings.hops[h.id]?.length) ?? candidates[0];
+                  if (hop) document.getElementById(`trace-step-${hop.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
                 }}
               />
             </div>
@@ -137,8 +152,9 @@ export function TraceView({ map, demos, query, trace }: Props) {
               <ol>
                 {trace.hops.map((hop, index) => (
                   <TimelineStep
-                    key={hop.id}
+                    key={`${query}-${hop.id}`}
                     hop={hop}
+                    findings={highlight?.findings.hops[hop.id] ?? []}
                     step={index + 1}
                     place={map.nodes.find((n) => n.id === hop.table)?.place ?? ""}
                     last={index === trace.hops.length - 1}
@@ -160,6 +176,7 @@ export function TraceView({ map, demos, query, trace }: Props) {
 function TraceSummary({ trace }: { trace: Extract<TraceResult, { found: true }> }) {
   const broken = trace.hops.filter((h) => h.status === "missing");
   const extra = trace.hops.filter((h) => h.status === "fan_out");
+  const findings = markCounts(trace.marks);
   return (
     <Card className="bg-block ring-0">
       <CardContent className="space-y-3 py-1">
@@ -172,16 +189,22 @@ function TraceSummary({ trace }: { trace: Extract<TraceResult, { found: true }> 
           {broken.length ? (
             <Pill tone="bad">Trail breaks at: {broken.map((h) => h.title).join(", ")}</Pill>
           ) : (
-            <Pill tone="ok">Every expected step found a match</Pill>
+            <Pill tone="ok">Required record links found</Pill>
           )}
           {extra.length > 0 && <Pill tone="warn">More rows than expected at: {extra.map((h) => h.title).join(", ")}</Pill>}
+          {(["confirmed", "unresolved", "cleared"] as const).filter((s) => findings[s] > 0).map((status) => (
+            <Pill key={status} tone={REGISTER_STATUS[status]}>
+              {findings[status]} {status} finding{findings[status] === 1 ? "" : "s"}
+            </Pill>
+          ))}
+          {trace.marks.length === 0 && <Pill tone="info">No register example matched</Pill>}
           <span className="text-xs text-muted-foreground">
             {trace.hops.length} steps · {fmt(trace.hops.reduce((n, h) => n + h.total, 0))} rows touched
           </span>
         </div>
         {trace.marks.length > 0 && (
           <div className="space-y-1.5">
-            <div className="text-xs text-muted-foreground">Named as an example in notebook 02&apos;s register:</div>
+            <div className="text-xs text-muted-foreground">Known findings from notebook 02&apos;s example register:</div>
             <ul className="space-y-1">
               {trace.marks.map((mark) => (
                 <li key={`${mark.line}-${mark.recordId}`} className="flex flex-wrap items-center gap-2 text-sm">
@@ -197,12 +220,16 @@ function TraceSummary({ trace }: { trace: Extract<TraceResult, { found: true }> 
           </div>
         )}
         <p className="text-xs text-muted-foreground">
-          Legend:{" "}
+          Record links:{" "}
           {(["ok", "fan_out", "missing", "info"] as HopStatus[]).map((s) => (
             <span key={s} className="mr-3 inline-flex items-center gap-1.5">
               <Dot tone={HOP_STATUS[s].tone} /> {HOP_STATUS[s].label}
             </span>
           ))}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          A green link means matching records were found; it does not mean their values passed every control.
+          {" "}Finding badges show notebook 02&apos;s registered examples, not a complete assessment of every record.
         </p>
       </CardContent>
     </Card>

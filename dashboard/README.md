@@ -49,10 +49,49 @@ outputs/02_defect_register.csv ───────┘
   version as the Python package so it reads the file), shadcn/ui on Tailwind. This Next.js version differs from
   older tutorials: read `AGENTS.md` before changing it.
 
+### Reading a trace
+
+Link status describes whether expected records were found, not whether their values passed every control.
+Known examples from notebook 02's register are overlaid at the map location assigned by the store builder and
+on the corresponding timeline step. A confirmed negative-quantity finding can therefore make the transaction
+red while its link badge still says "Linked records found". Raw evidence fields and the register reference appear
+beside the finding. Downstream links are not marked invalid merely because an upstream record has a finding.
+
+Trace badges count findings associated with this trace; the main data map retains population-wide counts.
+This is an example-register view, not a complete record-level detector. "No register example matched" does not
+certify a record as valid. New findings still require a notebook run followed by rebuilding the store.
+
+The story list stays expanded while selecting different records. Use "Show fewer" to collapse it; selecting a
+story still resets the search draft and individual timeline expansions for the newly selected record.
+
 ## Test
 
-`tests/store_test.sh` from the repo root: builds a store from the made-up fixture, checks its tables, runs the vitest
-suite (`dashboard/tests/`), then `next build`. Stop `npm run dev` first (they share `.next`).
+After `uv sync` in the repo root, run these commands inside `dashboard/`:
+
+```bash
+npm ci
+npm test                         # prepares a synthetic fixture, then runs unit and store tests
+npx playwright install chromium  # once per computer
+npm run test:e2e                  # prepares the fixture, builds production, then runs browser workflows
+npm run lint
+```
+
+The fixture comes from `tests/fixtures/small/`. Its real notebook outputs and database are generated under
+`tests/runs/dashboard_fixture/` (unit tests) or `tests/runs/dashboard_browser_fixture/` (browser tests); the test story list includes additional examples from that register to exercise
+the expanded list. Production data and `outputs/store.duckdb` are not changed.
+
+Browser tests cover map details and lookups, panel/theme/menu controls, confirmed versus unresolved findings,
+search and unknown IDs, expanded-list persistence, search/timeline reset, and a narrow viewport. Their production
+server listens on `127.0.0.1:3100` and uses `.next-tests`, so it can run beside `npm run dev`. Results, failure
+screenshots and traces stay in `tests/runs/dashboard_browser/`. A busy test port causes a failure rather than
+reusing an unrelated server. Set `DASHBOARD_TEST_PORT` to use another port.
+
+Optional runtime overrides: `DASHBOARD_TEST_PYTHON` selects an existing project Python environment instead of
+`uv run`; `DASHBOARD_TEST_BROWSER` selects an installed Chromium-compatible browser instead of Playwright's
+download. `npm test` also honors an explicitly supplied synthetic `STORE_PATH` for the existing shell harness.
+
+The older Unix command `tests/store_test.sh` still checks store-building contracts and runs the unit suite plus
+a normal production build. Stop `npm run dev` before that command, since its build uses the shared `.next` folder.
 
 ## To merge into the docs
 

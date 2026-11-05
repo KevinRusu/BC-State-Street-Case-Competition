@@ -19,7 +19,7 @@ export const JOIN_STATUS: Record<Status, { tone: Tone; label: string; meaning: s
 };
 
 export const HOP_STATUS: Record<HopStatus, { tone: Tone; label: string }> = {
-  ok: { tone: "ok", label: "Found as expected" },
+  ok: { tone: "ok", label: "Linked records found" },
   fan_out: { tone: "warn", label: "More rows than expected" },
   missing: { tone: "bad", label: "Trail breaks here" },
   info: { tone: "info", label: "Context" },

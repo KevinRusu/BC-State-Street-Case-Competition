@@ -6,6 +6,7 @@ import { DuckDBInstance } from "@duckdb/node-api";
 import { beforeAll, describe, expect, test, vi } from "vitest";
 import { countsFor, totals, type Counts } from "@/lib/findings";
 import { getDemoTraces, getMapData, getStoreInfo, storePath, traceRecord } from "@/lib/store";
+import { locateFindings, traceTone } from "@/lib/trace-findings";
 import type { MapData } from "@/lib/types";
 
 let map: MapData;
@@ -74,6 +75,18 @@ describe("map", () => {
 });
 
 describe("trace", () => {
+  test("a negative quantity retains a successful row lookup and its confirmed finding location", async () => {
+    const trace = await traceRecord("FXT03");
+    if (!trace.found) throw new Error("FXT03 not found");
+    const transaction = trace.hops.find((h) => h.id === "transaction")!;
+    expect(transaction.status).toBe("ok");
+    expect(trace.marks.find((m) => m.finding === "Negative trade quantity"))
+      .toMatchObject({ recordId: "FXT03", idKind: "transaction_id", mapKind: "node", mapId: "transactions", status: "confirmed" });
+    const located = locateFindings(trace.hops, trace.marks);
+    expect(traceTone(transaction.status, located.nodes.transactions)).toBe("bad");
+    expect(located.hops.transaction.some((m) => m.finding === "Negative trade quantity")).toBe(true);
+  });
+
   test("a clean trade reaches the fund's ledger line", async () => {
     const nav = await hop("FXT01", "nav");
     expect(nav?.status).toBe("ok");
@@ -92,6 +105,28 @@ describe("trace", () => {
 
   test("an unknown ID is not found", async () => {
     expect((await traceRecord("NOPE123")).found).toBe(false);
+  });
+
+  test("a missing account breaks its link without erasing an existing transaction finding", async () => {
+    const copy = path.join(path.dirname(storePath()), "store_missing_account.duckdb");
+    fs.copyFileSync(storePath(), copy);
+    const writer = await DuckDBInstance.create(copy);
+    const con = await writer.connect();
+    await con.run("DELETE FROM accounts WHERE account_id = 'FXACC1'");
+    con.closeSync();
+    writer.closeSync();
+    const saved = process.env.STORE_PATH;
+    process.env.STORE_PATH = copy;
+    try {
+      const trace = await traceRecord("FXT03");
+      if (!trace.found) throw new Error("FXT03 not found");
+      expect(trace.hops.find((h) => h.id === "account")?.status).toBe("missing");
+      expect(trace.hops.find((h) => h.id === "nav")?.status).toBe("not_reached");
+      expect(locateFindings(trace.hops, trace.marks).hops.transaction)
+        .toEqual(expect.arrayContaining([expect.objectContaining({ finding: "Negative trade quantity", status: "confirmed" })]));
+    } finally {
+      process.env.STORE_PATH = saved;
+    }
   });
 
   test("demo traces come from the outputs, not from the code", async () => {
