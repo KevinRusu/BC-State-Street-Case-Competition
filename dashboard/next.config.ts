@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  distDir: process.env.DASHBOARD_DIST_DIR || ".next",
   cacheComponents: true,
   partialPrefetching: true,
   devIndicators: { position: "bottom-right" },

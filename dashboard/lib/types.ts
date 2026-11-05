@@ -140,7 +140,17 @@ export type Hop = {
   note: string;
 };
 
-export type RegisterMark = { line: number; ruleId: string; finding: string; status: string; recordId: string };
+export type RegisterMark = {
+  line: number;
+  ruleId: string;
+  finding: string;
+  status: string;
+  recordId: string;
+  idKind: string;
+  /** Location assigned by the Python store builder, not inferred from a finding's wording. */
+  mapKind: "node" | "edge" | "";
+  mapId: string;
+};
 
 export type TraceResult =
   | { found: false; query: string }

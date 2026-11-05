@@ -12,7 +12,7 @@ describe("tagShown", () => {
     expect(tagShown("handoff", none, "", false)).toBe(false);
   });
 
-  test("a trace shows only check numbers: no tags, even on lines with findings", () => {
+  test("population-wide finding tags are hidden while tracing a record", () => {
     expect(tagShown("handoff", some, "30 unmatched", true)).toBe(false);
   });
 

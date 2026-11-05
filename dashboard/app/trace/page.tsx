@@ -24,7 +24,6 @@ async function TraceContent({ searchParams }: Props) {
   if (!map.ok) return <StoreMissing file={map.file} />;
   return (
     <TraceView
-      key={query}
       map={map.data}
       demos={demos.ok ? demos.data : []}
       query={query}

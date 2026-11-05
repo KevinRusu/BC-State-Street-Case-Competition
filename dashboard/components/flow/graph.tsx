@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { Controls, MarkerType, ReactFlow, type Edge, type Node, type ReactFlowInstance } from "@xyflow/react";
 import { useTheme } from "next-themes";
 import { countsFor } from "@/lib/findings";
-import { HOP_STATUS, JOIN_STATUS, fmt } from "@/lib/status";
+import { JOIN_STATUS, fmt } from "@/lib/status";
+import { findingSummary, markCounts, traceTone, type TraceFindings } from "@/lib/trace-findings";
 import type { HopStatus, JoinSide, MapData } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { GridLayer } from "./grid-layer";
@@ -25,7 +26,11 @@ const MARKER = {
 };
 
 export type Selection = { kind: "node" | "edge"; id: string } | null;
-export type TraceHighlight = { nodes: Record<string, HopStatus>; edges: Record<string, HopStatus> };
+export type TraceHighlight = {
+  nodes: Record<string, HopStatus>;
+  edges: Record<string, HopStatus>;
+  findings: TraceFindings;
+};
 
 type Props = {
   data: MapData;
@@ -81,10 +86,11 @@ export function Graph({ data, showLookups, animate, selection, onSelect, trace, 
         position: { x: node.x, y: node.y },
         data: {
           node,
-          counts: countsFor(data.register, "node", node.id),
+          counts: trace ? markCounts(trace.findings.nodes[node.id] ?? []) : countsFor(data.register, "node", node.id),
           selected: selection?.kind === "node" && selection.id === node.id,
           dimmed: Boolean(trace) && !trace?.nodes[node.id],
           traceStatus: trace?.nodes[node.id],
+          traceFindings: trace?.findings.nodes[node.id],
         },
       };
     })];
@@ -95,7 +101,8 @@ export function Graph({ data, showLookups, animate, selection, onSelect, trace, 
       .filter((edge) => edge.kind !== "lookup" || showLookups || trace?.edges[edge.id])
       .map<StatusEdgeType>((edge) => {
         const traceStatus = trace?.edges[edge.id];
-        const tone = traceStatus ? HOP_STATUS[traceStatus].tone : JOIN_STATUS[edge.status].tone;
+        const traceFindings = trace?.findings.edges[edge.id] ?? [];
+        const tone = traceStatus ? traceTone(traceStatus, traceFindings) : JOIN_STATUS[edge.status].tone;
         return {
           id: edge.id,
           type: "status",
@@ -107,12 +114,13 @@ export function Graph({ data, showLookups, animate, selection, onSelect, trace, 
           markerEnd: { type: MarkerType.ArrowClosed, color: markers[tone], width: 14, height: 14 },
           data: {
             edge,
-            issue: trace ? "" : edgeIssue(edge.id, data.health),
-            counts: countsFor(data.register, "edge", edge.id),
+            issue: trace ? findingSummary(traceFindings)?.label ?? "" : edgeIssue(edge.id, data.health),
+            counts: trace ? markCounts(traceFindings) : countsFor(data.register, "edge", edge.id),
             selected: selection?.kind === "edge" && selection.id === edge.id,
             dimmed: Boolean(trace) && !traceStatus,
             inTrace: Boolean(trace),
             traceStatus,
+            traceFindings,
             onSelect: onSelect ? (id: string) => onSelect({ kind: "edge", id }) : undefined,
           },
         };

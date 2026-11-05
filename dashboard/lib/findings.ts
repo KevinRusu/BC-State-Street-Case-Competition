@@ -17,7 +17,7 @@ export const totals = (register: RegisterLine[]): Counts => count(register);
 
 /**
  * Whether a line on the map carries a tag: only when it has findings or a key problem to show. Never during a
- * trace (the trace shows check numbers only) and never on a lookup (context lines; no finding counts on them).
+ * trace (record-specific finding tags are rendered separately) and never on a lookup.
  */
 export const tagShown = (kind: EdgeKind, counts: Counts, issue: string, inTrace: boolean): boolean =>
   !inTrace && kind !== "lookup" && (counts.confirmed + counts.unresolved + counts.cleared > 0 || Boolean(issue));

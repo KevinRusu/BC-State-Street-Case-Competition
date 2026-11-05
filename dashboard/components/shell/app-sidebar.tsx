@@ -29,7 +29,7 @@ export function AppSidebar() {
           <div className="text-xs text-muted-foreground">team MVP · local only</div>
         </div>
       </div>
-      <nav className="flex flex-1 flex-col gap-1 p-3">
+      <nav aria-label="Main navigation" className="flex flex-1 flex-col gap-1 p-3">
         {PAGES.map(({ href, label, icon: Icon, hint }) => {
           const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
           return (

@@ -1,11 +1,17 @@
 # Status
 
-Last updated: 2026-10-30 (severity analysis added; D-050)
+Last updated: 2026-11-04 (dashboard trace fixes and repeatable functional tests; D-051, D-052)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
 
 ## Where we are
+
+- **Dashboard trace (4 Nov):** known notebook-register examples now appear at their recorded map location and in the corresponding timeline step, with raw evidence fields where available. Confirmed findings are red and unresolved findings amber even when every record link exists. Link badges explicitly describe matching records; trace badges no longer show population-wide finding counts. This presents existing register examples, not a complete record-level rule engine or proof that unmarked records are valid (D-051).
+
+- **Trace navigation (4 Nov):** expanding the story list now survives selecting another trace. The search input and individual timeline expansions reset for each record, while the list only collapses when the user chooses "Show fewer".
+
+- **Dashboard functional tests (4 Nov):** automatic synthetic-fixture preparation, unit/store checks, and production-build Playwright workflows passed. Browser coverage includes trace finding visibility, navigation persistence, map interactions, search, display controls, and a narrow viewport. Testing exposed and fixed header overflow on narrow screens; run metadata now compacts visually while remaining available to assistive technology and the tooltip. Browser checks use a separate build and local port; run instructions are in `dashboard/README.md`, with reports under `tests/runs/dashboard_browser/` (D-052).
 
 - **Check-in 1 (architecture):** done. Material frozen in `docs/checkins/checkin1/`.
   Feedback: tell a story rather than list results; the team that explains the data best with good visuals wins,

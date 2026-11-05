@@ -2,8 +2,9 @@ import { BaseEdge, EdgeLabelRenderer, type Edge, type EdgeProps } from "@xyflow/
 import { CheckBadge, FindingDots } from "@/components/common";
 import { tagShown, type Counts } from "@/lib/findings";
 import { curve } from "@/lib/geometry";
-import { HOP_STATUS, JOIN_STATUS, toneColor, toneText } from "@/lib/status";
-import type { HopStatus, MapEdge } from "@/lib/types";
+import { JOIN_STATUS, toneColor, toneText } from "@/lib/status";
+import { findingSummary, traceTone } from "@/lib/trace-findings";
+import type { HopStatus, MapEdge, RegisterMark } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export type StatusEdgeData = {
@@ -12,9 +13,10 @@ export type StatusEdgeData = {
   counts: Counts;
   selected: boolean;
   dimmed: boolean;
-  /** The map is showing a trace: check numbers only, no tags. */
+  /** Trace badges describe this record's findings, rather than population-wide counts. */
   inTrace: boolean;
   traceStatus?: HopStatus;
+  traceFindings?: RegisterMark[];
   onSelect?: (id: string) => void;
 };
 export type StatusEdgeType = Edge<StatusEdgeData, "status">;
@@ -36,8 +38,8 @@ const offset = (side: MapEdge["tagSide"], gap: number) =>
 export function StatusEdge(props: EdgeProps<StatusEdgeType>) {
   const { id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd } = props;
   if (!data) return null;
-  const { edge, issue, counts, selected, dimmed, inTrace, traceStatus, onSelect } = data;
-  const tone = traceStatus ? HOP_STATUS[traceStatus].tone : JOIN_STATUS[edge.status].tone;
+  const { edge, issue, counts, selected, dimmed, inTrace, traceStatus, traceFindings = [], onSelect } = data;
+  const tone = traceStatus ? traceTone(traceStatus, traceFindings) : JOIN_STATUS[edge.status].tone;
   const color = toneColor(tone);
 
   let path: string, point: { x: number; y: number };
@@ -50,7 +52,7 @@ export function StatusEdge(props: EdgeProps<StatusEdgeType>) {
     point = line.at(edge.tagAt);
   }
   const width = WIDTH[edge.kind] + (selected || traceStatus ? 1.5 : 0);
-  const showTag = tagShown(edge.kind, counts, issue, inTrace);
+  const showTag = inTrace ? Boolean(findingSummary(traceFindings)) : tagShown(edge.kind, counts, issue, false);
   const select = () => onSelect?.(edge.id);
 
   return (

@@ -414,10 +414,12 @@ export async function traceRecord(query: string): Promise<TraceResult> {
     const ids = [...new Set([id, account, security, account && security && `${account}/${security}`])]
       .filter((v): v is string => Boolean(v));
     const marks: RegisterMark[] = (await rows(con,
-      "SELECT DISTINCT line, rule_id, finding, status, record_id FROM register_examples " +
-      `WHERE record_id IN (${ids.map((_, i) => `$${i + 1}`).join(", ")}) ORDER BY line`, ids)).map((r) => ({
+      "SELECT DISTINCT e.line, e.rule_id, e.finding, e.status, e.record_id, r.id_kind, r.map_kind, r.map_id " +
+      "FROM register_examples e JOIN register r ON r.line = e.line " +
+      `WHERE e.record_id IN (${ids.map((_, i) => `$${i + 1}`).join(", ")}) ORDER BY e.line, e.record_id`, ids)).map((r) => ({
       line: num(r.line), ruleId: text(r.rule_id), finding: text(r.finding), status: text(r.status),
-      recordId: text(r.record_id),
+      recordId: text(r.record_id), idKind: text(r.id_kind),
+      mapKind: text(r.map_kind) as RegisterMark["mapKind"], mapId: text(r.map_id),
     }));
     const summary = [account && `account ${account}`, security && `security ${security}`].filter(Boolean).join(" · ");
     return { found: true, query: id, kind: start.kind, summary, hops, marks };
