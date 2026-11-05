@@ -15,8 +15,10 @@ Frozen check-in folders (docs/checkins/) are skipped too.
 
 Run from the repo root: uv run python scripts/check_docs.py
 """
-import hashlib, re, sys
+import re, sys
 from pathlib import Path
+
+from build_findings import checksum
 
 ROOT = Path(__file__).resolve().parent.parent
 LOCAL = ('outputs/', 'tests/runs/', 'reference/official/', 'AI_Logs/', 'data/')
@@ -83,7 +85,7 @@ def check_findings():
         return []
     if not findings.exists():
         return ['docs/FINDINGS.md missing: run scripts/build_findings.py']
-    current = hashlib.sha256(register.read_bytes()).hexdigest()[:12]
+    current = checksum(register)
     problems = []
     m = re.search(r'Register checksum: `([0-9a-f]+)`', findings.read_text())
     if not m or m.group(1) != current:
