@@ -2,84 +2,102 @@
 
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { Pill, RegisterStatus } from "@/components/common";
+import { Dot, RegisterStatus } from "@/components/common";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { findingText } from "@/lib/plain";
 import { HOP_STATUS, fmt, toneColor, toneText } from "@/lib/status";
 import { exampleEvidence, traceTone } from "@/lib/trace-findings";
-import type { Hop, RegisterMark } from "@/lib/types";
+import type { Hop, PlainText, RegisterMark } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const EXPECTED = { one: "expected one", one_or_more: "expected at least one", any: "any number" };
 
 /**
- * One step of a trace on the timeline: a ring in the colour of what it found, where the step sits on the map, the
- * join it used, how many rows it found, and those rows as raw text.
+ * One step of a trace on the timeline, as one line: a ring in the colour of what it found, the step's name and a
+ * short word for its link. Steps with a finding start open and say it in plain words; the raw rows (as text) sit
+ * behind one more click.
  */
-export function TimelineStep({ hop, findings, step, place, last }: {
-  hop: Hop; findings: RegisterMark[]; step: number; place: string; last: boolean;
+export function TimelineStep({ hop, findings, step, place, last, query, plain }: {
+  hop: Hop; findings: RegisterMark[]; step: number; place: string; last: boolean; query: string; plain: PlainText;
 }) {
-  const [open, setOpen] = useState(hop.status !== "info" && hop.total > 0 && hop.total <= 5);
+  const [open, setOpen] = useState(findings.length > 0);
+  const [rawRows, setRawRows] = useState(false);
   const meta = HOP_STATUS[hop.status];
   const color = toneColor(traceTone(hop.status, findings));
+  // Where the step sits, the join it used, what it noticed and how many rows it found, in that order.
+  const facts: { text: string; className?: string; color?: string }[] = [
+    { text: place },
+    { text: hop.via, className: "font-mono break-all" },
+    { text: hop.note, color: toneText(meta.tone) },
+    { text: hop.status === "not_reached" ? "" : `${fmt(hop.total)} ${hop.total === 1 ? "row" : "rows"}, ${EXPECTED[hop.expected]}` },
+  ].filter((fact) => fact.text);
   return (
-    <li id={`trace-step-${hop.id}`} data-hop-table={hop.table} className="relative flex scroll-mt-4 gap-3.5 pb-3">
+    <li id={`trace-step-${hop.id}`} data-hop-table={hop.table} className="relative flex scroll-mt-4 gap-3.5 pb-1.5">
       {!last && <span className="absolute top-7 -bottom-1 left-[11px] w-0.5 bg-border" />}
       <span
-        className="relative z-10 mt-2 flex size-6 shrink-0 items-center justify-center rounded-full border-2 bg-background text-[11px] font-bold"
+        className="relative z-10 mt-1.5 flex size-6 shrink-0 items-center justify-center rounded-full border-2 bg-background text-[11px] font-bold"
         style={{ borderColor: color, color, ...(hop.status === "not_reached" ? { borderStyle: "dashed" } : {}) }}
       >
         {step}
       </span>
-      <div className={cn("min-w-0 flex-1 overflow-hidden rounded-xl", hop.status === "missing" && "bg-block")}>
+      <div className={cn("min-w-0 flex-1 overflow-hidden rounded-xl", (open || hop.status === "missing") && "bg-block")}>
         <button
           type="button"
-          onClick={() => hop.rows.length && setOpen(!open)}
-          className={cn("flex w-full flex-wrap items-start gap-3 px-3 py-2 text-left sm:flex-nowrap", hop.rows.length && "rounded-xl hover:bg-block")}
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left hover:bg-block"
         >
-          <span className="min-w-0 flex-1 basis-full space-y-0.5 sm:basis-auto">
-            <span className="flex flex-wrap items-baseline gap-x-2">
-              <span className="font-semibold">{hop.title}</span>
-              <span className="font-mono text-xs text-muted-foreground">{hop.table}</span>
-            </span>
-            <span className="block text-xs text-muted-foreground">{place}</span>
-            {hop.via && <span className="block font-mono text-xs break-all text-muted-foreground">{hop.via}</span>}
-            {hop.note && (
-              <span className="block text-sm" style={{ color: toneText(meta.tone) }}>
-                {hop.note}
-              </span>
-            )}
+          <span className="min-w-0 truncate font-semibold" title={hop.table}>{hop.title}</span>
+          <Dot tone={meta.tone} />
+          <span title={meta.label} className="shrink-0 text-xs" style={{ color: toneText(meta.tone) }}>
+            {meta.short}
           </span>
-          <span className="flex shrink-0 items-center gap-3">
-            {hop.status !== "not_reached" && (
-              <span className="text-right text-xs text-muted-foreground tabular-nums">
-                {fmt(hop.total)} {hop.total === 1 ? "row" : "rows"}
-                <br />
-                {EXPECTED[hop.expected]}
-              </span>
-            )}
-            <Pill tone={meta.tone}>{meta.label}</Pill>
-            {hop.rows.length > 0 && <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} />}
-          </span>
+          <ChevronDown className={cn("ml-auto size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
         </button>
-        {findings.length > 0 && (
-          <div className="mx-3 mb-3 space-y-2" aria-label="Findings at this step">
-            {findings.map((finding) => (
-              <div key={`${finding.line}-${finding.recordId}`} className="space-y-1.5 rounded-lg border bg-block p-3">
-                <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
-                  <RegisterStatus status={finding.status} /> {finding.finding}
-                </div>
-                {exampleEvidence(hop, finding).map((evidence, index) => (
-                  <p key={index} className="font-mono text-xs break-words">{evidence}</p>
-                ))}
-                <p className="text-xs text-muted-foreground">
-                  Notebook 02 register · {finding.ruleId} · line {finding.line} · example {finding.recordId}
-                </p>
+        {open && (
+          <div className="space-y-2.5 px-3 pb-3">
+            <p className="text-xs leading-relaxed break-words text-muted-foreground">
+              {facts.map((fact, index) => (
+                <span key={index}>
+                  {index > 0 && " · "}
+                  <span className={fact.className} style={{ color: fact.color }}>{fact.text}</span>
+                </span>
+              ))}
+            </p>
+            {findings.length > 0 && (
+              <div className="space-y-2" aria-label="Findings at this step">
+                {findings.map((finding) => {
+                  const evidence = exampleEvidence(hop, finding);
+                  return (
+                    <div key={`${finding.line}-${finding.recordId}`} className="space-y-1.5 rounded-lg border bg-card p-3">
+                      <div className="flex items-start gap-2 text-sm">
+                        <RegisterStatus status={finding.status} />
+                        <span>{findingText(finding, query, plain)}</span>
+                      </div>
+                      {evidence.length > 0 && (
+                        <div className="space-y-0.5">
+                          <div className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Evidence</div>
+                          {evidence.map((line, index) => (
+                            <p key={index} className="font-mono text-xs break-words">{line}</p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            ))}
+            )}
+            {hop.rows.length > 0 && (
+              <Button variant="ghost" size="sm" className="-ml-2" aria-expanded={rawRows} onClick={() => setRawRows(!rawRows)}>
+                {rawRows ? "Hide the raw rows" : "Show the raw rows"}
+                <ChevronDown className={cn("transition-transform", rawRows && "rotate-180")} />
+              </Button>
+            )}
           </div>
         )}
-        {open && hop.rows.length > 0 && (
-          <div className="mx-3 mb-2 overflow-hidden rounded-lg border bg-card">
+        {open && rawRows && hop.rows.length > 0 && (
+          <div className="mx-3 mb-3 overflow-hidden rounded-lg border bg-card">
             <div className="overflow-x-auto">
               <Table className="text-xs">
                 <TableHeader>

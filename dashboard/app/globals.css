@@ -186,3 +186,9 @@
   background: transparent;
   opacity: 0.6;
 }
+
+/* Startup screen (components/shell/boot-screen.tsx): once this browser session has seen it, the flag script in
+   the root layout marks <html> before first paint and the server-rendered screen never shows. */
+html[data-booted] [data-boot-screen] {
+  display: none;
+}

@@ -1,36 +1,37 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { Loader2, Search, SearchX } from "lucide-react";
+import { ChevronDown, Loader2, Search, SearchX } from "lucide-react";
 import { Dot, Pill, RegisterStatus } from "@/components/common";
 import { Graph, type TraceHighlight } from "@/components/flow/graph";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
-import { HOP_STATUS, REGISTER_STATUS, fmt, worstHop } from "@/lib/status";
+import { EXAMPLES_ONLY, examplesOnlyNote, storyGroups, traceHeadline } from "@/lib/plain";
+import { HOP_STATUS, REGISTER_STATUS, fmt, toneColor, toneText, worstHop } from "@/lib/status";
 import { locateFindings, markCounts } from "@/lib/trace-findings";
-import type { DemoTrace, Hop, HopStatus, MapData, TraceResult } from "@/lib/types";
+import type { DemoTrace, Hop, HopStatus, MapData, PlainText, TraceResult } from "@/lib/types";
 import { TimelineStep } from "./timeline-step";
 
 type Props = { map: MapData; demos: DemoTrace[]; query: string; trace: TraceResult | null };
+type FoundTrace = Extract<TraceResult, { found: true }>;
 
-const STORY_PREVIEW = 8;
+const go = (router: ReturnType<typeof useRouter>, id: string) => router.push(`/trace?id=${encodeURIComponent(id.trim())}`);
 
-/** Reset the search draft for a new record without resetting the expanded story list. */
+/** The search box. Keyed by the record, so a draft typed but not submitted is gone after the next record opens. */
 function TraceSearch({ query }: { query: string }) {
   const router = useRouter();
   const [value, setValue] = useState(query);
   const [pending, startTransition] = useTransition();
-  const go = (id: string) => startTransition(() => router.push(`/trace?id=${encodeURIComponent(id.trim())}`));
 
   return (
     <form
       className="flex w-full max-w-md gap-2"
       onSubmit={(event) => {
         event.preventDefault();
-        if (value.trim()) go(value);
+        if (value.trim()) startTransition(() => go(router, value));
       }}
     >
       <Input
@@ -47,9 +48,46 @@ function TraceSearch({ query }: { query: string }) {
   );
 }
 
-export function TraceView({ map, demos, query, trace }: Props) {
-  const [allStories, setAllStories] = useState(false);
+/** One "Pick an example" menu, the stories grouped by register stage. It rests on its placeholder whenever the
+ * record on screen is not a story, so it never names the wrong one. Keyed by the record, like the search box. */
+function StoryPicker({ demos, query, plain }: { demos: DemoTrace[]; query: string; plain: PlainText }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const groups = useMemo(() => storyGroups(demos, plain), [demos, plain]);
+  const current = demos.some((d) => d.recordId === query) ? query : "";
+  return (
+    <div className="flex w-full max-w-2xl items-center gap-2">
+      <div className="relative min-w-0 flex-1">
+        <select
+          aria-label="Pick an example"
+          defaultValue={current}
+          onChange={(event) => {
+            const id = event.target.value;
+            if (id) startTransition(() => go(router, id));
+          }}
+          className="h-8 w-full min-w-0 cursor-pointer appearance-none truncate rounded-lg border border-input bg-background py-1 pr-8 pl-2.5 text-sm transition-colors outline-none hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+        >
+          <option value="" disabled>
+            Pick an example
+          </option>
+          {groups.map((group) => (
+            <optgroup key={group.stage} label={group.label || "Other examples"}>
+              {group.stories.map((story) => (
+                <option key={story.recordId} value={story.recordId}>
+                  {story.label} · {story.recordId}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        <ChevronDown className="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+      </div>
+      {pending && <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" aria-label="Opening the example" />}
+    </div>
+  );
+}
 
+export function TraceView({ map, demos, query, trace }: Props) {
   const highlight = useMemo<TraceHighlight | undefined>(() => {
     if (!trace?.found) return undefined;
     const group = (key: (h: Hop) => string | null) => {
@@ -66,8 +104,6 @@ export function TraceView({ map, demos, query, trace }: Props) {
     };
   }, [trace]);
 
-  const stories = allStories ? demos : demos.slice(0, STORY_PREVIEW);
-
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="space-y-5 p-5">
@@ -81,32 +117,8 @@ export function TraceView({ map, demos, query, trace }: Props) {
           <TraceSearch key={query} query={query} />
         </div>
 
-        {demos.length > 0 && (
-          <div className="space-y-2">
-            <div className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              Stories: the records our findings point to
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {stories.map((demo) => (
-                <Link
-                  key={demo.recordId}
-                  href={`/trace?id=${encodeURIComponent(demo.recordId)}`}
-                  title={demo.source}
-                  className={`flex max-w-xs items-center gap-2 rounded-lg bg-block px-2.5 py-1.5 text-xs ring-1 transition-colors hover:bg-muted ${demo.recordId === query ? "ring-brand-line" : "ring-transparent"}`}
-                >
-                  <Dot tone={REGISTER_STATUS[demo.status] ?? "info"} />
-                  <span className="truncate">{demo.label}</span>
-                  <span className="shrink-0 font-mono text-muted-foreground">{demo.recordId}</span>
-                </Link>
-              ))}
-              {demos.length > STORY_PREVIEW && (
-                <Button variant="ghost" size="sm" aria-expanded={allStories} onClick={() => setAllStories(!allStories)}>
-                  {allStories ? "Show fewer" : `Show all ${demos.length}`}
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
+        {/* The record the trace resolved (trimmed), so a padded URL still selects its story. */}
+        {demos.length > 0 && <StoryPicker key={query} demos={demos} query={trace?.query ?? query} plain={map.plain} />}
 
         {trace && !trace.found && (
           <Card className="bg-block ring-0">
@@ -124,7 +136,7 @@ export function TraceView({ map, demos, query, trace }: Props) {
           </Card>
         )}
 
-        {trace?.found && <TraceSummary trace={trace} allMembers={map.info.memberSource === "members"} />}
+        {trace?.found && <TraceSummary trace={trace} plain={map.plain} allMembers={map.info.memberSource === "members"} />}
 
         {/* From xl up the map stays in view (sticky) beside the steps; below that they stack. */}
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] xl:items-start">
@@ -158,13 +170,15 @@ export function TraceView({ map, demos, query, trace }: Props) {
                     step={index + 1}
                     place={map.nodes.find((n) => n.id === hop.table)?.place ?? ""}
                     last={index === trace.hops.length - 1}
+                    query={trace.query}
+                    plain={map.plain}
                   />
                 ))}
               </ol>
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              Pick a story above or type an ID. Each step shows the raw rows (as text) the join found.
+              Pick an example above or type an ID. Each step shows the raw rows (as text) the join found.
             </p>
           )}
         </div>
@@ -173,17 +187,46 @@ export function TraceView({ map, demos, query, trace }: Props) {
   );
 }
 
-function TraceSummary({ trace, allMembers }: { trace: Extract<TraceResult, { found: true }>; allMembers: boolean }) {
+const OLD_STORE = "This store was built before the plain wording. Rebuild it: ";
+
+/** The record in plain words first (what is wrong and how sure we are); rule IDs, register lines, the legend and the
+ * caveats sit one click deeper under "Technical details". */
+function TraceSummary({ trace, plain, allMembers }: { trace: FoundTrace; plain: PlainText; allMembers: boolean }) {
   const broken = trace.hops.filter((h) => h.status === "missing");
-  const extra = trace.hops.filter((h) => h.status === "fan_out");
-  const findings = markCounts(trace.marks);
+  const headline = traceHeadline(trace.query, trace.marks, plain);
+  const note = examplesOnlyNote(trace.marks, allMembers);
+  const tone = REGISTER_STATUS[headline.status] ?? "info";
   return (
     <Card className="bg-block ring-0">
       <CardContent className="space-y-3 py-1">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <span className="font-mono text-base font-semibold">{trace.query}</span>
           <span className="text-sm text-muted-foreground">{trace.kind}</span>
-          {trace.summary && <span className="text-sm text-muted-foreground">· {trace.summary}</span>}
+        </div>
+        <div className="space-y-1 border-l-[3px] pl-3" style={{ borderColor: toneColor(tone) }} data-headline-tone={tone}>
+          {headline.text ? (
+            <p className="text-base leading-snug">{headline.text}</p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {OLD_STORE}
+              <code className="font-mono">uv run python scripts/build_store.py</code>
+            </p>
+          )}
+          {(headline.phrase || headline.more > 0) && (
+            <p className="text-sm">
+              {headline.phrase && (
+                <span className="font-medium" style={{ color: toneText(tone) }}>
+                  {headline.phrase}
+                </span>
+              )}
+              {headline.more > 0 && (
+                <span className="text-muted-foreground">
+                  {headline.phrase && " ·"} and {headline.more} more finding{headline.more === 1 ? "" : "s"}
+                </span>
+              )}
+            </p>
+          )}
+          {note && <p className="text-sm text-muted-foreground" data-examples-only>{note}</p>}
         </div>
         <div className="flex flex-wrap items-center gap-2 text-sm">
           {broken.length ? (
@@ -191,6 +234,26 @@ function TraceSummary({ trace, allMembers }: { trace: Extract<TraceResult, { fou
           ) : (
             <Pill tone="ok">Required record links found</Pill>
           )}
+        </div>
+        <TechnicalDetails trace={trace} allMembers={allMembers} />
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Everything the summary card showed before the plain headline, unchanged, behind one link. */
+function TechnicalDetails({ trace, allMembers }: { trace: FoundTrace; allMembers: boolean }) {
+  const extra = trace.hops.filter((h) => h.status === "fan_out");
+  const findings = markCounts(trace.marks);
+  return (
+    <Collapsible>
+      <CollapsibleTrigger className="group inline-flex items-center gap-1 text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+        Technical details
+        <ChevronDown className="size-3.5 transition-transform group-data-[panel-open]:rotate-180" />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="space-y-3 pt-3">
+        {trace.summary && <p className="text-sm text-muted-foreground">{trace.summary}</p>}
+        <div className="flex flex-wrap items-center gap-2 text-sm">
           {extra.length > 0 && <Pill tone="warn">More rows than expected at: {extra.map((h) => h.title).join(", ")}</Pill>}
           {(["confirmed", "unresolved", "cleared"] as const).filter((s) => findings[s] > 0).map((status) => (
             <Pill key={status} tone={REGISTER_STATUS[status]}>
@@ -231,11 +294,11 @@ function TraceSummary({ trace, allMembers }: { trace: Extract<TraceResult, { fou
           A green link means matching records were found; it does not mean their values passed every control.
           {allMembers
             ? " Finding badges show every register line that counts this record."
-            : " Finding badges show only the register's example IDs: this store has no full member list (rerun notebook 02, then rebuild the store)."}
+            : ` ${EXAMPLES_ONLY}`}
           {" "}It is still not a complete assessment of every record: rules not yet coded find nothing, so no badge is
           not proof that the record is valid.
         </p>
-      </CardContent>
-    </Card>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }

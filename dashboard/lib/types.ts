@@ -46,6 +46,8 @@ export type MapNode = {
   unreadableDates: string;
   rules: string[];
   sources: MapSource[];
+  /** What the table is, in plain words ("" when the wording file has none). */
+  plain: string;
 };
 
 export type EdgeKind = "handoff" | "flow" | "lookup";
@@ -71,6 +73,8 @@ export type MapEdge = {
   /** Where the line's small tag sits (0-1 along it) and which way it extends. */
   tagAt: number;
   tagSide: "left" | "right" | "above" | "below";
+  /** What the line does, in plain words ("" when the wording file has none). */
+  plain: string;
 };
 
 export type JoinSide = {
@@ -111,11 +115,26 @@ export type RegisterLine = {
   /** The one map element this line counts on (build_store.py decides). */
   mapKind: "node" | "edge" | "";
   mapId: string;
+  /** The example "Trace an example" opens: the first one when the trace can open its kind of ID, else "" (a
+   * currency, or a store built before the column existed). */
+  traceExample: string;
+  /** The finding in plain English; the register's own text when the wording file has none. */
+  plain: string;
 };
 
 export type RuleText = { ruleId: string; section: string; test: string; onFail: string; note: string };
 
 export type ColumnDoc = { table: string; column: string; intendedType: string; description: string };
+
+export type PlainStatus = "confirmed" | "unresolved" | "cleared" | "none";
+
+/** The plain-English wording the store carries (scripts/plain_language.json): status phrases, lead-ins by kind of ID
+ * and the stage names in flow order. Empty phrases and no stages for a store built before the wording existed. */
+export type PlainText = {
+  status: Record<PlainStatus, string>;
+  leadIn: Record<string, string>;
+  stages: { stage: string; label: string }[];
+};
 
 export type MapData = {
   info: StoreInfo;
@@ -127,6 +146,7 @@ export type MapData = {
   register: RegisterLine[];
   catalog: RuleText[];
   columns: ColumnDoc[];
+  plain: PlainText;
 };
 
 export type Row = Record<string, string | null>;
@@ -155,10 +175,12 @@ export type RegisterMark = {
   /** Location assigned by the Python store builder, not inferred from a finding's wording. */
   mapKind: "node" | "edge" | "";
   mapId: string;
+  /** The finding in plain English; the register's own text when the wording file has none. */
+  plain: string;
 };
 
 export type TraceResult =
   | { found: false; query: string }
   | { found: true; query: string; kind: string; summary: string; hops: Hop[]; marks: RegisterMark[] };
 
-export type DemoTrace = { position: number; recordId: string; label: string; status: string; source: string };
+export type DemoTrace = { position: number; recordId: string; label: string; status: string; source: string; stage: string };

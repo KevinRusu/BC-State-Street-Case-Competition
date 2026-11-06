@@ -10,9 +10,12 @@ Step by step:
 3. Join health for every join: rows, blank keys, distinct keys, keys found on one side only, rows per key. This
    describes the RAW keys before notebook 02's cleaning; it is not a detection rule (D-001).
 4. Copy notebook 02's defect register (outputs/02_defect_register.csv), with the one map element each line counts
-   on, and its example IDs, the rule texts from
+   on, its example IDs and the one the map traces (`trace_example`: the first, when its kind of ID is traceable),
+   the rule texts from
    docs/RULES.md, the column descriptions from data_dictionary.csv, and the demo traces (the record of
-   outputs/02_trace.csv, then the first example of each register line).
+   outputs/02_trace.csv, then the first example of each register line). Add the plain wording from
+   scripts/plain_language.json: a `plain` sentence on every register line (its raw `finding` when nobody has worded
+   it yet; the build warns), map node and edge, and the status phrases, lead-ins and stage labels (`plain_text`).
 5. Write to a temporary file, then swap it in, so a running dashboard never sees a half-built store.
 
 Paths follow notebook 02: RECONCILIATION_DATA (manifest), RECONCILIATION_CONFIG, RECONCILIATION_OUTPUTS (register in,
@@ -44,6 +47,7 @@ MEMBERS = OUTPUTS / '02_finding_members.csv'
 TRACE = OUTPUTS / '02_trace.csv'
 RULES_MD = ROOT / 'docs' / 'RULES.md'
 FRAMEWORK = ROOT / 'scripts' / 'framework.json'
+PLAIN = ROOT / 'scripts' / 'plain_language.json'
 DICTIONARY = ROOT / 'data_dictionary.csv'
 
 DATE_COLUMNS = {
@@ -375,6 +379,48 @@ def load_framework():
     return {c['check']: c for c in json.loads(FRAMEWORK.read_text(encoding='utf-8'))['checks']}
 
 
+def load_plain():
+    """The plain wording the dashboard shows (scripts/plain_language.json): status phrases, lead-ins, stage labels,
+    and one sentence per register finding, map node and map edge."""
+    return json.loads(PLAIN.read_text(encoding='utf-8'))
+
+
+STATUS_KEYS = {'confirmed', 'unresolved', 'cleared', 'none'}
+
+
+def check_plain(plain, graph=GRAPH):
+    """The wording covers exactly the map's nodes and edges, the four status phrases and every lead-in the trace can
+    need. Findings may be missing (the build falls back to the register text); the map is fixed, so it may not."""
+    nodes, edges = {n['id'] for n in graph['nodes']}, {e['id'] for e in graph['edges']}
+    assert set(plain['nodes']) == nodes, \
+        f"plain wording nodes: missing {sorted(nodes - set(plain['nodes']))}, unknown {sorted(set(plain['nodes']) - nodes)}"
+    assert set(plain['edges']) == edges, \
+        f"plain wording edges: missing {sorted(edges - set(plain['edges']))}, unknown {sorted(set(plain['edges']) - edges)}"
+    assert set(plain['status']) == STATUS_KEYS, f"plain wording status keys: {sorted(plain['status'])}"
+    missing = sorted((TRACEABLE | {'currency'}) - set(plain['lead_in']))
+    assert not missing, f'plain wording has no lead-in for: {missing}'
+    for stage in plain['stages']:
+        assert stage.get('stage') and stage.get('label'), f'plain wording stage without stage or label: {stage}'
+
+
+def plain_finding(plain, finding):
+    """The plain sentence for a register finding, or the finding itself when nobody has worded it."""
+    return plain['findings'].get(finding) or finding
+
+
+def unworded(plain, register):
+    """The register findings that have no plain sentence yet (in register order, once each)."""
+    return list(dict.fromkeys(line['finding'] for line in register if not plain['findings'].get(line['finding'])))
+
+
+def plain_rows(plain):
+    """The plain_text table: status phrases, lead-ins, and the stage labels in flow order (position from 1)."""
+    rows = [dict(kind='status', key=k, position=None, text=v) for k, v in plain['status'].items()]
+    rows += [dict(kind='lead_in', key=k, position=None, text=v) for k, v in plain['lead_in'].items()]
+    rows += [dict(kind='stage', key=s['stage'], position=i, text=s['label']) for i, s in enumerate(plain['stages'], 1)]
+    return rows
+
+
 def source_label(template, values):
     """The text of a 'comes from' chip: {n} = how many distinct values the data holds. None when it holds none."""
     if not values:
@@ -480,7 +526,8 @@ def read_register():
                              status=row['status'], stage=row['stage'], unit=row['unit'], affected=row['affected'],
                              eligible=row['eligible'], not_evaluable=row['not evaluable'],
                              population=row['population'], examples=row['examples'], id_kind=row['id kind'],
-                             how_detected=row['how detected'], map_kind=map_kind, map_id=map_id))
+                             how_detected=row['how detected'], map_kind=map_kind, map_id=map_id,
+                             trace_example=trace_example(row['examples'], row['id kind'])))
         for example in [e.strip() for e in row['examples'].split(',') if e.strip()]:
             examples.append(dict(line=order, rule_id=rule_id, finding=row['finding'], status=row['status'],
                                  id_kind=row['id kind'], record_id=example))
@@ -506,6 +553,17 @@ def read_register():
 TRACEABLE = {'transaction_id', 'account_id', 'security_id', 'account/security', 'action_id', 'ledger_id'}
 
 
+def first_example(examples):
+    """The first ID in a register line's comma-separated examples ('' when it lists none)."""
+    return next((e.strip() for e in examples.split(',') if e.strip()), '')
+
+
+def trace_example(examples, id_kind):
+    """The example the map's "Trace an example" opens: the first one, when the trace can open its kind of ID (a
+    currency, for one, it cannot); else ''."""
+    return first_example(examples) if id_kind in TRACEABLE else ''
+
+
 def demo_traces(register):
     demos, seen = [], set()
     if TRACE.is_file():
@@ -514,14 +572,14 @@ def demo_traces(register):
                 if row['hop'] == 'source' and row['field'] == 'transaction_id' and row['value'] not in seen:
                     seen.add(row['value'])
                     demos.append(dict(record_id=row['value'], label='The evidenced trace (Check-in 2 story)',
-                                      status='trace', source='outputs/02_trace.csv'))
+                                      status='trace', source='outputs/02_trace.csv', stage='worked example'))
     order = {'confirmed': 0, 'unresolved': 1, 'cleared': 2}
     for line in sorted(register, key=lambda r: (order.get(r['status'], 3), r['line'])):
-        first = next((e.strip() for e in line['examples'].split(',') if e.strip()), '')
-        if line['id_kind'] in TRACEABLE and first and first not in seen:
+        first = line['trace_example']
+        if first and first not in seen:
             seen.add(first)
             demos.append(dict(record_id=first, label=line['finding'], status=line['status'],
-                              source=f"register line {line['line']} ({line['rule_id']})"))
+                              source=f"register line {line['line']} ({line['rule_id']})", stage=line['stage']))
     return [dict(position=i, **d) for i, d in enumerate(demos, 1)]
 
 
@@ -558,6 +616,8 @@ def main():
     assert set(manifest) == {n['id'] for n in GRAPH['nodes']}, 'the graph and the manifest name different tables'
     framework = load_framework()
     check_graph(catalog, framework)
+    plain = load_plain()
+    check_plain(plain)
 
     STORE_PATH.parent.mkdir(parents=True, exist_ok=True)
     temporary = STORE_PATH.with_name(STORE_PATH.name + '.building')
@@ -577,7 +637,8 @@ def main():
                                        grain=n['grain'], note=n.get('note', ''),
                                        rows=loaded[n['id']]['rows'], manifest_rows=loaded[n['id']]['manifest_rows'],
                                        columns=loaded[n['id']]['columns'],
-                                       unreadable_dates=loaded[n['id']]['unreadable_dates'])
+                                       unreadable_dates=loaded[n['id']]['unreadable_dates'],
+                                       plain=plain['nodes'][n['id']])
                                   for n in GRAPH['nodes']])
     write_rows(con, 'map_sources', source_chips(con),
                columns=['node_id', 'position', 'label', 'evidence', 'column_ref', 'source_values', 'reason'])
@@ -587,10 +648,11 @@ def main():
                                        owner=framework[e['check']]['owner'] if 'check' in e else '',
                                        check_office=framework[e['check']]['office'] if 'check' in e else '',
                                        from_handle=e['from_handle'], to_handle=e['to_handle'],
-                                       tag_at=float(e.get('tag_at', 0.5)), tag_side=e.get('tag_side', 'right'))
+                                       tag_at=float(e.get('tag_at', 0.5)), tag_side=e.get('tag_side', 'right'),
+                                       plain=plain['edges'][e['id']])
                                   for e in GRAPH['edges']],
                columns=['id', 'source', 'target', 'kind', 'handoff', 'label', 'expected', 'inferred', 'check',
-                        'owner', 'check_office', 'from_handle', 'to_handle', 'tag_at', 'tag_side'])
+                        'owner', 'check_office', 'from_handle', 'to_handle', 'tag_at', 'tag_side', 'plain'])
     write_rows(con, 'rule_placement', [dict(rule_id=r, target_kind=k, target_id=t) for r, k, t in placed])
     write_rows(con, 'rule_catalog', catalog)
 
@@ -598,8 +660,17 @@ def main():
     write_rows(con, 'join_health', join_health(con))
 
     register, examples, members, member_source = read_register()
+    known_stages = {s['stage'] for s in plain['stages']}
+    unknown_stages = sorted({line['stage'] for line in register} - known_stages)
+    assert not unknown_stages, f'register stages with no label in scripts/plain_language.json: {unknown_stages}'
+    missing_wording = unworded(plain, register)
+    if missing_wording:
+        print(f'  plain wording missing for: {missing_wording}')
+    for line in register:
+        line['plain'] = plain_finding(plain, line['finding'])
     register_columns = ['line', 'rule_id', 'rule', 'finding', 'status', 'stage', 'unit', 'affected', 'eligible',
-                        'not_evaluable', 'population', 'examples', 'id_kind', 'how_detected', 'map_kind', 'map_id']
+                        'not_evaluable', 'population', 'examples', 'id_kind', 'how_detected', 'map_kind', 'map_id',
+                        'trace_example', 'plain']
     write_rows(con, 'register', register, columns=register_columns)
     write_rows(con, 'register_examples', examples,
                columns=['line', 'rule_id', 'finding', 'status', 'id_kind', 'record_id'])
@@ -607,7 +678,8 @@ def main():
                columns=['line', 'rule_id', 'finding', 'status', 'id_kind', 'record_id'])
     con.sql('CREATE INDEX ix_register_members_record ON register_members (record_id)')
     write_rows(con, 'demo_traces', demo_traces(register),
-               columns=['position', 'record_id', 'label', 'status', 'source'])
+               columns=['position', 'record_id', 'label', 'status', 'source', 'stage'])
+    write_rows(con, 'plain_text', plain_rows(plain), columns=['kind', 'key', 'position', 'text'])
     unplaced = sorted({r['rule_id'] for r in register} - {r for r, _, _ in placed})
     if unplaced:
         print(f'  register rules not on the map: {unplaced}')
