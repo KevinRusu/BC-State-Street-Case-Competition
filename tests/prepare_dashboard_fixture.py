@@ -49,7 +49,7 @@ def main():
     import duckdb
     with duckdb.connect(str(output / "store.duckdb")) as con:
         seen = {row[0] for row in con.execute("SELECT record_id FROM demo_traces").fetchall()}
-        position = con.execute("SELECT coalesce(max(position), -1) FROM demo_traces").fetchone()[0]
+        position = con.execute("SELECT coalesce(max(position), 0) FROM demo_traces").fetchone()[0]
         examples = con.execute("SELECT line, rule_id, finding, status, record_id, id_kind "
                                "FROM register_examples ORDER BY line, record_id").fetchall()
         supported = {"transaction_id", "account_id", "security_id", "account/security", "action_id", "ledger_id"}

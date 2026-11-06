@@ -1,11 +1,12 @@
 """Checks that the living docs still point at real files and that docs/FINDINGS.md matches the current results.
 
 Step by step:
-1. In CLAUDE.md, README.md and the docs directly under docs/, collect every repo path written in backticks
-   (anything with a slash) and every relative Markdown link.
+1. In CLAUDE.md, README.md, dashboard/README.md and the docs directly under docs/, collect every repo path written
+   in backticks (anything with a slash) and every relative Markdown link.
 2. Each must exist (globs like `config/*.toml` must match something). Exceptions: folders that are local or
    generated (they may be absent in a fresh clone) and PLANNED files we have said we will create.
-3. Compare the register checksum in docs/FINDINGS.md, and in every fact card of docs/DEFECT_CATALOG.md, with
+3. Every rule ID those docs name (TXN_…, POS_…, NAV_… and the other prefixes) must be a rule in docs/RULES.md.
+4. Compare the register checksum in docs/FINDINGS.md, and in every fact card of docs/DEFECT_CATALOG.md, with
    outputs/02_defect_register.csv
    (skipped when outputs/ has not been built on this machine).
 Exit code 1 if anything is wrong, so it can sit in a checklist or a test.
@@ -24,8 +25,6 @@ ROOT = Path(__file__).resolve().parent.parent
 LOCAL = ('outputs/', 'tests/runs/', 'reference/official/', 'AI_Logs/', 'data/')
 # Files we have said we will create. Remove a line once the file exists.
 PLANNED = {
-    'docs/checkins/checkin2/Checkin2.pptx',
-    'docs/final/',
     'src/',
     'run_all.py',
 }
@@ -33,11 +32,13 @@ SKIP = {'DECISIONS.md'}
 
 TICKED = re.compile(r'`([^`\s]+/[^`\s]*)`')
 LINKED = re.compile(r'\]\(([^)\s#]+)(?:#[^)]*)?\)')
+RULE_ID = re.compile(r'\b(?:ACC|SEC|TXN|POS|PRC|FX|NAV|CA)_[A-Z][A-Z_]*[A-Z]\b')
 
 
 def living_docs():
     yield ROOT / 'CLAUDE.md'
     yield ROOT / 'README.md'
+    yield ROOT / 'dashboard' / 'README.md'
     yield from sorted(p for p in (ROOT / 'docs').glob('*.md') if p.name not in SKIP)
 
 
@@ -77,6 +78,22 @@ def check_paths():
     return problems
 
 
+def rule_ids():
+    """The rule IDs docs/RULES.md defines: the first cell of each rule table row."""
+    text = (ROOT / 'docs' / 'RULES.md').read_text()
+    return set(re.findall(r'^\|\s*`([A-Z]+_[A-Z_]+)`\s*\|', text, flags=re.M))
+
+
+def unknown_rule_ids(text, known):
+    return sorted(set(RULE_ID.findall(text)) - known)
+
+
+def check_rule_ids():
+    known = rule_ids()
+    return [f'{doc.relative_to(ROOT)}: rule {rule} is not in docs/RULES.md'
+            for doc in living_docs() if doc.exists() for rule in unknown_rule_ids(doc.read_text(), known)]
+
+
 def check_findings():
     register = ROOT / 'outputs' / '02_defect_register.csv'
     findings = ROOT / 'docs' / 'FINDINGS.md'
@@ -99,7 +116,7 @@ def check_findings():
 
 
 def main():
-    problems = check_paths() + check_findings()
+    problems = check_paths() + check_rule_ids() + check_findings()
     for p in problems:
         print('FAIL', p)
     if problems:

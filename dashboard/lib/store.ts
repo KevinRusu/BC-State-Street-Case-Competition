@@ -1,5 +1,6 @@
 // Every read of outputs/store.duckdb lives here (read-only; all values bound as parameters).
 // Plain Node: no Next.js imports, so the tests can call it directly. Pages go through lib/data.ts.
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { DuckDBInstance, type DuckDBConnection, type DuckDBValue } from "@duckdb/node-api";
@@ -61,11 +62,38 @@ const num = (v: unknown) => (v === null || v === undefined || v === "" ? 0 : Num
 const text = (v: unknown) => (v === null || v === undefined ? "" : String(v));
 const STATUS_ORDER: Status[] = ["orphans", "fan_out", "blank_keys", "ok", "info"];
 
+/** Whether the register a store copied is still the one on disk: same short checksum as scripts/build_findings.py
+ * (sha256 of the file with \r\n read as \n, first 12 hex; D-053). "missing": the file is gone, so nobody can tell. */
+export function registerState(builtChecksum: string, file: string): { state: StoreInfo["registerState"]; checksum: string } {
+  let checksum = "";
+  try {
+    const unix = Buffer.from(fs.readFileSync(file).toString("latin1").replaceAll("\r\n", "\n"), "latin1");
+    checksum = createHash("sha256").update(unix).digest("hex").slice(0, 12);
+  } catch {
+    return { state: "missing", checksum };
+  }
+  return { state: checksum === builtChecksum ? "current" : "stale", checksum };
+}
+
+/** The register file a store copied: its recorded path (relative to the repo root, as the builder writes it), or for
+ * a store built before the path was recorded, the register beside the store (where the builder reads it by default). */
+function registerFile(recorded: string): string {
+  const root = path.resolve(process.cwd(), "..");
+  return recorded
+    ? path.resolve(/*turbopackIgnore: true*/ root, recorded)
+    : path.join(path.dirname(storePath()), "02_defect_register.csv");
+}
+
 function toInfo(r: Raw): StoreInfo {
+  const registerChecksum = text(r.register_checksum);
+  const current = registerChecksum ? registerState(registerChecksum, registerFile(text(r.register_path)))
+    : { state: "missing" as const, checksum: "" };
   return {
     builtAt: text(r.built_at), snapshotDate: text(r.snapshot_date), manifest: text(r.manifest),
-    manifestChecksum: text(r.manifest_checksum), registerChecksum: text(r.register_checksum),
-    registerLines: num(r.register_lines),
+    manifestChecksum: text(r.manifest_checksum), registerChecksum, registerLines: num(r.register_lines),
+    registerState: current.state, registerChecksumNow: current.checksum,
+    // A store built before the member list existed marks only the register's examples.
+    memberSource: text(r.member_source) === "members" ? "members" : "examples",
   };
 }
 
@@ -224,7 +252,9 @@ type Start = {
 
 async function resolve(con: DuckDBConnection, id: string): Promise<Start | null> {
   if (id.includes("/")) {
-    const [account, security] = id.split("/").map((s) => s.trim());
+    const parts = id.split("/").map((s) => s.trim());
+    if (parts.length !== 2 || !parts[0] || !parts[1]) return null;   // a key is exactly ACC…/SEC…, both filled
+    const [account, security] = parts;
     for (const table of ["positions", "comparison_positions", "transactions"]) {
       if ((await rows(con, `SELECT 1 FROM ${table} WHERE account_id = $1 AND security_id = $2 LIMIT 1`, [account, security])).length)
         return { kind: "account + security key", account, security };
@@ -315,6 +345,7 @@ export async function traceRecord(query: string): Promise<TraceResult> {
       const action = await add({ id: "action", title: "Corporate action", table: "corporate_actions", edge: null,
         via: `action_id = ${id}`, expected: "one", where: "action_id = $1", params: [id] });
       const source = action.rows[0]?.security_id ?? "", target = action.rows[0]?.target_security_id ?? "";
+      security = source || undefined;   // prices and FX below follow the source security (it has its own step here)
       await add({ id: "source_security", title: "Source security", table: "securities", edge: "ca_securities",
         via: `security_id = ${source}`, expected: "one", where: "security_id = $1", params: [source],
         missingNote: "source security not in securities" });
@@ -335,7 +366,7 @@ export async function traceRecord(query: string): Promise<TraceResult> {
         where: "account_id = $1", params: [account], missingNote: "account_id not in accounts" });
       accountRow = acc.rows[0];
     }
-    if (security) {
+    if (security && !start.action) {
       await add({ id: "security", title: "Security", table: "securities",
         edge: fromTrade ? "security_check" : "position_security", via: `security_id = ${security}`, expected: "one",
         where: "security_id = $1", params: [security], missingNote: "security_id not in securities" });
@@ -410,12 +441,15 @@ export async function traceRecord(query: string): Promise<TraceResult> {
       }
     }
 
-    // 3. Where this record, its account, its security or their key is an example in notebook 02's register.
+    // 3. Where this record, its account, its security or their key is counted by a line of notebook 02's register.
     const ids = [...new Set([id, account, security, account && security && `${account}/${security}`])]
       .filter((v): v is string => Boolean(v));
+    const members = (await rows(con,
+      "SELECT 1 FROM information_schema.tables WHERE table_name = 'register_members'")).length
+      ? "register_members" : "register_examples";
     const marks: RegisterMark[] = (await rows(con,
       "SELECT DISTINCT e.line, e.rule_id, e.finding, e.status, e.record_id, r.id_kind, r.map_kind, r.map_id " +
-      "FROM register_examples e JOIN register r ON r.line = e.line " +
+      `FROM ${members} e JOIN register r ON r.line = e.line ` +
       `WHERE e.record_id IN (${ids.map((_, i) => `$${i + 1}`).join(", ")}) ORDER BY e.line, e.record_id`, ids)).map((r) => ({
       line: num(r.line), ruleId: text(r.rule_id), finding: text(r.finding), status: text(r.status),
       recordId: text(r.record_id), idKind: text(r.id_kind),

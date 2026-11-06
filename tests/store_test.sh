@@ -65,6 +65,17 @@ assert rejected(move_to_lookup), 'a finding counted on a hidden lookup line'
 assert rejected(lambda edges: edges['nav_check'].update(check='Account check')), 'check does not match its handoff'
 assert rejected(lambda edges: edges['account_check'].update(to_handle='tpo')), 'unknown handle'
 assert rejected(lambda edges: edges['booking'].update(tag_at=5)), 'tag outside its line'
+def wrong_section(edges):
+    edges['position_check']['rules'].remove('POS_CUSTODIAN_BREAK')
+    edges['price_check']['rules'].append('POS_CUSTODIAN_BREAK')
+assert rejected(wrong_section), "a handoff carries a rule from another check's section of docs/RULES.md"
+# Every record a register line counts is in the store, not only its two or three examples (the trace reads them all).
+assert one("SELECT count(*) FROM register_members")[0] > one("SELECT count(*) FROM register_examples")[0]
+assert one("SELECT count(*) FROM register_examples e ANTI JOIN register_members m USING (line, record_id)")[0] == 0
+assert one("SELECT count(*) FROM register_members WHERE line = (SELECT line FROM register "
+           "WHERE finding = 'More than one REVERSED row per original')")[0] == 4
+assert one("SELECT member_source FROM store_info")[0] == 'members'
+assert not os.path.isabs(one("SELECT register_path FROM store_info")[0]), 'a store copied elsewhere must still find it'
 padded = duckdb.connect()
 padded.sql("CREATE TABLE t AS SELECT * FROM (VALUES ('  '), ('OMS '), ('OMS'), (NULL)) v(c)")
 assert build_store.distinct_values(padded, 't', 'c') == ['OMS'], 'blank and padded source labels'
@@ -81,4 +92,20 @@ c = duckdb.connect('$E/store.duckdb', read_only=True)
 n = lambda t: c.sql(f'SELECT count(*) FROM {t}').fetchone()[0]
 assert n('register') == 0 and n('map_offices') == 4 and n('map_sources') > 0 and n('map_edges') > 0
 print('no-register build OK')"
+# A register without its member list (an older notebook run), and a member list from another run: the store falls
+# back to the register's examples and says so, rather than failing or claiming every record is marked.
+for case in missing foreign; do
+  E=tests/runs/store_members_$case
+  rm -rf "$E" && mkdir -p "$E"
+  cp "$W/02_defect_register.csv" "$W/02_trace.csv" "$E/"
+  [ "$case" = foreign ] && printf 'finding,record_id\nA finding from another run,TXN0\n' > "$E/02_finding_members.csv"
+  RECONCILIATION_OUTPUTS=$E STORE_PATH=$PWD/$E/store.duckdb uv run --quiet python scripts/build_store.py > "$E/build_store.log"
+  uv run --quiet python -c "
+import duckdb
+c = duckdb.connect('$E/store.duckdb', read_only=True)
+one = lambda sql: c.sql(sql).fetchone()[0]
+assert one('SELECT member_source FROM store_info') == 'examples', '$case: should fall back to examples'
+assert one('SELECT count(*) FROM register_members') == one('SELECT count(*) FROM register_examples')
+print('member list $case: falls back to examples OK')"
+done
 (cd dashboard && npm test --silent && npm run build --silent > "../$W/next_build.log" && echo 'next build OK')

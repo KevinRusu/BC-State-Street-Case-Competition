@@ -59,18 +59,28 @@ counts = {
         # and one linked to another trade (held, never derived).
         'FXT40,FXACC1,FXSEC3,FXCUSIP03,BUY,2026-06-15,2026-06-17,20,5.00,USD,100.00,BOOKED,,FIXTURE_OMS,2026-06-15 09:00:00,',
         'FXT41,FXACC1,FXSEC3,FXCUSIP03,BUY,2026-06-16,2026-06-18,,5.00,USD,50.00,BOOKED,,FIXTURE_OMS,2026-06-16 09:00:00,',
-        'FXT42,FXACC2,FXSEC2,FXCUSIP02,BUY,2026-06-16,2026-06-18,,10.00,EUR,100.00,BOOKED,FXT01,FIXTURE_OMS,2026-06-16 09:00:00,')),
-    # Book row dated DD/MM/YYYY (same snapshot), the traced key in the book, and the blank-quantity key without its units.
+        'FXT42,FXACC2,FXSEC2,FXCUSIP02,BUY,2026-06-16,2026-06-18,,10.00,EUR,100.00,BOOKED,FXT01,FIXTURE_OMS,2026-06-16 09:00:00,',
+        # A CANCELLED trade delivered twice with two quantities (10 and 12), and its rebook: gross_amount 50.00 fits
+        # the first copy only, so which copy the rebook is compared with must not depend on file order.
+        'FXT60,FXACC2,FXSEC3,FXCUSIP03,BUY,2026-06-19,2026-06-23,10,5.00,USD,50.00,CANCELLED,,FIXTURE_OMS,2026-06-19 09:00:00,',
+        'FXT60,FXACC2,FXSEC3,FXCUSIP03,BUY,2026-06-19,2026-06-23,12,5.00,USD,60.00,CANCELLED,,FIXTURE_OMS,2026-06-19 09:00:00,',
+        'FXT61,FXACC2,FXSEC3,FXCUSIP03,BUY,2026-06-19,2026-06-23,8,5.00,USD,50.00,BOOKED,FXT60,FIXTURE_OMS,2026-06-19 10:00:00,')),
+    # Book row dated DD/MM/YYYY (same snapshot), the traced key in the book, the blank-quantity key without its units,
+    # and a row for an existing key on the day before the snapshot (outside the comparison, never joined to it).
     'positions': edit('positions', set_field({'position_id': 'FXP1'}, 'as_of_date', '10/07/2026',
                                              add('FXP8,FXACC0,FXSEC3,-10,1,2026-07-10,BOOK_OF_RECORD',
-                                                 'FXP9,FXACC1,FXSEC3,20,2,2026-07-10,BOOK_OF_RECORD'))),
-    # The traced key at the custodian, a custodian row with quantity 0 (the custodian reports a flat position), and the
-    # blank-quantity key holding the same as the book.
+                                                 'FXP9,FXACC1,FXSEC3,20,2,2026-07-10,BOOK_OF_RECORD',
+                                                 'FXP10,FXACC1,FXSEC2,999,2,2026-07-09,BOOK_OF_RECORD',
+                                                 'FXP11,FXACC1,FXSEC2,999,2,not-a-date,BOOK_OF_RECORD'))),
+    # The traced key at the custodian, a custodian row with quantity 0 (the custodian reports a flat position), the
+    # blank-quantity key holding the same as the book, and a custodian row on the day before the snapshot.
     'comparison_positions': edit('comparison_positions', add('FXC8,FXACC0,FXSEC3,-10,2026-07-10,CUSTODIAN_FEED',
                                                              'FXC9,FXACC2,FXSEC2,0,2026-07-10,CUSTODIAN_FEED',
-                                                             'FXC10,FXACC1,FXSEC3,20,2026-07-10,CUSTODIAN_FEED')),
-    # USD rate on the snapshot is not 1; the traced security is quoted in USD.
-    'fx_rates': edit('fx_rates', set_field({'currency': 'USD', 'rate_date': '2026-07-10'}, 'rate_to_usd', '0.990000')),
+                                                             'FXC10,FXACC1,FXSEC3,20,2026-07-10,CUSTODIAN_FEED',
+                                                             'FXC11,FXACC1,FXSEC2,999,2026-07-09,CUSTODIAN_FEED')),
+    # USD rate on the snapshot is not 1 (the traced security is quoted in USD), and a USD rate that does not parse.
+    'fx_rates': edit('fx_rates', set_field({'currency': 'USD', 'rate_date': '2026-07-10'}, 'rate_to_usd', '0.990000',
+                                           add('USD,2026-07-08,n/a'))),
     # FXSEC1 on the snapshot: both quotes come from one vendor.
     'prices': edit('prices', set_field({'security_id': 'FXSEC1', 'price_date': '2026-07-10', 'vendor': 'FIXTURE_V2'},
                                        'vendor', 'FIXTURE_V1')),
@@ -79,16 +89,44 @@ counts = {
                                          'FXL4,FXFUND1,C,200000.00,not-a-date,20000,10.000000')),
 }
 edit('manifest', lambda rows, fields: [{**row, 'rows': str(counts.get(row['table'], row['rows']))} for row in rows])
+# R3 fixture: the edge fixture plus a negative BUY that is reversed by a negative REVERSED row (on a key only the
+# trades hold). Under R3 the two rows cancel, so reading the sign as wrong must move the holding by 0.
+dst, edge = 'tests/runs/fixture_r3', dst
+shutil.rmtree(dst, ignore_errors=True)
+shutil.copytree(edge, dst)
+# Also, each on a key nothing else makes not evaluable: an R3 orphan (a REVERSED row pointing at an ID that does not
+# exist), a REVERSED row with a blank quantity (the release's case), a CANCELLED row with a blank transaction_id (it
+# must not turn every unlinked trade into its rebook), and a negative REVERSED row on the traced key that sorts first,
+# so the trace follows a row the R3 chain offsets.
+counts = {'transactions': edit('transactions', add(
+    'FXT50,FXACC9,FXSEC3,FXCUSIP03,BUY,2026-06-22,2026-06-24,-10,5.00,USD,50.00,BOOKED,,FIXTURE_OMS,2026-06-22 09:00:00,',
+    'FXT51,FXACC9,FXSEC3,FXCUSIP03,BUY,2026-06-22,2026-06-24,-10,5.00,USD,50.00,REVERSED,FXT50,FIXTURE_OMS,2026-06-22 10:00:00,',
+    'FXT57,FXACC8,FXSEC3,FXCUSIP03,BUY,2026-06-22,2026-06-24,10,5.00,USD,50.00,BOOKED,,FIXTURE_OMS,2026-06-22 09:00:00,',
+    'FXT58,FXACC8,FXSEC3,FXCUSIP03,BUY,2026-06-23,2026-06-25,5,5.00,USD,25.00,REVERSED,FXT98,FIXTURE_OMS,2026-06-23 10:00:00,',
+    'FXT54,FXACC7,FXSEC3,FXCUSIP03,BUY,2026-06-22,2026-06-24,10,5.00,USD,50.00,BOOKED,,FIXTURE_OMS,2026-06-22 09:00:00,',
+    'FXT55,FXACC7,FXSEC3,FXCUSIP03,BUY,2026-06-22,2026-06-24,,5.00,USD,50.00,REVERSED,FXT54,FIXTURE_OMS,2026-06-22 10:00:00,',
+    ',FXACC7,FXSEC3,FXCUSIP03,BUY,2026-06-21,2026-06-23,3,5.00,USD,15.00,CANCELLED,,FIXTURE_OMS,2026-06-21 09:00:00,',
+    'FXT29,FXACC0,FXSEC3,FXCUSIP03,BUY,2026-06-15,2026-06-17,-10,5.00,USD,50.00,REVERSED,FXT30,FIXTURE_OMS,2026-06-15 10:00:00,'))}
+edit('manifest', lambda rows, fields: [{**row, 'rows': str(counts.get(row['table'], row['rows']))} for row in rows])
 PY
-run() {  # $1 = label, $2 = config path or empty
+python3 - <<'PY'
+base = open('config/reconciliation.toml').read()
+for old, new in [('reversed_main = "R1"', 'reversed_main = "R3"'), ('reversed_side = "R3"', 'reversed_side = "R1"')]:
+    assert old in base, f'config has no line {old!r}'
+    base = base.replace(old, new)
+open('tests/runs/config_fixture_r3.toml', 'w').write(base)
+PY
+run() {  # $1 = label, $2 = config path or empty, $3 = notebook (default: notebook 02)
   rm -rf "$W/run_fixture_$1"
-  RECONCILIATION_OUTPUTS="$W/run_fixture_$1" RECONCILIATION_CONFIG="$2" tests/run_notebook.sh | tail -1
+  RECONCILIATION_OUTPUTS="$W/run_fixture_$1" RECONCILIATION_CONFIG="$2" tests/run_notebook.sh ${3:-} | tail -1
 }
 run default ""
 run shuffled "$W/config_fixture_shuffled.toml"
 run settlement "$W/config_fixture_settlement.toml"
 run notrace "$W/config_fixture_notrace.toml"
 RECONCILIATION_DATA="$W/fixture_edge/manifest.csv" run edge ""
+RECONCILIATION_DATA="$W/fixture_r3/manifest.csv" run r3 "$W/config_fixture_r3.toml" notebooks/03_error_severity.ipynb
+RECONCILIATION_DATA="$W/fixture_r3/manifest.csv" run r3default ""
 uv run --quiet python - <<'PY'
 import glob, os, pandas as pd
 W = 'tests/runs'
@@ -189,6 +227,47 @@ expect('edge: blank quantity with gross_amount / price = 10 units -> derivable; 
 expect('edge: book holds the key without the derived units -> "book leaves out the units"', ('1', 'FXACC1/FXSEC3'),
        (line('Book leaves out the units of trades with a blank quantity', 'affected'),
         line('Book leaves out the units of trades with a blank quantity', 'examples')))
+ledger = read('edge', '02_row_ledger.csv').set_index('step')
+set_aside = lambda step: int(ledger.loc[step, 'rows in']) - int(ledger.loc[step, 'rows out'])
+expect('edge: book and custodian rows on another day, and a book row with an unreadable date -> set aside, counted',
+       (1, 1, 1, 0), (set_aside('positions: rows dated another day set aside'),
+                       set_aside('positions: rows with an unreadable as_of_date set aside'),
+                       set_aside('comparison_positions: rows dated another day set aside'),
+                       set_aside('comparison_positions: rows with an unreadable as_of_date set aside')))
+rebook = 'Rebook changes the quantity but keeps the cancelled gross_amount'
+expect('edge: rebook of a CANCELLED trade delivered with two quantities -> not evaluable, never flagged',
+       (False, '1'), ('FXT61' in str(line(rebook, 'examples')), line(rebook, 'not evaluable')))
+usd = 'USD rate to USD is not 1'
+expect('edge: a USD rate that does not parse -> not evaluable, not "not 1"', ('1', '1'),
+       (line(usd, 'affected'), line(usd, 'not evaluable')))
+patterns = [*read('edge', '02_break_classes.csv')['pattern'], *read('r3', '02_break_classes.csv')['pattern'],
+            *read('edge', '02_reversed_side_view.csv').iloc[:, :2].stack(), *read('r3', '02_reversed_side_view.csv').iloc[:, :2].stack(),
+            *read('r3default', '02_reversed_side_view.csv').iloc[:, :2].stack()]
+expect('edge and R3 runs: every not-evaluable key names its cause (no "not evaluable: other")', [],
+       sorted({p for p in patterns if 'other' in p}))
+expect('R3 main reading: an orphan REVERSED row on a clean key -> named as its cause', True,
+       'not evaluable: REVERSED row with nothing to offset' in set(read('r3', '02_break_classes.csv')['pattern']))
+side_view = read('r3default', '02_reversed_side_view.csv')
+expect('R3 side view: a REVERSED row with a blank quantity on a clean key -> "blank quantity", from the side chain', True,
+       'not evaluable: blank quantity' in set(side_view.iloc[:, 1]))
+rebook_population = lambda run: read(run, '02_defect_register.csv').set_index('finding').loc[rebook, 'population']
+expect('a CANCELLED row with a blank transaction_id -> no unlinked trade becomes its rebook',
+       rebook_population('edge'), rebook_population('r3default'))
+trace_r3 = read('r3', '02_trace.csv')
+expect('R3 trace on a negative REVERSED row -> wrong-sign value uses what the chain used (+10 offset): 0 - 2 x 10',
+       (['FXT29'], ['-20.0']),
+       (trace_r3.loc[(trace_r3['hop'] == 'source') & (trace_r3['field'] == 'transaction_id'), 'value'].tolist(),
+        trace_r3.loc[trace_r3['field'] == 'quantity under the wrong-sign reading', 'value'].tolist()))
+impact = read('r3', '03_impact_detail.csv')
+reversed_negative = impact[(impact['account_id'] == 'FXACC9') & impact['scenario'].str.contains('wrong-sign')]
+expect('R3 run, notebook 03: a negative BUY and its negative reversal -> wrong-sign scenario moves 0 units', [0.0],
+       reversed_negative['delta_units'].astype(float).tolist())
+import json, re
+cells = json.load(open('notebooks/02_reconcile.ipynb'))['cells']
+pattern = re.search(r"re\.findall\(r'(.+?)', source_text\)", ''.join(''.join(c['source']) for c in cells)).group(1)
+expect('literal-ID self-check covers every ID prefix in the release', [],
+       [i for i in ['ACC1000001', 'SEC100001', 'TXN100000001', 'CA00001', 'FND00001', 'LDG000001', 'POS000000001',
+                    'CMP000000001'] if not re.fullmatch(pattern, i)])
 copies = read('default', '02_duplicate_profile.csv').set_index('measure')
 expect('fixture book counts the copied SELL once -> profile says transaction_count counts each copy once',
        ('0', 'counts each copy once: 1'),

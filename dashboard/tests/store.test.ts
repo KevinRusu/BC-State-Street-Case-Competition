@@ -1,11 +1,13 @@
-// Runs on the store that tests/store_test.sh builds from tests/fixtures/small (STORE_PATH points at it).
-// The fixture is made up, so its IDs can be named here.
+// Runs on a store built from tests/fixtures/small (STORE_PATH points at it): `npm test` builds it with
+// tests/prepare_dashboard_fixture.py, and tests/store_test.sh builds its own. The fixture is made up, so its IDs can
+// be named here.
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { DuckDBInstance } from "@duckdb/node-api";
 import { beforeAll, describe, expect, test, vi } from "vitest";
 import { countsFor, totals, type Counts } from "@/lib/findings";
-import { getDemoTraces, getMapData, getStoreInfo, storePath, traceRecord } from "@/lib/store";
+import { getDemoTraces, getMapData, getStoreInfo, registerState, storePath, traceRecord } from "@/lib/store";
 import { locateFindings, traceTone } from "@/lib/trace-findings";
 import type { MapData } from "@/lib/types";
 
@@ -107,6 +109,23 @@ describe("trace", () => {
     expect((await traceRecord("NOPE123")).found).toBe(false);
   });
 
+  test("a key with a blank half is not a key", async () => {
+    for (const id of ["FXACC1/", "/FXSEC1", "/", "FXACC1/FXSEC1/x"]) expect((await traceRecord(id)).found, id).toBe(false);
+  });
+
+  test("a record the register counts but does not list as an example still carries its finding", async () => {
+    // FXT22 is the fourth of four REVERSED rows on two originals; the register lists only three examples.
+    const trace = await traceRecord("FXT22");
+    if (!trace.found) throw new Error("FXT22 not found");
+    expect(trace.marks.find((m) => m.finding === "More than one REVERSED row per original"))
+      .toMatchObject({ recordId: "FXT22", idKind: "transaction_id", status: "unresolved" });
+  });
+
+  test("a corporate action's trace reaches the prices and FX of its source security", async () => {
+    expect((await hop("FXCA2", "prices"))?.status).toBe("ok");
+    expect((await hop("FXCA2", "fx"))?.status).not.toBe("not_reached");
+  });
+
   test("a missing account breaks its link without erasing an existing transaction finding", async () => {
     const copy = path.join(path.dirname(storePath()), "store_missing_account.duckdb");
     fs.copyFileSync(storePath(), copy);
@@ -160,6 +179,55 @@ describe("trace", () => {
     } finally {
       process.env.STORE_PATH = saved;
     }
+  });
+});
+
+describe("store freshness", () => {
+  test("the store built from the current register says so, and its marks come from the full member list", async () => {
+    const info = await getStoreInfo();
+    expect(info.registerState).toBe("current");
+    expect(info.memberSource).toBe("members");
+  });
+
+  test("a store from before this check (no register path) is checked against the register beside it", async () => {
+    const copy = path.join(path.dirname(storePath()), "store_no_register_path.duckdb");
+    fs.copyFileSync(storePath(), copy);
+    const writer = await DuckDBInstance.create(copy);
+    const con = await writer.connect();
+    await con.run("ALTER TABLE store_info DROP COLUMN register_path");   // as the builder wrote it before 6 Nov
+    await con.run("ALTER TABLE store_info DROP COLUMN member_source");
+    con.closeSync();
+    writer.closeSync();
+    const saved = process.env.STORE_PATH;
+    process.env.STORE_PATH = copy;
+    try {
+      const info = await getStoreInfo();
+      expect(info.registerState).toBe("current");
+      expect(info.memberSource).toBe("examples");   // no member_source column: an older store marks examples only
+    } finally {
+      process.env.STORE_PATH = saved;
+    }
+  });
+
+  test("a register rewritten after the build makes the store stale; a deleted one makes it unknown", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "register-"));
+    const file = path.join(dir, "02_defect_register.csv");
+    fs.writeFileSync(file, "finding\nA\n");
+    const built = registerState("", file).checksum;
+    expect(registerState(built, file).state).toBe("current");
+    fs.writeFileSync(file, "finding\nB\n");
+    expect(registerState(built, file).state).toBe("stale");
+    fs.rmSync(file);
+    expect(registerState(built, file).state).toBe("missing");
+  });
+
+  test("a register written on Windows (CRLF) has the same checksum as its Mac copy (D-053)", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "register-"));
+    const mac = path.join(dir, "mac.csv"), windows = path.join(dir, "windows.csv");
+    fs.writeFileSync(mac, "finding,status\nA,confirmed\n");
+    fs.writeFileSync(windows, "finding,status\r\nA,confirmed\r\n");
+    const built = registerState("", mac).checksum;
+    expect(registerState(built, windows).state).toBe("current");
   });
 });
 

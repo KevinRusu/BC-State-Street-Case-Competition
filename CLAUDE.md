@@ -14,7 +14,7 @@
 | Numbers and findings | `outputs/` (gitignored) and the generated `docs/FINDINGS.md` |
 | Rules the code tests | `docs/RULES.md` |
 | Thresholds and policy switches | `config/*.toml` |
-| Code | `notebooks/*.ipynb` (the only source of their code) |
+| Code | `notebooks/*.ipynb` (the only source of their code), `scripts/`, `dashboard/` (Next.js app, D-054) |
 
 If two sources disagree, the higher one wins: brief > DECISIONS > config > code and outputs > other docs.
 Note the loser under "Doc debt" in `docs/STATUS.md`.
@@ -30,7 +30,9 @@ treat it as current, and don't edit it once that check-in is over.
 - Dates come as `YYYY-MM-DD` or `DD/MM/YYYY`. Settlement lag is counted in business days.
 - Never hard-code defect record IDs. Thresholds go in a config file, not in the code.
 - Detection must be rule-based and reproducible. AI can explain results, not find them (D-001).
-- No version suffixes in file names (`_v2`, `_final`, `_old`); git keeps the history. Use `uv` for packages.
+- No version suffixes in file names (`_v2`, `_final`, `_old`); git keeps the history. Use `uv` for packages
+  (`npm` only inside `dashboard/`, which has its own `AGENTS.md` about its Next.js version).
+- Never deploy the dashboard or put `outputs/store.duckdb` anywhere public: it holds the raw data.
 - The Markdown files in `reference/` are the working copies of the brief and guides; the PDF and Word originals
   live in `reference/official/` (gitignored).
 
@@ -49,6 +51,7 @@ treat it as current, and don't edit it once that check-in is over.
 - Defect write-ups (seven questions, Working Guide §6): `docs/DEFECT_CATALOG.md`.
 - Shared Python code: `src/`, once the same code is needed in two places (D-012).
 - Figures: `docs/figures/`, built by a script in `scripts/`.
+- Dashboard (Next.js): `dashboard/`; its data comes only from the store `scripts/build_store.py` writes.
 - A file that is superseded: move what's still true to its home, then delete it (git keeps it).
 
 ## Before you finish a task
@@ -57,6 +60,8 @@ treat it as current, and don't edit it once that check-in is over.
 - You made a treatment or scope choice: append it to `docs/DECISIONS.md` (never rewrite old entries).
 - The state changed (something done, started or blocked): update `docs/STATUS.md` and its date.
 - New rule: `docs/RULES.md`. New threshold: `config/`.
+- Dashboard or store changed, or notebook 02's outputs did: `uv run python scripts/build_store.py`, then
+  `tests/store_test.sh` and, inside `dashboard/`, `npm test` and `npm run test:e2e`.
 - Run `uv run python scripts/check_docs.py` and the test for what you touched.
 
 ## Commands
@@ -64,10 +69,14 @@ treat it as current, and don't edit it once that check-in is over.
 ```bash
 uv sync                                      # set up the environment
 tests/run_notebook.sh                        # run notebook 02 headless on the full data (~1 min); rebuilds outputs/
-tests/fixture_test.sh                        # notebook 02 on the made-up fixture (~15 s)
+tests/run_notebook.sh notebooks/03_error_severity.ipynb   # notebook 03 (reruns 02 first; ~1.5 min)
+tests/fixture_test.sh                        # notebooks 02 and 03 on the made-up fixture (~25 s)
 tests/robustness_test.sh                     # shuffled rows + one threshold change (~5 min, ~4 GB RAM)
 uv run python scripts/build_findings.py      # outputs/02_defect_register.csv -> docs/FINDINGS.md
 uv run python scripts/check_docs.py          # broken paths in living docs, stale FINDINGS
+uv run python scripts/build_store.py         # data + notebook 02 outputs -> outputs/store.duckdb (~15 s)
+tests/store_test.sh                          # store contracts, dashboard unit tests and a production build
+cd dashboard && npm run dev                  # the dashboard on http://127.0.0.1:3000
 ```
 
 ## Check-ins

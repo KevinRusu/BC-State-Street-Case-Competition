@@ -1,4 +1,4 @@
-// Presentation of existing notebook register examples. This does not run new detection rules.
+// Presentation of notebook 02's register: every record a line counts. This does not run new detection rules.
 import { REGISTER_STATUS, HOP_STATUS } from "./status";
 import type { Counts } from "./findings";
 import type { Hop, HopStatus, RegisterMark, Row } from "./types";
@@ -9,7 +9,7 @@ export type TraceFindings = {
   hops: Record<string, RegisterMark[]>;
 };
 
-/** Count finding entries once even if two of their example IDs appear in this trace. */
+/** Count finding entries once even if two of their IDs appear in this trace. */
 export function markCounts(marks: RegisterMark[]): Counts {
   const entries = new Map(marks.map((mark) => [mark.line, mark]));
   const count = (status: string) => [...entries.values()].filter((m) => m.status === status).length;

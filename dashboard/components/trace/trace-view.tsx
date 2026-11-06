@@ -36,7 +36,7 @@ function TraceSearch({ query }: { query: string }) {
       <Input
         value={value}
         onChange={(event) => setValue(event.target.value)}
-        placeholder="TXN…, ACC…, SEC…, POS…, CA…, LDG…, FND… or ACC…/SEC…"
+        placeholder="TXN…, ACC…, SEC…, POS…, CMP…, CA…, LDG…, FND… or ACC…/SEC…"
         className="font-mono"
         aria-label="Record ID"
       />
@@ -124,7 +124,7 @@ export function TraceView({ map, demos, query, trace }: Props) {
           </Card>
         )}
 
-        {trace?.found && <TraceSummary trace={trace} />}
+        {trace?.found && <TraceSummary trace={trace} allMembers={map.info.memberSource === "members"} />}
 
         {/* From xl up the map stays in view (sticky) beside the steps; below that they stack. */}
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] xl:items-start">
@@ -173,7 +173,7 @@ export function TraceView({ map, demos, query, trace }: Props) {
   );
 }
 
-function TraceSummary({ trace }: { trace: Extract<TraceResult, { found: true }> }) {
+function TraceSummary({ trace, allMembers }: { trace: Extract<TraceResult, { found: true }>; allMembers: boolean }) {
   const broken = trace.hops.filter((h) => h.status === "missing");
   const extra = trace.hops.filter((h) => h.status === "fan_out");
   const findings = markCounts(trace.marks);
@@ -197,14 +197,14 @@ function TraceSummary({ trace }: { trace: Extract<TraceResult, { found: true }> 
               {findings[status]} {status} finding{findings[status] === 1 ? "" : "s"}
             </Pill>
           ))}
-          {trace.marks.length === 0 && <Pill tone="info">No register example matched</Pill>}
+          {trace.marks.length === 0 && <Pill tone="info">No register finding counts this record</Pill>}
           <span className="text-xs text-muted-foreground">
             {trace.hops.length} steps · {fmt(trace.hops.reduce((n, h) => n + h.total, 0))} rows touched
           </span>
         </div>
         {trace.marks.length > 0 && (
           <div className="space-y-1.5">
-            <div className="text-xs text-muted-foreground">Known findings from notebook 02&apos;s example register:</div>
+            <div className="text-xs text-muted-foreground">Notebook 02&apos;s register lines that count this record, its account, security or key:</div>
             <ul className="space-y-1">
               {trace.marks.map((mark) => (
                 <li key={`${mark.line}-${mark.recordId}`} className="flex flex-wrap items-center gap-2 text-sm">
@@ -221,7 +221,7 @@ function TraceSummary({ trace }: { trace: Extract<TraceResult, { found: true }> 
         )}
         <p className="text-xs text-muted-foreground">
           Record links:{" "}
-          {(["ok", "fan_out", "missing", "info"] as HopStatus[]).map((s) => (
+          {(["ok", "fan_out", "missing", "info", "not_reached"] as HopStatus[]).map((s) => (
             <span key={s} className="mr-3 inline-flex items-center gap-1.5">
               <Dot tone={HOP_STATUS[s].tone} /> {HOP_STATUS[s].label}
             </span>
@@ -229,7 +229,11 @@ function TraceSummary({ trace }: { trace: Extract<TraceResult, { found: true }> 
         </p>
         <p className="text-xs text-muted-foreground">
           A green link means matching records were found; it does not mean their values passed every control.
-          {" "}Finding badges show notebook 02&apos;s registered examples, not a complete assessment of every record.
+          {allMembers
+            ? " Finding badges show every register line that counts this record."
+            : " Finding badges show only the register's example IDs: this store has no full member list (rerun notebook 02, then rebuild the store)."}
+          {" "}It is still not a complete assessment of every record: rules not yet coded find nothing, so no badge is
+          not proof that the record is valid.
         </p>
       </CardContent>
     </Card>

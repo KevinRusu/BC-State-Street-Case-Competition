@@ -10,6 +10,11 @@ export type StoreInfo = {
   manifestChecksum: string;
   registerChecksum: string;
   registerLines: number;
+  /** Is the register the store copied still the one on disk? (lib/store.ts registerState) */
+  registerState: "current" | "stale" | "missing";
+  registerChecksumNow: string;
+  /** Where the trace's finding marks come from: every record a line counts, or (older stores) its examples only. */
+  memberSource: "members" | "examples";
 };
 
 /** A row of the map: an office, or the strip of independent sources. */

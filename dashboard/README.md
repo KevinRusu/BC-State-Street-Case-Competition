@@ -32,8 +32,8 @@ outputs/02_defect_register.csv ───────┘
 
 - **Python builds, Next.js only reads.** The app never detects a defect (D-001). Rule counts come from notebook
   02's register; join health describes the raw keys before the notebook's cleaning.
-- **One graph definition**, at the top of `scripts/build_store.py`: a grid of office rows and stage columns (D-049
-  below), each table in the row of the office that handles it (the owner of its check, from `scripts/framework.json`)
+- **One graph definition**, at the top of `scripts/build_store.py`: a grid of office rows and stage columns (D-055
+  in `docs/DECISIONS.md`), each table in the row of the office that handles it (the owner of its check, from `scripts/framework.json`)
   with a "comes from" chip (data chips read their values from the data at build time), the handoffs of the control
   map, the joins of Dataset Guide §2, and the rules from `docs/RULES.md` on each one. Build-time checks keep it
   consistent with RULES.md and framework.json and place every register line on exactly one table or line of the map,
@@ -52,14 +52,17 @@ outputs/02_defect_register.csv ───────┘
 ### Reading a trace
 
 Link status describes whether expected records were found, not whether their values passed every control.
-Known examples from notebook 02's register are overlaid at the map location assigned by the store builder and
-on the corresponding timeline step. A confirmed negative-quantity finding can therefore make the transaction
-red while its link badge still says "Linked records found". Raw evidence fields and the register reference appear
-beside the finding. Downstream links are not marked invalid merely because an upstream record has a finding.
+Every register line that counts the traced record, its account, its security or their key is overlaid at the map
+location assigned by the store builder and on the corresponding timeline step. The full list of records behind
+each line comes from `outputs/02_finding_members.csv` (D-056), not only the line's examples. A confirmed
+negative-quantity finding therefore makes the transaction red while its link badge still says "Linked records
+found". Raw evidence fields and the register reference appear beside the finding. Downstream links are not marked
+invalid merely because an upstream record has a finding.
 
-Trace badges count findings associated with this trace; the main data map retains population-wide counts.
-This is an example-register view, not a complete record-level detector. "No register example matched" does not
-certify a record as valid. New findings still require a notebook run followed by rebuilding the store.
+Trace badges count findings associated with this trace; the main data map retains population-wide counts. A record
+with no badge is still not certified valid: rules that are not coded yet find nothing, and currency-level findings
+(FX coverage, the USD rate) name no record. New findings still require a notebook run followed by rebuilding the
+store; the header badge says "out of date" when the register on disk has changed since the store was built.
 
 The story list stays expanded while selecting different records. Use "Show fewer" to collapse it; selecting a
 story still resets the search draft and individual timeline expansions for the newly selected record.
@@ -92,55 +95,3 @@ download. `npm test` also honors an explicitly supplied synthetic `STORE_PATH` f
 
 The older Unix command `tests/store_test.sh` still checks store-building contracts and runs the unit suite plus
 a normal production build. Stop `npm run dev` before that command, since its build uses the shared `.next` folder.
-
-## To merge into the docs
-
-This branch (`dashboard`) adds files only, so the Check-in 2 branch stays untouched. After Check-in 2 is tagged
-and merged, move this text to its home and delete this section.
-
-**`docs/DECISIONS.md`** (next free numbers: D-048 on 21 Oct, D-049 on 23 Oct):
-
-> ### D-048 · 21 Oct · Dashboard: local Next.js app over a Python-built store
->
-> - **Decision:** the dashboard is a Next.js app in `dashboard/`. It reads one DuckDB file, `outputs/store.duckdb`,
->   built by `scripts/build_store.py` from the data and notebook 02's register. Python detects; the app only reads
->   and draws. It listens on 127.0.0.1 only and is never deployed. `uv` for Python, `npm` only inside `dashboard/`.
->   First page: the data map and record trace; per-record flags, the executive view and monitoring come later.
-> - **Why:** the brief wants one functional executive view with record-level drill-down, packaged locally, with
->   figures that agree with the code outputs (brief §5, §7); Check-in 1 feedback asked for interactive visuals.
->   One store file keeps the app's numbers tied to the register (same checksum as FINDINGS.md).
-> - **Instead of:** Streamlit (one language, but less control over the look the final view needs), or a Python API
->   server beside the app (a second process to run for no gain while the data is static).
-
-> ### D-049 · 23 Oct · Dashboard data map: offices as rows, the flow as columns
->
-> - **Decision:** the map is a grid. Rows are the offices (front, middle, back) plus a separate "Independent
->   sources" strip; columns are the flow (Address books, Transactions, Positions, NAV & ledger). A table sits in
->   the row of the office that handles it: the owner of its check (`scripts/framework.json`). Where its data
->   comes from is a chip on the box: solid when the data names the source (`transactions.source_system`,
->   `comparison_positions.source`, `prices.vendor`), dashed when it is our reasoning. Corporate actions moves to
->   the middle office. Colours have one job each: State Street blue `#001AFF` for our framework (check numbers,
->   selection), green/amber/red/grey for data health only, soft greys for the office rows.
-> - **Why:** the old map mixed where a table sits with where its data comes from (Corporate actions sat in the
->   front office although its check belongs to the Corporate actions lead, middle office). Brief §4 asks for the
->   stages "against the three offices"; brief §3 says master data feeds the flow.
-> - **Instead of:** the Check-in 1 bands with an outside column (still in `docs/figures/01_control_map.png`), or
->   master data in a strip above the offices.
-
-**`docs/STATUS.md`**, under "Next: after Check-in 2":
-
-> - **Dashboard:** data map and record trace done on branch `dashboard` (`dashboard/README.md`); the map is an
->   office × stage grid (D-049). Next: a record-level flag table written by notebook 02 / `src/` into the store (the
->   trace only knows the register's examples today), then the executive view and the three persona wireframes.
-
-and under "Doc debt":
-
-> - `docs/figures/01_control_map.png` (`scripts/fig_control_map.py`) still shows the Check-in 1 bands; the
->   dashboard map (D-049) uses the office × stage grid. Redraw it for the final deck if the team wants one picture.
-
-**`CLAUDE.md`**: under Commands add `uv run python scripts/build_store.py`, `cd dashboard && npm run dev` and
-`tests/store_test.sh`; under "Where new files go" add "Dashboard (Next.js): `dashboard/`"; under the rules add
-"never deploy the dashboard or publish `outputs/store.duckdb`".
-
-**Root `.gitignore`**: nothing to add; `dashboard/.gitignore` covers `node_modules/` and `.next/`, and the store is
-already ignored by `outputs/*` and `*.duckdb`.

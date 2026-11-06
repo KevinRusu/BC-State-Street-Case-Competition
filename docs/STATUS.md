@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-04 (dashboard trace fixes and repeatable functional tests; D-051, D-052)
+Last updated: 2026-11-06 (Job A code review done: latent pipeline fixes, record-level trace findings; D-054 to D-057)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
@@ -36,12 +36,40 @@ Last updated: 2026-11-04 (dashboard trace fixes and repeatable functional tests;
   evaluable (D-048); R3 no longer subtracts a REVERSED row with nothing to offset (D-049); the wrong-sign holding is
   right for a negative SELL; the deck and figure scripts compute or assert their claims instead of typing them. The
   rebook line, two flag counts in `outputs/02_break_classes.csv` and one slide 7 speaker-note sentence moved; the
-  headline numbers did not. Deck rebuilt. Review finding for later: 10 rules in RULES.md have no code yet and 5 are
+  headline numbers did not. Deck rebuilt. Review finding for later: 9 rules in RULES.md have no code yet and 5 are
   only partly coded (Job B below).
 
 - **Error severity (30 Oct):** `notebooks/03_error_severity.ipynb` adds NAV sensitivity and distinct-account breadth using notebook 02's existing detections (D-050). Run the notebook to rebuild `outputs/03_severity.csv` and its fund, record and account drill-downs plus plot. Valuation coverage and scenario assumptions accompany each measure; unknown dollar effects remain visible. The severity chart now uses lettered markers, an aligned scenario/value key, and separate unknown-impact cards; PNG and PDF exports are available in `outputs/`. Dashboard integration and verified bond quote/quantity conventions remain future work.
 
 - **Sankey / UpSet integration (30 Oct):** merged the locally available `Sankey-Anomaly-Breakdown` branch into `main`. Offline anomaly and overlap views are built with `scripts/build_sankey.py` and `scripts/build_upset.py`; usage and counting contracts are in [SANKEY_GUIDE.md](SANKEY_GUIDE.md) and [UPSET_GUIDE.md](UPSET_GUIDE.md). These views retain their existing benchmark and assessment provenance; they do not measure NAV impact. New guides live in `docs/` rather than frozen check-in material. Remote refresh was unavailable because this checkout lacks GitHub authentication.
+
+## Code review (6 Nov): done
+
+Job A (bugs in code that runs today; missing rules stay in Job B below). Each candidate was proved against the data or
+the code before it was fixed, every fix has a test that failed on the old code, and a fresh reviewer pass followed.
+What changed and why: D-056 (and D-054, D-055 for the dashboard decisions the README had proposed, D-057 for the
+slide count). The register is unchanged on the full data; the Check-in decks were not rebuilt.
+
+- **Fixed:** the trace marks every record a register line counts, not only its examples (a negative-quantity BUY that
+  is not an example now shows red); the header badge warns when the store is older than the register; a corporate-action trace reaches prices and
+  FX; blank key halves; legends and search hint; book/custodian rows on another date or with an unreadable date are set
+  aside and counted, never joined; rebooks of a CANCELLED ID with two quantities, or of a blank-ID CANCELLED row;
+  an unreadable USD rate; "not evaluable: other" now names its cause; notebook 03 under R3 and with an empty
+  scenario (it never ran on anything but the full data; the fixture test now runs it); the literal-ID self-check;
+  the map listed `POS_REBUILD_MATCHES` on the Trade check line (RULES.md §5 says Position check; RULES.md kept);
+  `check_docs.py` (scans `dashboard/README.md`, checks rule IDs); RULES.md cites outputs and config keys instead of
+  typed numbers; CLAUDE.md and README.md cover the dashboard.
+- **Checked, not a bug:** the trace page's failure handling (only a missing store returns "not ok"); a fan-out label
+  giving way to a finding label (D-051); vendor priority is fixed per vendor, so the global minimum is right; "held"
+  means in our book; an unknown transaction type is visible as not evaluable; fractional-quantity backtest misses are
+  rebooks that fit neither way; the NAV `reason` text cannot appear on a passing row (it is set only on the
+  not-evaluable conditions).
+- **Declined (scope):** currency-level findings stay off record traces (D-056).
+- **For the team:** `scripts/findings.py` and `notebooks/02_quantity_mismatches.ipynb` apply different rules from
+  notebook 02; the list is in [DETECTOR_DIFFERENCES.md](DETECTOR_DIFFERENCES.md). Decide, record in DECISIONS.md,
+  then delete that file.
+- **Left latent, noted:** notebook 03 would fail if no scenario at all had records (not reachable with notebook 02's
+  findings today).
 
 ## Next: before Check-in 2
 
@@ -97,7 +125,8 @@ Record the answer here when we get it, then add a decision.
 4. The book's duplicate and REVERSED conventions: intended or defects? (D-005, D-007)
 5. May we use CSSF Circular 24/856 as an outside NAV-error reference? (`docs/RULES.md`, NAV materiality)
 6. Which AI tools are approved for use with the data? Get it in writing.
-7. Preferred dashboard packaging (e.g. a zipped Streamlit app)?
+7. Dashboard packaging: we built a local Next.js app (D-054). Is handing it in as a repo folder with run
+   instructions acceptable?
 8. A negative BUY: wrong sign or wrong type? Needs the order side or the cash direction. (D-043)
 
 ## Housekeeping
@@ -105,17 +134,17 @@ Record the answer here when we get it, then add a decision.
 - **AI log:** `AI_Logs/` is local and gitignored (D-039). Brief §10 requires the prompts and responses that shaped
   the work: every teammate exports their chats into it before the final.
 - **Deferred minor items in notebook 02** (from the build review; none changes a release count today):
-  - the NAV `reason` column can say "as_of_date unreadable" on a passing row (0 such rows)
   - the intro says notebook 01 checks assert when thresholds match; they also need the same data (D-018)
   - `import os` sits mid-cell in setup
   - the 3 "duplicate copies + REVERSED double offset" keys have no register line of their own (they are in
     `outputs/02_break_classes.csv`)
-  - the R3 side view labels a key "not evaluable: other" when a REVERSED row has a blank quantity
 
 ## Doc debt
 
 Docs known to disagree with a higher source. Fix, then remove the line.
 
+- `docs/figures/01_control_map.png` (`scripts/fig_control_map.py`) still shows the Check-in 1 bands; the dashboard map
+  uses the office × stage grid (D-055). Redraw it for the final deck if the team wants one picture.
 - `notebooks/01_explore_tables.ipynb` mentions numbers "from PROJECT_SUMMARY section 5". That is history (the file
   was deleted 16 Oct); leave it.
 - `notebooks/01_explore_tables.ipynb` labels negative quantities "confirmed (sign contradicts gross_amount)" (also

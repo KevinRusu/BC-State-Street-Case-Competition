@@ -69,7 +69,7 @@ function Overview({ data, onSelect }: { data: MapData; onSelect: Props["onSelect
           keys. Dashed: the data can&apos;t prove it. Click anything for details.
         </p>
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          {(["ok", "fan_out", "orphans", "info"] as Status[]).map((s) => (
+          {(["ok", "fan_out", "blank_keys", "orphans", "info"] as Status[]).map((s) => (
             <span key={s} className="flex items-center gap-1.5" title={JOIN_STATUS[s].meaning}>
               <Dot tone={JOIN_STATUS[s].tone} /> {JOIN_STATUS[s].label}
             </span>

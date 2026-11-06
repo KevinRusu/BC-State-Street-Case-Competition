@@ -1,6 +1,6 @@
 # Rules: the detailed rules under our 7 checks
 
-Last updated: 2026-10-21
+Last updated: 2026-11-06
 
 *Built 12 Oct 2026 from the old spine workbook (`Spine_Checkin1_v0.3.xlsx`, in git history); rule gaps added 16 Oct (D-036 in `docs/DECISIONS.md`). Thresholds live in `config/*.toml`; which rules have run, and what they found, is in `docs/FINDINGS.md`.*
 
@@ -37,12 +37,12 @@ Last updated: 2026-10-21
 | Suggested id | What it tests | If it fails | Notes |
 |---|---|---|---|
 | `TXN_DUPLICATE` | transaction_id unique; no second record with the same account + security + trade_date + type + quantity + price unless linked through related_transaction_id | hold | Exact duplicates rejected, economic duplicates held for review |
-| `TXN_FIELDS_VALID` | Required fields not null; trade_date and settlement_date parse (ISO or DD/MM/YYYY, logged); settlement_date ≥ trade_date; lag ≤ 2 business days unless settlement_note = EXTENDED_SETTLEMENT_AGREED; quantity > 0; \|gross_amount − quantity × price\| ≤ 0.01 | reject | T+2 limit and amount tolerance are team assumptions. Lag is counted in BUSINESS days (calendar days flag every Friday trade). Data: T+1 913,711 · T+2 490,054 · T+5 to T+7 2,957 (845 with agreed-extension note) · 1,124 settle before trade · 1,687 unparseable. US standard is T+1 since 28 May 2024 (SEC Rule 15c6-1): split the limit by market / asset class at Check-in 2 |
+| `TXN_FIELDS_VALID` | Required fields not null; trade_date and settlement_date parse (ISO or DD/MM/YYYY, logged); settlement_date ≥ trade_date; lag ≤ 2 business days unless settlement_note = EXTENDED_SETTLEMENT_AGREED; quantity > 0; \|gross_amount − quantity × price\| ≤ `gross_amount_tolerance` (`config/reconciliation.toml`) | reject | T+2 limit and amount tolerance are team assumptions. Lag is counted in BUSINESS days (calendar days flag every Friday trade). Counts: `outputs/02_defect_register.csv` (lines "Blank settlement_date", "settlement_date before trade_date", "trade_date written as DD/MM/YYYY", "Blank trade quantity", "Negative trade quantity"). The lag distribution is not coded yet (Job B in STATUS.md); no count is quoted until it is. US standard is T+1 since 28 May 2024 (SEC Rule 15c6-1): split the limit by market / asset class at Check-in 2 |
 | `TXN_NEGATIVE_SIDE_EVIDENCE` | For a row failing quantity > 0: look for other records of the same trade (a row with the same transaction_id and another quantity; rows whose related_transaction_id points at it; the row it points at) and record each partner's type and quantity sign. Same type with a positive quantity supports "wrong sign"; the opposite type supports "wrong type" | hold | Added 17 Oct (D-043). gross_amount gives a trade's size, not its side, so it can't choose between the two readings. Correct a row only when a partner or the source's order side or cash direction shows the side; never take the absolute value. No threshold: partners match on exact IDs. Output: `outputs/02_negative_partners.csv` |
 | `TXN_BLANK_QUANTITY_EVIDENCE` | For a row with a blank quantity: is the size still in the row? `gross_amount / price` within `derived_units_tolerance` of a whole number, price > 0 and no related_transaction_id. Side from transaction_type | hold | Added 21 Oct (D-047). Fails `TXN_FIELDS_VALID` either way; this rule says whether a correction can be proposed. The derived size is a proposal for the source to confirm, never booked silently; a linked row is held (a rebook can carry the cancelled gross_amount). Backtest on rows that have a quantity: `outputs/02_blank_quantity.csv` |
 | `TXN_CORRECTION_LINK` | related_transaction_id points to an existing transaction, not to itself, with the same account and security; CANCELLED/REVERSED/BOOKED combinations follow the stated rule; no double offset | hold | REVERSED semantics unresolved until the data owner tells us what REVERSED means |
-| `TXN_ONE_REVERSAL_PER_ORIGINAL` | At most one REVERSED row points to each BOOKED original | hold | Added 16 Oct (Check-in 2 register): 1,402 REVERSED rows, two per original (701 originals) |
-| `TXN_PIPELINE_ONE_TO_ONE` | Every transaction_id has exactly one pipeline_events record and every pipeline record has one transaction | hold | Added 16 Oct (Check-in 2 register): 2,105 IDs repeated in both tables (4,210 pipeline rows) |
+| `TXN_ONE_REVERSAL_PER_ORIGINAL` | At most one REVERSED row points to each BOOKED original | hold | Added 16 Oct (Check-in 2 register). Counts: `outputs/02_defect_register.csv`, line "More than one REVERSED row per original" |
+| `TXN_PIPELINE_ONE_TO_ONE` | Every transaction_id has exactly one pipeline_events record and every pipeline record has one transaction | hold | Added 16 Oct (Check-in 2 register). Counts: `outputs/02_defect_register.csv`, line "Repeated transaction_id in the pipeline" |
 | `TXN_TIMESTAMPS_IN_ORDER` | event ≤ received ≤ booked ≤ published; all timestamps present and parseable; received − event within the feed's latency limit (per source_system) | flag | Missing / out-of-order timestamps reported separately, never as on time |
 | `TXN_AFTER_CUTOFF` | booked_timestamp and published_timestamp ≤ cutoff_timestamp; late trades carried to the next cycle with a flag | flag |  |
 
@@ -52,7 +52,7 @@ Last updated: 2026-10-21
 
 | Suggested id | What it tests | If it fails | Notes |
 |---|---|---|---|
-| `CA_TERMS_COMPLETE` | Before ex_date: action_type supported; required terms present AND only the terms the type needs (e.g. cash_rate only where cash is paid); target_security_id present AND mastered for MERGER / SPINOFF; date order valid for the type (definition still to agree with the data owner) | hold | Event quarantined until terms and target are complete. Extra terms and an ex_date after effective_date are flagged unresolved, not held, until the definitions are agreed (D-016). From the data: all 200 events carry a cash_rate (even splits) and 87 of 200 have ex_date after effective_date. Whether that is wrong depends on what effective_date means per type, so we must agree a definition first |
+| `CA_TERMS_COMPLETE` | Before ex_date: action_type supported; required terms present AND only the terms the type needs (e.g. cash_rate only where cash is paid); target_security_id present AND mastered for MERGER / SPINOFF; date order valid for the type (definition still to agree with the data owner) | hold | Event quarantined until terms and target are complete. Extra terms and an ex_date after effective_date are flagged unresolved, not held, until the definitions are agreed (D-016). From the data (`outputs/02_defect_register.csv`, lines "ratio or cash_rate filled for an event type that does not use it" and "ex_date after effective_date"): cash_rate appears even on splits, and many events have ex_date after effective_date. Whether that is wrong depends on what effective_date means per type, so we must agree a definition first |
 | `CA_ALL_HOLDERS_ADJUSTED` | After effective_date: every account holding the source security on ex_date shows the adjustment (needs a per-account posting log, which we do not have) | flag | Not testable yet: no posting log |
 
 ## 5. Position check
@@ -63,7 +63,7 @@ Last updated: 2026-10-21
 |---|---|---|---|
 | `POS_REBUILD_MATCHES` | Reported positions.quantity = signed sum of BOOKED trades (BUY +, SELL −, zero opening); positions.transaction_count = contributing trades; trade-date and settlement-date variants | flag |  |
 | `POS_CUSTODIAN_BREAK` | Full outer join positions ↔ comparison_positions on account + security + as_of_date; differing, one-sided and unevaluable keys reported separately; breaks aged | flag |  |
-| `POS_KEYS_MASTERED` | Every positions.account_id exists in accounts and every positions.security_id exists in securities | flag | Added 16 Oct (Check-in 2 register): 699 position rows on 195 unknown accounts; 1,118 on 15 unmastered securities (all spin-off targets) |
+| `POS_KEYS_MASTERED` | Every positions.account_id exists in accounts and every positions.security_id exists in securities | flag | Added 16 Oct (Check-in 2 register). Counts: `outputs/02_defect_register.csv`, lines "Position on an account_id missing from accounts" and "Position on a security_id missing from securities" (the unmastered securities are spin-off targets) |
 
 ## 6. Price check
 
@@ -72,9 +72,9 @@ Last updated: 2026-10-21
 | Suggested id | What it tests | If it fails | Notes |
 |---|---|---|---|
 | `PRC_QUOTE_ELIGIBLE` | Every held security has a quote for the valuation date with price > 0, price currency = security currency, price_timestamp on price_date and before NAV cutoff; else fall back to next vendor_priority | correct | Correct = select next eligible vendor, logged |
-| `PRC_VENDOR_DISPERSION` | (max − min) / mean across vendor quotes ≤ 0.5%; a ~100× ratio flags percent-of-par vs per-unit | flag | 0.5% from brief App. A (illustrative) |
-| `FX_RATE_VALID` | Exactly one rate per currency per date; rate_to_usd > 0; USD = 1.000000; day-on-day move within band | hold | Added after journey found USD rate ≠ 1. Confirmed in the data: USD rate_to_usd ≠ 1 on 30 of 30 days (range 0.990 to 1.010) |
-| `FX_RATE_COVERAGE` | Every currency used in prices has a rate in fx_rates for the price date | hold | Added 16 Oct (Check-in 2 register): currency XYZ on 1,080 price rows has no rate |
+| `PRC_VENDOR_DISPERSION` | (max − min) / mean across vendor quotes ≤ `spread_threshold`; a ~100× ratio (`scale_ratio_low` to `scale_ratio_high`) flags percent-of-par vs per-unit | flag | Thresholds in `config/reconciliation.toml` [prices]; the spread comes from brief App. A (illustrative) |
+| `FX_RATE_VALID` | Exactly one rate per currency per date; rate_to_usd > 0; USD = 1.000000; day-on-day move within band | hold | Added after journey found USD rate ≠ 1. Confirmed in the data: `outputs/02_defect_register.csv`, line "USD rate to USD is not 1" |
+| `FX_RATE_COVERAGE` | Every currency used in prices has a rate in fx_rates for the price date | hold | Added 16 Oct (Check-in 2 register). Counts: `outputs/02_defect_register.csv`, line "Price with no FX rate for its currency on the price date" |
 
 **Proposed, not run yet: coverage and freshness.** Both are parts of `PRC_QUOTE_ELIGIBLE`. Rule and denominator are
 fixed here before running (D-041 in `docs/DECISIONS.md`); results go in the register once run.
@@ -95,7 +95,7 @@ fixed here before running (D-041 in `docs/DECISIONS.md`); results go in the regi
 
 | Suggested id | What it tests | If it fails | Notes |
 |---|---|---|---|
-| `NAV_ARITHMETIC` | fund + share_class + as_of_date unique; shares_outstanding > 0; \|net_assets ÷ shares_outstanding − nav_per_share\| ≤ 0.000001 | hold | Do not publish NAV until it passes |
+| `NAV_ARITHMETIC` | fund + share_class + as_of_date unique; shares_outstanding > 0; \|net_assets ÷ shares_outstanding − nav_per_share\| ≤ `[nav] tolerance` (`config/reconciliation.toml`) | hold | Do not publish NAV until it passes |
 | `NAV_SHARE_CLASS_MAPPING` | Every OPEN account's fund_id + share_class exists in ledger_nav; every ledger_nav fund + class has at least one account | hold |  |
 | `NAV_OPEN_ISSUES_BEFORE_RELEASE` | No unresolved break, price flag or quarantined corporate action above materiality on positions feeding the fund | hold | Materiality threshold TBD (external reference: CSSF 24/856) |
 

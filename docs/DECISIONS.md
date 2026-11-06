@@ -448,3 +448,75 @@ Made while building notebook 02 and fixing review findings. Source: *build log*,
 - **Decision:** notebook 02 writes every CSV in `outputs/` with Unix line endings (`lineterminator='\n'`), whatever the operating system. The register checksum ignores line endings (`\r\n` counts as `\n`), and `scripts/check_docs.py` reuses the one `checksum()` in `scripts/build_findings.py` instead of keeping its own copy.
 - **Why:** pandas ends lines with the operating system's own separator, so a register built on Windows had a different checksum (`c5a4eaf54a7f` instead of `d7e752f55f0a`) for identical content. PR #3 then committed that checksum into the docs, and `scripts/check_docs.py` failed on Mac. Normalising in the checksum as well covers registers built before this change.
 - **Test:** `tests/test_cross_platform.py` runs notebook 02 on the small fixture as if on Windows and checks that no output CSV contains `\r\n`, and that a Windows and a Mac copy of a register get the same checksum.
+
+### D-054 · 6 Nov (decided 21 Oct) · Dashboard: local Next.js app over a Python-built store
+
+- **Decision:** the dashboard is a Next.js app in `dashboard/`. It reads one DuckDB file, `outputs/store.duckdb`, built by
+  `scripts/build_store.py` from the data and notebook 02's outputs. Python detects; the app only reads and draws. It
+  listens on 127.0.0.1 only and is never deployed. `uv` for Python, `npm` only inside `dashboard/`.
+- **Why:** the brief wants one functional executive view with record-level drill-down, packaged locally, with figures
+  that agree with the code outputs (brief §5, §7); Check-in 1 feedback asked for interactive visuals. One store file
+  keeps the app's numbers tied to the register (same checksum as FINDINGS.md).
+- **Instead of:** Streamlit (one language, but less control over the look the final view needs), or a Python API server
+  beside the app (a second process for no gain while the data is static).
+- **Note:** proposed in `dashboard/README.md` as "D-048"; that number went to the code-review fixes, so it is recorded
+  here. The README's proposal section is removed.
+
+### D-055 · 6 Nov (decided 23 Oct) · Dashboard data map: offices as rows, the flow as columns
+
+- **Decision:** the map is a grid. Rows are the offices (front, middle, back) plus a separate "Independent sources"
+  strip; columns are the flow (Address books, Transactions, Positions, NAV & ledger). A table sits in the row of the
+  office that handles it: the owner of its check (`scripts/framework.json`). Where its data comes from is a chip on the
+  box: solid when the data names the source, dashed when it is our reasoning. Colours have one job each: blue for our
+  framework (check numbers, selection), green/amber/red/grey for data health only.
+- **Why:** the old map mixed where a table sits with where its data comes from. Brief §4 asks for the stages "against
+  the three offices"; brief §3 says master data feeds the flow.
+- **Instead of:** the Check-in 1 bands with an outside column (still in `docs/figures/01_control_map.png`).
+- **Note:** proposed in `dashboard/README.md` as "D-049" (taken by R3); recorded here.
+
+### D-056 · 6 Nov · Code review (Job A): latent pipeline fixes, record-level trace findings, stale-store warning
+
+- **Decision (notebook 02):**
+  - Book and custodian rows are compared on the snapshot date only. A row dated another day, or with an unreadable
+    date, is set aside, never joined on account + security; the two counts are separate lines in `02_row_ledger.csv`
+    and printed. No register line: none exists on this release, and a new line would change the register.
+  - A CANCELLED ID delivered with two different quantities gives its rebook no quantity to compare: not evaluable
+    (as D-048 treats a blank), never the first copy in file order. A CANCELLED row with a blank transaction_id is no
+    row's original (otherwise every unlinked trade became its rebook).
+  - An unreadable USD rate is not evaluable, not "not 1".
+  - A key the chain cannot rebuild always names its cause: a new cause "REVERSED row with nothing to offset" (R3
+    orphans, D-049), and the side view takes its causes from its own chain.
+  - The trace's wrong-sign value uses what the rebuild used for the traced row (`quantity_used`), as section 6c does,
+    and asserts the chain holds exactly one row for that ID.
+  - Notebook 02 also writes `outputs/02_finding_members.csv`: every ID each register line counts, not only its examples.
+- **Decision (notebook 03):** the wrong-sign scenario uses `quantity_used` (it doubled `signed_quantity`, wrong under
+  R3). A scenario with no affected records counts 0 rows instead of failing its own check, and the chart plots only
+  the scenarios a run produced. The fixture test now runs notebook 03 (R3 config).
+- **Decision (dashboard):**
+  - The trace marks every record a register line counts (`register_members` in the store), not only the 2–3 examples
+    (completes D-051's future work). A record with no badge is still not proven valid: uncoded rules (Job B) find
+    nothing.
+  - The header badge warns when the register on disk differs from the one the store copied ("out of date"), or
+    says "unverified" when that register is gone. The store records the register path relative to the repo root;
+    an older store is checked against the register beside it. The builder reuses the one checksum in
+    `scripts/build_findings.py` and the dashboard reads `\r\n` as `\n` too, so a register built on Windows is not
+    reported as out of date (D-053).
+  - The builder uses the member list only if it belongs to the register (same findings, members exactly for the
+    lines that affect something); otherwise it falls back to the examples, records `member_source`, and the trace
+    text says that only examples are marked.
+  - A corporate-action trace follows its source security to prices and FX.
+  - `ACC…/` or `/` is not a key.
+  - The map check now also tests rule sections on handoff lines. It found `POS_REBUILD_MATCHES` listed on the Trade
+    check line although RULES.md §5 files it under the Position check; RULES.md wins (it ranks above code), so the
+    line no longer lists it. The rule still counts on the positions table.
+- **Not changed:** currency-level findings (FX coverage, USD rate) stay off record traces: they name a currency, not a
+  record (D-051 scope).
+- **Moves:** no register number (checksum unchanged on the full data). Outputs that changed: one label in
+  `02_reversed_side_view.csv` ("not evaluable: other" → "not evaluable: blank quantity"), four lines in
+  `02_row_ledger.csv` (rows set aside per position table: 0 on this release), the new `02_finding_members.csv`. The Check-in 2 deck reads only the side view's totals, which are
+  unchanged; the decks were not rebuilt.
+
+### D-057 · 6 Nov · The Check-in 2 deck has 7 slides (refines D-011)
+
+- **Decision:** the deck handed in is 7 slides, one per brief §8 item (STATUS, 27 Oct), not the 8 to 10 of D-011.
+- **Why:** records what was handed in; D-011 stays as the plan of 16 Oct.

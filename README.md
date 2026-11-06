@@ -27,7 +27,10 @@ data/              raw competition data (.csv.gz): read-only, never write here
 reference/         brief, dataset guide, working guide as Markdown (tracked)
   official/        original PDF and Word files (NOT committed, copy them in from the package)
 config/            thresholds and rule settings (never hard-code these in code)
-notebooks/         analysis and evidence notebooks (edit the .ipynb directly)
+notebooks/         analysis and evidence notebooks (edit the .ipynb directly); 02_reconcile is the one that
+                   writes the register; 03_error_severity adds NAV sensitivity and account breadth
+dashboard/         local Next.js app over outputs/store.duckdb (see dashboard/README.md); never deploy it
+web/               the offline Sankey and UpSet views (built by scripts/build_sankey.py, build_upset.py)
 scripts/           build figures, the framework workbook and docs/FINDINGS.md; check the docs
                    (build_slides.py and add_journeys.py were one-off fillers for the Check-in 1 deck)
 tests/             test scripts and a small made-up fixture (tests/runs/ is gitignored)
@@ -38,10 +41,12 @@ docs/
   DECISIONS.md     every treatment and scope choice, append-only
   FINDINGS.md      one line per finding, generated from outputs/ (do not edit)
   RULES.md         the detailed rules under our 7 checks
+  DEFECT_CATALOG.md the seven-question write-ups of the defect classes we take forward
+  SANKEY_GUIDE.md, UPSET_GUIDE.md   how to build and read the Sankey and UpSet views
   Framework.xlsx   the Check-in 1 framework tables (built by scripts/make_framework_xlsx.py)
   figures/         generated diagrams (built by scripts/)
   checkins/        what we handed in at each check-in (checkin1/, checkin2/); history, not edited afterwards
-  final/           the final hand-in, once we start it
+  final/           the final hand-in
 AI_Logs/           exported AI chats (gitignored; needed for the final hand-in)
 load_data.ipynb    provided loader/integrity checker; must stay beside manifest.csv
 manifest.csv       row counts and checksums for data/
@@ -58,16 +63,20 @@ uv run python scripts/build_findings.py
 uv run python scripts/check_docs.py
 ```
 
-## Tests for notebook 02
+## Tests
 
-Run from the repo root. Both run the committed notebook headless, without rebuilding it.
+Run from the repo root. The notebook tests run the committed notebooks headless, without rebuilding them.
 
-- `tests/fixture_test.sh` (~15 s): runs the notebook on the made-up data in `tests/fixtures/small/` under the default
-  config, shuffled rows, `holding_date = "settlement"` and a trace flag no key carries, and checks the outcomes the
-  fixture was built to contain.
+- `tests/fixture_test.sh` (~25 s): runs notebook 02 on the made-up data in `tests/fixtures/small/` under the default
+  config, shuffled rows, `holding_date = "settlement"`, a trace flag no key carries and an edge copy of the fixture,
+  then notebook 03 under the R3 reading, and checks the outcomes the fixture was built to contain.
 - `tests/robustness_test.sh` (~5 min): runs the release with rows shuffled under several seeds and with one
   threshold changed, and checks that only what should move does. About 4 GB RAM per run; it leaves the default
   run in `outputs/`.
+- `tests/store_test.sh`: builds the dashboard store from the fixture, checks its contracts, then runs the dashboard's
+  unit tests and a production build. Inside `dashboard/`: `npm test` and `npm run test:e2e` (see its README).
+- `uv run python -m unittest discover -s tests -p 'test_*.py'`: the Python unit tests (the Sankey findings builder
+  and the docs checker).
 
 ## Anomaly Sankey
 

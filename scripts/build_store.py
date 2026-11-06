@@ -20,7 +20,7 @@ store out). STORE_PATH overrides where the store goes. A missing register is all
 
 Run from the repo root after notebook 02: uv run python scripts/build_store.py
 """
-import csv, hashlib, json, os, re, sys, tomllib
+import csv, json, os, re, sys, tomllib
 from datetime import datetime
 from pathlib import Path
 
@@ -40,6 +40,7 @@ CONFIG_PATH = path_from_env('RECONCILIATION_CONFIG', 'config/reconciliation.toml
 OUTPUTS = path_from_env('RECONCILIATION_OUTPUTS', 'outputs')
 STORE_PATH = path_from_env('STORE_PATH', OUTPUTS / 'store.duckdb')
 REGISTER = OUTPUTS / '02_defect_register.csv'
+MEMBERS = OUTPUTS / '02_finding_members.csv'
 TRACE = OUTPUTS / '02_trace.csv'
 RULES_MD = ROOT / 'docs' / 'RULES.md'
 FRAMEWORK = ROOT / 'scripts' / 'framework.json'
@@ -161,7 +162,8 @@ GRAPH = {
         dict(id='trade_check', source='transactions', target='positions', kind='handoff', handoff=3,
              check='Trade check', from_handle='right', to_handle='top', tag_at=0.45,
              label='Trade check', expected='transactions by account_id + security_id → positions: many to one; aggregate trades before comparing',
-             rules=['POS_REBUILD_MATCHES'],
+             # POS_REBUILD_MATCHES belongs to the Position check (docs/RULES.md §5) and sits on the positions table.
+             rules=[],
              joins=[dict(id='txn_position', label='transactions (account + security) → positions',
                          left=('transactions', ['account_id', 'security_id']), right=('positions', ['account_id', 'security_id']),
                          required=['left', 'right'], unique=['right'])]),
@@ -246,8 +248,10 @@ GRAPH = {
 
 
 def checksum(path):
-    """Same short checksum as scripts/build_findings.py, so the dashboard and docs/FINDINGS.md name the same run."""
-    return hashlib.sha256(path.read_bytes()).hexdigest()[:12]
+    """The one checksum in scripts/build_findings.py (line endings ignored, D-053), so the dashboard and
+    docs/FINDINGS.md name the same run on Windows and Mac."""
+    from build_findings import checksum as findings_checksum
+    return findings_checksum(path)
 
 
 def q(name):
@@ -418,6 +422,8 @@ def check_graph(catalog, framework, graph=GRAPH):
         if 'check' in e:
             assert e['check'] in framework, f"{e['id']}: check not in scripts/framework.json"
             assert framework[e['check']]['handoff'] == e['handoff'], f"{e['id']}: {e['check']} is not handoff {e['handoff']}"
+            wrong = [r for r in e['rules'] if section[r] != e['check']]
+            assert not wrong, f"{e['id']}: rules from another check's section of docs/RULES.md: {wrong}"
         assert HANDLE.fullmatch(e['from_handle']) and HANDLE.fullmatch(e['to_handle']), f"{e['id']}: unknown handle"
         assert 0 <= e.get('tag_at', 0.5) <= 1 and e.get('tag_side', 'right') in ('left', 'right', 'above', 'below'), \
             f"{e['id']}: tag_at must be 0-1 and tag_side left, right, above or below"
@@ -463,10 +469,10 @@ def read_register():
     if not REGISTER.is_file():
         print(f'  no register at {REGISTER.relative_to(ROOT) if REGISTER.is_relative_to(ROOT) else REGISTER}: '
               f'map without rule counts')
-        return [], []
+        return [], [], [], 'examples'
     with REGISTER.open(newline='', encoding='utf-8') as stream:
         rows = list(csv.DictReader(stream))
-    register, examples = [], []
+    register, examples, members = [], [], []
     for order, row in enumerate(rows, 1):
         rule_id = row['rule'].split()[0] if row['rule'].strip() else ''
         map_kind, map_id = map_place(rule_id)
@@ -478,7 +484,23 @@ def read_register():
         for example in [e.strip() for e in row['examples'].split(',') if e.strip()]:
             examples.append(dict(line=order, rule_id=rule_id, finding=row['finding'], status=row['status'],
                                  id_kind=row['id kind'], record_id=example))
-    return register, examples
+    # Every record each line counts (notebook 02 writes the list beside the register). The list must belong to this
+    # register: the same findings, and members exactly for the lines that affect something. Otherwise (no list, or
+    # one from another run) the trace falls back to the examples, and the store says so.
+    rows = []
+    if MEMBERS.is_file():
+        with MEMBERS.open(newline='', encoding='utf-8') as stream:
+            rows = list(csv.DictReader(stream))
+    by_finding = {line['finding']: line for line in register}
+    with_records = {line['finding'] for line in register if int(line['affected'] or 0) > 0}
+    if rows and {row['finding'] for row in rows} == with_records:
+        members = [dict(line=by_finding[row['finding']]['line'], rule_id=by_finding[row['finding']]['rule_id'],
+                        finding=row['finding'], status=by_finding[row['finding']]['status'],
+                        id_kind=by_finding[row['finding']]['id_kind'], record_id=row['record_id']) for row in rows]
+        return register, examples, members, 'members'
+    print(f'  {MEMBERS.name} ' + ('does not match the register' if rows else 'missing') +
+          ': the trace shows register examples only (rerun notebook 02)')
+    return register, examples, examples, 'examples'
 
 
 TRACEABLE = {'transaction_id', 'account_id', 'security_id', 'account/security', 'action_id', 'ledger_id'}
@@ -575,12 +597,15 @@ def main():
     print('Join health (raw keys)')
     write_rows(con, 'join_health', join_health(con))
 
-    register, examples = read_register()
+    register, examples, members, member_source = read_register()
     register_columns = ['line', 'rule_id', 'rule', 'finding', 'status', 'stage', 'unit', 'affected', 'eligible',
                         'not_evaluable', 'population', 'examples', 'id_kind', 'how_detected', 'map_kind', 'map_id']
     write_rows(con, 'register', register, columns=register_columns)
     write_rows(con, 'register_examples', examples,
                columns=['line', 'rule_id', 'finding', 'status', 'id_kind', 'record_id'])
+    write_rows(con, 'register_members', members,
+               columns=['line', 'rule_id', 'finding', 'status', 'id_kind', 'record_id'])
+    con.sql('CREATE INDEX ix_register_members_record ON register_members (record_id)')
     write_rows(con, 'demo_traces', demo_traces(register),
                columns=['position', 'record_id', 'label', 'status', 'source'])
     unplaced = sorted({r['rule_id'] for r in register} - {r for r, _, _ in placed})
@@ -596,6 +621,9 @@ def main():
         manifest=MANIFEST_PATH.relative_to(ROOT).as_posix() if MANIFEST_PATH.is_relative_to(ROOT) else str(MANIFEST_PATH),
         manifest_checksum=checksum(MANIFEST_PATH),
         register_checksum=checksum(REGISTER) if REGISTER.is_file() else '',
+        # Relative to the repo root (as `manifest`), so a moved checkout or another computer still finds it.
+        register_path=REGISTER.relative_to(ROOT).as_posix() if REGISTER.is_relative_to(ROOT) else str(REGISTER),
+        member_source=member_source,
         register_lines=len(register))])
     con.close()
     os.replace(temporary, STORE_PATH)

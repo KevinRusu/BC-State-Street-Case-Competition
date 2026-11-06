@@ -45,6 +45,14 @@ test("confirmed quantity error is visible even when all record links exist", asy
   await expect(page.getByText(/not a complete assessment/)).toBeVisible();
 });
 
+test("legends and the search hint name every state and ID the pages can show", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByText("Blank keys", { exact: true })).toBeVisible();
+  await page.goto("/trace?id=FXT01");
+  await expect(page.locator("p", { hasText: "Record links:" })).toContainText("Not reached");
+  await expect(page.getByRole("textbox", { name: "Record ID" })).toHaveAttribute("placeholder", /CMP…/);
+});
+
 test("unresolved findings stay amber rather than becoming confirmed", async ({ page }) => {
   await page.goto("/trace?id=FXT11");
   await expect(node(page, "transactions").locator("[data-trace-tone]")).toHaveAttribute("data-trace-tone", "warn");
