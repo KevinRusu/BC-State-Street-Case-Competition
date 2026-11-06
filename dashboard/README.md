@@ -42,12 +42,45 @@ outputs/02_defect_register.csv ───────┘
   real request, so nothing from the store is prerendered or cached. `lib/status.ts` is the one place statuses get
   their meaning and colour (one job per colour: brand blue `#001AFF` for our checks and selection, green / amber /
   red / grey for data health only; tokens in `app/globals.css`).
-- Pages: `/` (data map: summary cards, the grid, and a panel listing the checks in flow order; click a table or an
-  arrow) and `/trace?id=…` (follow one record: its steps as a timeline beside the map; the story buttons come from
+- Pages: `/` (data map: summary cards, the grid, and a side panel; click a table or an arrow) and `/trace?id=…`
+  (follow one record: its steps as a timeline beside the map; the "Pick an example" list comes from
   `outputs/02_trace.csv` and the register's examples). Two header buttons hide the menu and the panel.
+- **Calm layout (D-058).** The map panel starts as a stage overview (one line per stage, in map order) with folded
+  sections; clicking a place shows its plain sentence and finding counts first, then "What we found", "Who owns
+  this", "Raw key counts (technical)" and "Columns". The Trace page shows a plain headline, one-line steps (only
+  steps with a finding open by default) and a "Technical details" link for rule IDs, register lines and the caveat.
 - Stack: Next.js 16 (App Router, Cache Components), React Flow (`@xyflow/react`), DuckDB (`@duckdb/node-api`, same
   version as the Python package so it reads the file), shadcn/ui on Tailwind. This Next.js version differs from
   older tutorials: read `AGENTS.md` before changing it.
+
+### Plain wording
+
+Every sentence a reader sees about a finding, a stage or a map place comes from one reviewed file,
+`scripts/plain_language.json`: findings (keyed by the register's exact `finding` text), `stages`, `nodes`, `edges`,
+the `status` phrases and the `lead_in` prefixes for findings that reach a record through another record.
+`scripts/build_store.py` loads it into the store, so no wording lives in React code. Edit the file, then rebuild the
+store (`uv run python scripts/build_store.py`).
+
+- A finding with no wording falls back to the register's text and the build prints a warning listing it. A node,
+  edge or stage with no wording fails the build.
+- `uv run python scripts/check_docs.py` fails when a finding in the full-data register has no wording.
+- A store built before the wording existed still loads: findings show the register text and the headline asks for a
+  rebuild.
+- Unresolved findings say what the data "matches" or what "would fit", never the cause as fact.
+
+### Logo and startup screen
+
+- The logo comes from the supplied PNG in `dashboard/brand/state-street-logo-source.png`. To remake the transparent
+  blue and white versions in `dashboard/public/brand/`, run `uv run python scripts/build_logo.py` from the repo root.
+  The header and sidebar pick the blue one in light mode and the white one in dark mode; one logo is always on screen,
+  in the top bar when the sidebar is hidden.
+- The startup screen (`components/shell/boot-screen.tsx`, Motion 14.6.0) is a logo reveal of about 2 seconds. It is
+  decoration: the dashboard loads underneath and the bar claims no real progress. It plays once per browser session;
+  the session key is `dfe-boot-seen` in `sessionStorage` (`components/shell/boot-flag.ts` also holds the pre-paint
+  script that stops a flash on later page loads). A click or any key skips it, and reduced-motion settings remove the
+  movement. To see it again, open a private window or clear that key in the browser's storage panel.
+- The browser tests mark the screen as seen so they are not blocked; one test checks that it plays, skips and does
+  not return.
 
 ### Reading a trace
 
@@ -64,8 +97,9 @@ with no badge is still not certified valid: rules that are not coded yet find no
 (FX coverage, the USD rate) name no record. New findings still require a notebook run followed by rebuilding the
 store; the header badge says "out of date" when the register on disk has changed since the store was built.
 
-The story list stays expanded while selecting different records. Use "Show fewer" to collapse it; selecting a
-story still resets the search draft and individual timeline expansions for the newly selected record.
+Choosing another example from the picker resets the search draft and the timeline expansions for the newly selected
+record. The headline shows the record's own findings before indirect ones; everything technical is behind "Technical
+details".
 
 ## Test
 
@@ -80,11 +114,14 @@ npm run lint
 ```
 
 The fixture comes from `tests/fixtures/small/`. Its real notebook outputs and database are generated under
-`tests/runs/dashboard_fixture/` (unit tests) or `tests/runs/dashboard_browser_fixture/` (browser tests); the test story list includes additional examples from that register to exercise
-the expanded list. Production data and `outputs/store.duckdb` are not changed.
+`tests/runs/dashboard_fixture/` (unit tests) or `tests/runs/dashboard_browser_fixture/` (browser tests); the story
+picker there lists the fixture trace and the first traceable example of each register line. Production data and
+`outputs/store.duckdb` are not changed.
 
-Browser tests cover map details and lookups, panel/theme/menu controls, confirmed versus unresolved findings,
-search and unknown IDs, expanded-list persistence, search/timeline reset, and a narrow viewport. Their production
+Browser tests cover map details and lookups, panel/theme/menu controls, confirmed versus unresolved findings (and
+the headline's tone), the no-finding caveat, every "Trace an example" link, search and unknown IDs, the story picker,
+search/timeline reset, the logo in light and dark mode, the startup screen (plays once, skips on a key, survives
+blocked storage), and the logo and trace search on a narrow viewport. Their production
 server listens on `127.0.0.1:3100` and uses `.next-tests`, so it can run beside `npm run dev`. Results, failure
 screenshots and traces stay in `tests/runs/dashboard_browser/`. A busy test port causes a failure rather than
 reusing an unrelated server. Set `DASHBOARD_TEST_PORT` to use another port.

@@ -10,7 +10,8 @@ const hop = (overrides: Partial<Hop> = {}): Hop => ({
 });
 const mark = (overrides: Partial<RegisterMark> = {}): RegisterMark => ({
   line: 1, ruleId: "TXN_FIELDS_VALID", finding: "Negative trade quantity", status: "confirmed",
-  recordId: "TEST-TRADE", idKind: "transaction_id", mapKind: "node", mapId: "transactions", ...overrides,
+  recordId: "TEST-TRADE", idKind: "transaction_id", mapKind: "node", mapId: "transactions",
+  plain: "A trade has a negative quantity.", ...overrides,
 });
 
 describe("record links and findings", () => {

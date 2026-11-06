@@ -50,15 +50,16 @@ def main():
     with duckdb.connect(str(output / "store.duckdb")) as con:
         seen = {row[0] for row in con.execute("SELECT record_id FROM demo_traces").fetchall()}
         position = con.execute("SELECT coalesce(max(position), 0) FROM demo_traces").fetchone()[0]
-        examples = con.execute("SELECT line, rule_id, finding, status, record_id, id_kind "
-                               "FROM register_examples ORDER BY line, record_id").fetchall()
+        examples = con.execute("SELECT e.line, e.rule_id, e.finding, e.status, e.record_id, e.id_kind, r.stage "
+                               "FROM register_examples e JOIN register r ON r.line = e.line "
+                               "ORDER BY e.line, e.record_id").fetchall()
         supported = {"transaction_id", "account_id", "security_id", "account/security", "action_id", "ledger_id"}
-        for line, rule, finding, status, record_id, id_kind in examples:
+        for line, rule, finding, status, record_id, id_kind, stage in examples:
             if id_kind not in supported or record_id in seen:
                 continue
             position += 1
-            con.execute("INSERT INTO demo_traces VALUES (?, ?, ?, ?, ?)",
-                        [position, record_id, finding, status, f"register line {line} ({rule})"])
+            con.execute("INSERT INTO demo_traces VALUES (?, ?, ?, ?, ?, ?)",
+                        [position, record_id, finding, status, f"register line {line} ({rule})", stage])
             seen.add(record_id)
     print(f"Dashboard fixture ready: {output / 'store.duckdb'}")
 

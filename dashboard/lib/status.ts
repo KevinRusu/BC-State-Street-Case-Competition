@@ -1,7 +1,7 @@
 // The one place that says what each status means and which colour token shows it (tokens: app/globals.css).
 import type { HopStatus, Status } from "./types";
 
-type Tone = "ok" | "warn" | "bad" | "info";
+export type Tone = "ok" | "warn" | "bad" | "info";
 
 export const TONE_VAR: Record<Tone, string> = {
   ok: "var(--status-ok)",
@@ -18,12 +18,12 @@ export const JOIN_STATUS: Record<Status, { tone: Tone; label: string; meaning: s
   info: { tone: "info", label: "Context only", meaning: "a scenario link with no key contract to test" },
 };
 
-export const HOP_STATUS: Record<HopStatus, { tone: Tone; label: string }> = {
-  ok: { tone: "ok", label: "Linked records found" },
-  fan_out: { tone: "warn", label: "More rows than expected" },
-  missing: { tone: "bad", label: "Trail breaks here" },
-  info: { tone: "info", label: "Context" },
-  not_reached: { tone: "info", label: "Not reached" },
+export const HOP_STATUS: Record<HopStatus, { tone: Tone; label: string; short: string }> = {
+  ok: { tone: "ok", label: "Linked records found", short: "found" },
+  fan_out: { tone: "warn", label: "More rows than expected", short: "more than expected" },
+  missing: { tone: "bad", label: "Trail breaks here", short: "missing" },
+  info: { tone: "info", label: "Context", short: "for context" },
+  not_reached: { tone: "info", label: "Not reached", short: "not reached" },
 };
 
 export const REGISTER_STATUS: Record<string, Tone> = { confirmed: "bad", unresolved: "warn", cleared: "ok" };

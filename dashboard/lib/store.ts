@@ -6,7 +6,7 @@ import path from "node:path";
 import { DuckDBInstance, type DuckDBConnection, type DuckDBValue } from "@duckdb/node-api";
 import type {
   ColumnDoc, DemoTrace, Hop, HopStatus, JoinSide, MapData, MapEdge, MapNode, MapOffice, MapSource, MapStage,
-  RegisterLine, RegisterMark, Row, RuleText, Status, StoreInfo, TraceResult,
+  PlainStatus, PlainText, RegisterLine, RegisterMark, Row, RuleText, Status, StoreInfo, TraceResult,
 } from "./types";
 
 export class StoreMissingError extends Error {
@@ -97,6 +97,30 @@ function toInfo(r: Raw): StoreInfo {
   };
 }
 
+async function hasTable(con: DuckDBConnection, table: string): Promise<boolean> {
+  return (await rows(con, "SELECT 1 FROM information_schema.tables WHERE table_name = $1", [table])).length > 0;
+}
+
+async function hasColumn(con: DuckDBConnection, table: string, column: string): Promise<boolean> {
+  return (await rows(con,
+    "SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2", [table, column])).length > 0;
+}
+
+/** The wording table. A store built before it existed gives empty phrases and no stages: the register's own text
+ * then stands in for every plain sentence (see the `plain` fallbacks below). */
+async function readPlainText(con: DuckDBConnection): Promise<PlainText> {
+  const plain: PlainText = {
+    status: { confirmed: "", unresolved: "", cleared: "", none: "" }, leadIn: {}, stages: [],
+  };
+  if (!(await hasTable(con, "plain_text"))) return plain;
+  for (const r of await rows(con, "SELECT kind, key, text FROM plain_text ORDER BY kind, position")) {
+    if (r.kind === "status") plain.status[text(r.key) as PlainStatus] = text(r.text);
+    else if (r.kind === "lead_in") plain.leadIn[text(r.key)] = text(r.text);
+    else if (r.kind === "stage") plain.stages.push({ stage: text(r.key), label: text(r.text) });
+  }
+  return plain;
+}
+
 export async function getStoreInfo(): Promise<StoreInfo> {
   const con = await connect();
   try {
@@ -144,7 +168,7 @@ export async function getMapData(): Promise<MapData> {
       check: text(r.check), owner: text(r.owner), checkOffice: text(r.check_office), x: num(r.x), y: num(r.y),
       grain: text(r.grain), note: text(r.note), rows: num(r.rows), manifestRows: num(r.manifest_rows),
       columns: num(r.columns), unreadableDates: text(r.unreadable_dates), rules: rulesOf("node", text(r.id)),
-      sources: sourcesOf(text(r.id)),
+      sources: sourcesOf(text(r.id)), plain: text(r.plain),
     }));
     const edges: MapEdge[] = (await rows(con, "SELECT * FROM map_edges")).map((r) => ({
       id: text(r.id), source: text(r.source), target: text(r.target), kind: text(r.kind) as MapEdge["kind"],
@@ -152,13 +176,15 @@ export async function getMapData(): Promise<MapData> {
       inferred: Boolean(r.inferred), status: worst(text(r.id)), rules: rulesOf("edge", text(r.id)),
       check: text(r.check), owner: text(r.owner), checkOffice: text(r.check_office),
       fromHandle: text(r.from_handle), toHandle: text(r.to_handle), tagAt: num(r.tag_at),
-      tagSide: text(r.tag_side) as MapEdge["tagSide"],
+      tagSide: text(r.tag_side) as MapEdge["tagSide"], plain: text(r.plain),
     }));
     const register: RegisterLine[] = (await rows(con, "SELECT * FROM register ORDER BY line")).map((r) => ({
       line: num(r.line), ruleId: text(r.rule_id), finding: text(r.finding), status: text(r.status),
       stage: text(r.stage), unit: text(r.unit), affected: num(r.affected), eligible: num(r.eligible),
       notEvaluable: num(r.not_evaluable), examples: text(r.examples), idKind: text(r.id_kind),
       mapKind: text(r.map_kind) as RegisterLine["mapKind"], mapId: text(r.map_id),
+      traceExample: text(r.trace_example),   // "" from a store built before the column: no link rather than a wrong one
+      plain: text(r.plain) || text(r.finding),
     }));
     const catalog: RuleText[] = (await rows(con, "SELECT * FROM rule_catalog")).map((r) => ({
       ruleId: text(r.rule_id), section: text(r.section), test: text(r.test), onFail: text(r.on_fail), note: text(r.note),
@@ -168,7 +194,7 @@ export async function getMapData(): Promise<MapData> {
       description: text(r.description),
     }));
     const info = toInfo((await rows(con, "SELECT * FROM store_info"))[0]);
-    return { info, offices, stages, nodes, edges, health, register, catalog, columns };
+    return { info, offices, stages, nodes, edges, health, register, catalog, columns, plain: await readPlainText(con) };
   } finally {
     con.closeSync();
   }
@@ -179,7 +205,7 @@ export async function getDemoTraces(): Promise<DemoTrace[]> {
   try {
     return (await rows(con, "SELECT * FROM demo_traces ORDER BY position")).map((r) => ({
       position: num(r.position), recordId: text(r.record_id), label: text(r.label), status: text(r.status),
-      source: text(r.source),
+      source: text(r.source), stage: text(r.stage),
     }));
   } finally {
     con.closeSync();
@@ -444,16 +470,16 @@ export async function traceRecord(query: string): Promise<TraceResult> {
     // 3. Where this record, its account, its security or their key is counted by a line of notebook 02's register.
     const ids = [...new Set([id, account, security, account && security && `${account}/${security}`])]
       .filter((v): v is string => Boolean(v));
-    const members = (await rows(con,
-      "SELECT 1 FROM information_schema.tables WHERE table_name = 'register_members'")).length
-      ? "register_members" : "register_examples";
+    const members = (await hasTable(con, "register_members")) ? "register_members" : "register_examples";
+    const plainColumn = (await hasColumn(con, "register", "plain")) ? ", r.plain" : "";
     const marks: RegisterMark[] = (await rows(con,
-      "SELECT DISTINCT e.line, e.rule_id, e.finding, e.status, e.record_id, r.id_kind, r.map_kind, r.map_id " +
+      `SELECT DISTINCT e.line, e.rule_id, e.finding, e.status, e.record_id, r.id_kind, r.map_kind, r.map_id${plainColumn} ` +
       `FROM ${members} e JOIN register r ON r.line = e.line ` +
       `WHERE e.record_id IN (${ids.map((_, i) => `$${i + 1}`).join(", ")}) ORDER BY e.line, e.record_id`, ids)).map((r) => ({
       line: num(r.line), ruleId: text(r.rule_id), finding: text(r.finding), status: text(r.status),
       recordId: text(r.record_id), idKind: text(r.id_kind),
       mapKind: text(r.map_kind) as RegisterMark["mapKind"], mapId: text(r.map_id),
+      plain: text(r.plain) || text(r.finding),
     }));
     const summary = [account && `account ${account}`, security && `security ${security}`].filter(Boolean).join(" · ");
     return { found: true, query: id, kind: start.kind, summary, hops, marks };

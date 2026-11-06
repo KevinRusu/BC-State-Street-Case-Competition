@@ -17,6 +17,15 @@ beforeAll(async () => {
   map = await getMapData();
 });
 
+/** A writable copy of the fixture store. A WAL left by a run that failed before closing its writer would replay onto
+ * the fresh copy, so it goes first. */
+const copyStore = (name: string) => {
+  const copy = path.join(path.dirname(storePath()), name);
+  fs.rmSync(`${copy}.wal`, { force: true });
+  fs.copyFileSync(storePath(), copy);
+  return copy;
+};
+
 const hop = async (id: string, hopId: string) => {
   const trace = await traceRecord(id);
   if (!trace.found) throw new Error(`${id} not found`);
@@ -127,8 +136,7 @@ describe("trace", () => {
   });
 
   test("a missing account breaks its link without erasing an existing transaction finding", async () => {
-    const copy = path.join(path.dirname(storePath()), "store_missing_account.duckdb");
-    fs.copyFileSync(storePath(), copy);
+    const copy = copyStore("store_missing_account.duckdb");
     const writer = await DuckDBInstance.create(copy);
     const con = await writer.connect();
     await con.run("DELETE FROM accounts WHERE account_id = 'FXACC1'");
@@ -161,8 +169,7 @@ describe("trace", () => {
 
   test("the position and custodian steps stay on the snapshot date", async () => {
     // A copy of the store where FXACC1/FXSEC1 also has an older row in both position tables.
-    const copy = path.join(path.dirname(storePath()), "store_two_dates.duckdb");
-    fs.copyFileSync(storePath(), copy);
+    const copy = copyStore("store_two_dates.duckdb");
     const writer = await DuckDBInstance.create(copy);
     const con = await writer.connect();
     for (const [table, id] of [["positions", "position_id"], ["comparison_positions", "comparison_id"]]) {
@@ -190,8 +197,7 @@ describe("store freshness", () => {
   });
 
   test("a store from before this check (no register path) is checked against the register beside it", async () => {
-    const copy = path.join(path.dirname(storePath()), "store_no_register_path.duckdb");
-    fs.copyFileSync(storePath(), copy);
+    const copy = copyStore("store_no_register_path.duckdb");
     const writer = await DuckDBInstance.create(copy);
     const con = await writer.connect();
     await con.run("ALTER TABLE store_info DROP COLUMN register_path");   // as the builder wrote it before 6 Nov
@@ -207,6 +213,51 @@ describe("store freshness", () => {
     } finally {
       process.env.STORE_PATH = saved;
     }
+  });
+
+  test("a store from before the plain wording still loads, with register text as its wording", async () => {
+    const copy = copyStore("store_no_plain.duckdb");
+    const writer = await DuckDBInstance.create(copy);
+    const con = await writer.connect();
+    for (const table of ["register", "map_nodes", "map_edges"]) await con.run(`ALTER TABLE ${table} DROP COLUMN plain`);
+    await con.run("ALTER TABLE register DROP COLUMN trace_example");
+    await con.run("DROP TABLE plain_text");
+    con.closeSync();
+    writer.closeSync();
+    const saved = process.env.STORE_PATH;
+    process.env.STORE_PATH = copy;
+    try {
+      const old = await getMapData();
+      expect(old.register.length).toBeGreaterThan(0);
+      for (const l of old.register) expect(l.plain, String(l.line)).toBe(l.finding);
+      for (const l of old.register) expect(l.traceExample, String(l.line)).toBe("");
+      expect(old.plain.stages).toEqual([]);
+      expect(old.plain.status.none).toBe("");
+      const trace = await traceRecord("FXT03");
+      if (!trace.found) throw new Error("FXT03 not found");
+      expect(trace.marks.length).toBeGreaterThan(0);
+      expect(trace.marks[0].plain).toBe(trace.marks[0].finding);
+    } finally {
+      process.env.STORE_PATH = saved;
+    }
+  });
+
+  test("only a traceable ID kind gets a trace example: a currency finding names none", () => {
+    const negative = map.register.find((l) => l.finding === "Negative trade quantity")!;
+    expect(negative.traceExample).toBe("FXT03");
+    const currency = map.register.filter((l) => l.idKind === "currency");
+    expect(currency.some((l) => l.examples !== "")).toBe(true);   // the fixture lists a currency example (EUR)
+    for (const l of currency) expect(l.traceExample, l.finding).toBe("");
+  });
+
+  test("the fixture store carries wording, stage order and story stages", async () => {
+    expect(map.plain.status.none).toContain("not proof it is clean");
+    expect(map.plain.stages[0].stage).toBe("worked example");
+    const negative = map.register.find((l) => l.finding === "Negative trade quantity")!;
+    expect(negative.plain).not.toBe(negative.finding);
+    const demos = await getDemoTraces();
+    expect(demos.length).toBeGreaterThan(0);
+    for (const demo of demos) expect(demo.stage, demo.recordId).not.toBe("");
   });
 
   test("a register rewritten after the build makes the store stale; a deleted one makes it unknown", () => {
