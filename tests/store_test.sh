@@ -39,6 +39,11 @@ assert one("SELECT label, source_values FROM map_sources WHERE node_id = 'compar
 assert one("SELECT evidence, source_values FROM map_sources WHERE node_id = 'accounts'") == ('reasoning', '')
 assert one("SELECT count(*) FROM map_edges WHERE handoff IS NOT NULL AND owner = ''")[0] == 0
 assert one("SELECT count(*) FROM register WHERE map_id = ''")[0] == 0, 'a register line has no place on the map'
+# "Trace an example" links only an ID the trace can open: never a currency (the fixture lists EUR as one).
+assert one("SELECT count(*) FROM register WHERE id_kind = 'currency' AND examples <> ''")[0] > 0, 'fixture lost its currency example'
+assert one("SELECT count(*) FROM register WHERE id_kind = 'currency' AND trace_example <> ''")[0] == 0, \
+    'a currency finding links a trace'
+assert one("SELECT trace_example FROM register WHERE finding = 'Negative trade quantity'")[0] == 'FXT03'
 assert one("SELECT count(*) FROM rule_catalog WHERE contains(test || on_fail || note, '\\')")[0] == 0, \
     'a Markdown escape (\\|) split a rule cell'
 import sys; sys.path.insert(0, 'scripts')
@@ -76,6 +81,13 @@ assert one("SELECT count(*) FROM register_members WHERE line = (SELECT line FROM
            "WHERE finding = 'More than one REVERSED row per original')")[0] == 4
 assert one("SELECT member_source FROM store_info")[0] == 'members'
 assert not os.path.isabs(one("SELECT register_path FROM store_info")[0]), 'a store copied elsewhere must still find it'
+# Plain wording (scripts/plain_language.json): every line, place and demo carries it; status phrases sit in plain_text.
+assert one("SELECT count(*) FROM register WHERE coalesce(plain, '') = ''")[0] == 0, 'a register line has no plain text'
+assert one("SELECT plain <> finding FROM register WHERE finding = 'Negative trade quantity'")[0], 'finding not worded'
+assert one("SELECT count(*) FROM map_nodes WHERE coalesce(plain, '') = ''")[0] == 0
+assert one("SELECT count(*) FROM map_edges WHERE coalesce(plain, '') = ''")[0] == 0
+assert one("SELECT count(*) FROM plain_text WHERE kind = 'status'")[0] == 4
+assert one("SELECT count(*) FROM demo_traces WHERE coalesce(stage, '') = ''")[0] == 0, 'a demo trace has no stage'
 padded = duckdb.connect()
 padded.sql("CREATE TABLE t AS SELECT * FROM (VALUES ('  '), ('OMS '), ('OMS'), (NULL)) v(c)")
 assert build_store.distinct_values(padded, 't', 'c') == ['OMS'], 'blank and padded source labels'
@@ -91,6 +103,7 @@ import duckdb
 c = duckdb.connect('$E/store.duckdb', read_only=True)
 n = lambda t: c.sql(f'SELECT count(*) FROM {t}').fetchone()[0]
 assert n('register') == 0 and n('map_offices') == 4 and n('map_sources') > 0 and n('map_edges') > 0
+assert c.sql(\"SELECT count(*) FROM plain_text WHERE kind = 'status'\").fetchone()[0] == 4, 'plain_text without a register'
 print('no-register build OK')"
 # A register without its member list (an older notebook run), and a member list from another run: the store falls
 # back to the register's examples and says so, rather than failing or claiming every record is marked.

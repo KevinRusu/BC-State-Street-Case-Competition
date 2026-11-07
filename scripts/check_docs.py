@@ -9,6 +9,9 @@ Step by step:
 4. Compare the register checksum in docs/FINDINGS.md, and in every fact card of docs/DEFECT_CATALOG.md, with
    outputs/02_defect_register.csv
    (skipped when outputs/ has not been built on this machine).
+5. Every finding in outputs/02_defect_register.csv has a plain sentence in scripts/plain_language.json (skipped when
+   outputs/ has not been built). Wording that matches no finding in that register or in any register under tests/runs/
+   is only a note.
 Exit code 1 if anything is wrong, so it can sit in a checklist or a test.
 
 docs/DECISIONS.md is skipped on purpose: it is an append-only history and names files that no longer exist.
@@ -16,7 +19,7 @@ Frozen check-in folders (docs/checkins/) are skipped too.
 
 Run from the repo root: uv run python scripts/check_docs.py
 """
-import re, sys
+import csv, json, re, sys
 from pathlib import Path
 
 from build_findings import checksum
@@ -115,8 +118,28 @@ def check_findings():
     return problems
 
 
+def register_findings(path):
+    with path.open(newline='', encoding='utf-8') as stream:
+        # .get: a stray CSV under tests/runs (no finding column) adds nothing rather than crashing the check.
+        return {row.get('finding') for row in csv.DictReader(stream)} - {None, ''}
+
+
+def check_plain_language():
+    """Every release-register finding has plain wording (scripts/plain_language.json); unused wording is a note."""
+    register = ROOT / 'outputs' / '02_defect_register.csv'
+    if not register.exists():
+        print('note: outputs/02_defect_register.csv not built here; plain wording coverage not checked')
+        return []
+    worded = set(json.loads((ROOT / 'scripts' / 'plain_language.json').read_text(encoding='utf-8'))['findings'])
+    release = register_findings(register)
+    known = release.union(*(register_findings(p) for p in (ROOT / 'tests' / 'runs').glob('*/02_defect_register.csv')))
+    for finding in sorted(worded - known):
+        print(f'note: unused wording for "{finding}"')
+    return [f'scripts/plain_language.json has no wording for "{finding}"' for finding in sorted(release - worded)]
+
+
 def main():
-    problems = check_paths() + check_rule_ids() + check_findings()
+    problems = check_paths() + check_rule_ids() + check_findings() + check_plain_language()
     for p in problems:
         print('FAIL', p)
     if problems:

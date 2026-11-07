@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, LayoutDashboard, Network, Route, Workflow } from "lucide-react";
+import { Activity, LayoutDashboard, Network, Route } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BrandLogo } from "./brand-logo";
 import { useShell } from "./shell-state";
 
 export const PAGES = [
@@ -20,13 +21,11 @@ export function AppSidebar() {
   const { menuOpen } = useShell();
   return (
     <aside className={cn("hidden w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground", menuOpen && "md:flex")}>
-      <div className="flex items-center gap-2.5 border-b px-4 py-4">
-        <div className="flex size-8 items-center justify-center rounded-lg bg-brand text-white">
-          <Workflow className="size-4" />
-        </div>
+      <div className="flex flex-col gap-3 border-b px-4 py-4">
+        <BrandLogo className="h-[22px] w-auto self-start" />
         <div className="leading-tight">
           <div className="text-sm font-semibold">Data Flow Explorer</div>
-          <div className="text-xs text-muted-foreground">team MVP · local only</div>
+          <div className="text-xs text-muted-foreground">Prepared for State Street · Boston College case competition</div>
         </div>
       </div>
       <nav aria-label="Main navigation" className="flex flex-1 flex-col gap-1 p-3">

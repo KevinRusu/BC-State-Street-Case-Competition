@@ -32,6 +32,16 @@ class CheckDocs(unittest.TestCase):
             windows.write_bytes(b'finding\r\nA\r\n')
             self.assertEqual(build_store.checksum(windows), build_findings.checksum(mac))
 
+    def test_a_stray_csv_without_a_finding_column_is_skipped(self):
+        # tests/runs/*/02_defect_register.csv may hold anything a test wrote; the wording check must not crash on it.
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            stray = Path(tmp) / '02_defect_register.csv'
+            stray.write_text('record_id,note\nX1,made up\n', encoding='utf-8')
+            self.assertEqual(check_docs.register_findings(stray), set())
+            stray.write_text('finding,status\nA,confirmed\n,unresolved\n', encoding='utf-8')
+            self.assertEqual(check_docs.register_findings(stray), {'A'})
+
     def test_planned_lists_only_files_that_do_not_exist_yet(self):
         self.assertEqual([p for p in check_docs.PLANNED if (ROOT / p).exists()], [])
 

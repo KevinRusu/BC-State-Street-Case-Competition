@@ -520,3 +520,74 @@ Made while building notebook 02 and fixing review findings. Source: *build log*,
 
 - **Decision:** the deck handed in is 7 slides, one per brief §8 item (STATUS, 27 Oct), not the 8 to 10 of D-011.
 - **Why:** records what was handed in; D-011 stays as the plan of 16 Oct.
+
+### D-058 · 6 Nov · Dashboard for a non-technical reader: calm layout, plain wording file, logo and startup screen
+
+- **Decision:** the dashboard shows plain words first and keeps every technical detail one click deeper; all its
+  wording comes from `scripts/plain_language.json` through the store; it carries the State Street logo and a short
+  startup screen.
+- **Why:** the professor's guidance and Check-in 1 feedback say a reader who has never seen our pipeline must be able
+  to follow. The dashboard was accurate but showed too much at once. Design:
+  `docs/superpowers/specs/2026-11-06-calm-dashboard-design.md`.
+- **Layout.** Everything technical stays, one click deeper.
+  - Trace page: a native `<select>` story picker (grouped by stage) replaces the story chips; a plain headline sits
+    under it; steps are one-line rows and only steps that carry a finding open by default; rule IDs, register lines,
+    the "via" record, the legend, rows touched and the long caveat sit behind "Technical details".
+  - Map panel: with nothing selected, a stage overview in map order (master data, trade capture, pipeline, corporate
+    actions, positions, pricing, NAV), one line each with counts; folded sections for the rest. "Worked example" is
+    not an overview stage: it only groups the Check-in 2 trace in the story picker.
+    With a place selected, its plain sentence and finding counts come first; "What we found", "Who owns this", "Raw
+    key counts (technical)" and "Columns" fold below.
+  - The graph, the summary cards and every colour meaning (D-051, D-055) are unchanged. Confirmed stays red,
+    unresolved amber, cleared as before.
+- **Plain wording file.** `scripts/plain_language.json` holds one neutral sentence per register finding (keyed by the
+  register's exact `finding` text), a label per stage, a sentence per map node and edge, the status phrases and the
+  lead-ins. `scripts/build_store.py` carries it into the store (`plain` columns, a status-phrase table, `stage` on
+  `demo_traces`); React code contains no wording. Coverage:
+  - Nodes, edges and stages are fixed by the map, so the build asserts every one has wording and fails if not.
+  - A finding without wording falls back to the register text and the build prints a warning listing them; wording
+    never fails a build, because the fixture and config-variant registers hold finding texts the release register
+    does not (variant findings are worded too).
+  - `scripts/check_docs.py` fails when the full-data register has a finding with no wording, and notes unused
+    wording (wording that matches no known register).
+  - An old store (built before the wording) still loads: findings fall back to register text, an empty headline
+    shows a rebuild message, and an empty story stage is grouped as "Other examples".
+- **Headline rule (fixed, no AI, D-001).** The record's own findings come before indirect ones (those that reach it
+  through another record), then confirmed > unresolved > cleared, then the lowest register line. The headline is that
+  finding's plain sentence, then the status phrase, then "and N more findings" when there are others. No marks:
+  the "none" phrase, which keeps the honesty caveat (a record with no badge is not proven valid). An indirect finding
+  gets a lead-in chosen by the line's `id_kind` ("Its account: ", "Its security: ", "Its holding (account +
+  security): " and so on) so it never reads as about the record itself.
+- **Wording of unresolved findings.** A cause is never stated as fact: sentences say "matches what we get if..." or
+  "would fit". The cleared sentence says only what was observed. This keeps the wording from claiming more than the
+  register does (D-043, D-047). Every finding sentence must read true whether its line is confirmed, unresolved or
+  cleared (the closed-position line can be either of the last two): the status phrase beside it carries the verdict,
+  so a sentence never says "expected", "seems" or "may be harmless" (`tests/test_plain_language.py`). Check
+  sentences on map lines state requirements ("must"), not outcomes.
+- **"Trace an example" opens only what the trace can open.** `build_store.py` writes `trace_example` on each register
+  line: its first example when the line's `id_kind` is traceable, else blank (a currency such as an FX finding's
+  example cannot be traced), and the map panel links only that. On a store without the full member list, a record with
+  no finding shows the examples-only note under its headline, not only under "Technical details", because there "no
+  finding" may only mean "not one of the register's examples".
+- **Subtitle.** "Prepared for State Street · Boston College case competition". It avoids presenting this as a State
+  Street product: the brief says the data is a synthetic teaching model. Kevin has not confirmed the wording.
+- **Logo.** Kevin's PNG is turned into a transparent blue and a white version by `scripts/build_logo.py` (the
+  source sits in `dashboard/brand/`, the output in `dashboard/public/brand/`). The header logo is shown whenever the
+  sidebar is not actually on screen (also below the `md` breakpoint), so exactly one logo is always visible.
+- **Startup screen.** A Motion 14.6.0 (pinned) logo reveal of about 2 seconds, once per browser session
+  (`sessionStorage` key `dfe-boot-seen`); a key or click skips it; reduced motion removes the movement. It is
+  decoration: the dashboard loads underneath from the start and the bar claims no real progress. `BOOT_KEY` and the
+  pre-paint script live in `boot-flag.ts` because a server layout cannot read a string exported from a "use client"
+  file.
+- **Story picker has no status dot.** A native select cannot colour options reliably, and it is the simplest
+  accessible control. Status shows on the record's headline.
+- **Known limit.** The map's check edges (for example Trade check) show 0 findings because `build_store.py` places
+  those findings on tables; the panel says so. Changing placement is out of scope.
+- **Rejected.**
+  - A guided walkthrough with "Next" steps: the calm list and layered panel give the same reading order without
+    forcing a path.
+  - A map tour: same reason.
+  - Startup screens that show the preflight checks or a story: they would imply real progress or pick one finding
+    over the rest.
+- **Moves:** no register number, no detection, no change to notebook 02 (D-001 holds). Pieces 3 (summary assistant)
+  and 4 (how the dashboard is handed in) are separate brainstorms.
