@@ -7,6 +7,22 @@
 ## Setup
 
 Requires [uv](https://docs.astral.sh/uv/) (`brew install uv`). Graphviz is needed only to rebuild the diagrams (`brew install graphviz`).
+To run the dashboard you also need [Node.js](https://nodejs.org/) 20.9 or newer.
+
+**Windows.** In PowerShell, install Git for Windows (it brings Git Bash), uv and Node.js LTS:
+
+```powershell
+winget install --id Git.Git
+winget install --id astral-sh.uv
+winget install --id OpenJS.NodeJS.LTS
+```
+
+Close and reopen the terminal afterwards. Run the `.sh` scripts (`tests/run_notebook.sh` and the other test scripts)
+in Git Bash, for example `bash tests/run_notebook.sh`; every `uv` and `npm` command works in PowerShell too. If a
+`.sh` script fails with `\r: command not found`, git checked it out with Windows line endings; run
+`git checkout HEAD -- "tests/*.sh"` once (`.gitattributes` keeps `.sh` files on Unix line endings from now on).
+
+To run the dashboard, follow [dashboard/README.md](dashboard/README.md#run-it) after `uv sync`.
 
 ```bash
 uv sync                       # creates .venv with Python 3.12 + all dependencies

@@ -9,9 +9,10 @@ and what happens to one record as it moves from capture to NAV. It is the first 
 
 ## Run it
 
-From the repo root:
+You need uv and Node.js 20.9 or newer (Windows setup: the root [README](../README.md#setup)). From the repo root:
 
 ```bash
+uv sync                                   # once: Python environment (the store builder and the notebook need it)
 tests/run_notebook.sh                     # notebook 02 -> outputs/02_*.csv (the register the app shows)
 uv run python scripts/build_store.py      # data + register -> outputs/store.duckdb (~15 s, ~400 MB)
 cd dashboard

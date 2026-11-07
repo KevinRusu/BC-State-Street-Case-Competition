@@ -1,3 +1,6 @@
 *.ipynb filter=nbstripout
 *.zpln filter=nbstripout
 *.ipynb diff=ipynb
+
+# Shell scripts must keep Unix line endings: bash cannot run a script with CRLF (Git for Windows converts on checkout).
+*.sh text eol=lf
