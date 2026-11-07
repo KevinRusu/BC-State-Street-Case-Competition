@@ -1,13 +1,16 @@
 # Status
 
-Last updated: 2026-11-06 (calm dashboard layout, plain wording file, logo and startup screen on branch `dashboard-calm-layout`; D-058)
+Last updated: 2026-11-07 (Windows run path on branch `windows-support`, not yet merged; D-059)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
 
 ## Where we are
 
-- **Calm dashboard (6 Nov):** done on branch `dashboard-calm-layout`, not yet merged (D-058). The Trace page has a story picker, a plain headline, one-line steps and a "Technical details" link; the map panel shows a stage overview and folded sections; the State Street logo and a short startup screen are in. Plain wording for every finding, stage and map place lives in `scripts/plain_language.json` and flows through the store. Design: `docs/superpowers/specs/2026-11-06-calm-dashboard-design.md`.
+- **Windows run path (7 Nov):** on branch `windows-support`, not yet merged (D-059). `.gitattributes` keeps `.sh` files on Unix line endings, `dashboard/package.json` requires Node 20.9 or newer, and the root README has a Windows setup block (winget, Git Bash for the `.sh` scripts). Not yet tried on Windows by us.
+  - **Windows teammate:** after merging, run `uv sync`, `bash tests/run_notebook.sh` in Git Bash, `uv run python scripts/build_store.py`, then `npm ci` and `npm run dev` in `dashboard/`; tell Kevin the first step that fails. If `run_notebook.sh` is the one, port it to Python (D-059).
+
+- **Calm dashboard (6 Nov):** done and merged to `main` (PR #5; D-058). The Trace page has a story picker, a plain headline, one-line steps and a "Technical details" link; the map panel shows a stage overview and folded sections; the State Street logo and a short startup screen are in. Plain wording for every finding, stage and map place lives in `scripts/plain_language.json` and flows through the store. Design: `docs/superpowers/specs/2026-11-06-calm-dashboard-design.md`.
   - **Team:** review the wording in `scripts/plain_language.json`, one teammate per stage (as with the catalog).
   - **Kevin:** check the startup screen by hand (private window, macOS Reduce Motion, dark mode).
   - **Everyone:** run `npm ci` once in `dashboard/` (the lockfile adds `motion` for the startup screen; it is written with npm 10, so `npm ci` works on npm 10 and 11).

@@ -591,3 +591,18 @@ Made while building notebook 02 and fixing review findings. Source: *build log*,
     over the rest.
 - **Moves:** no register number, no detection, no change to notebook 02 (D-001 holds). Pieces 3 (summary assistant)
   and 4 (how the dashboard is handed in) are separate brainstorms.
+
+### D-059 · 7 Nov · Running the dashboard on Windows: Unix line endings for `.sh`, Git Bash, Node 20.9
+
+- **Decision:** `.gitattributes` keeps `*.sh` on Unix line endings (`eol=lf`). The `.sh` scripts stay bash and Windows
+  users run them in Git Bash (it comes with Git for Windows). `dashboard/package.json` declares `engines.node` as
+  `>=20.9.0`. The root README has a Windows setup block and `dashboard/README.md` lists `uv sync` and the Node version.
+- **Why:** a Windows teammate could not run the repo from a fresh clone. Git for Windows converts text files to CRLF on
+  checkout by default and bash cannot run a script with CRLF. The Node and Python code already worked on Windows
+  (D-053; `package-lock.json` holds the Windows builds of DuckDB, Next, Tailwind and lightningcss). 20.9 is Next.js
+  16's own minimum; an older Node fails with an unclear message.
+- **Instead of:** porting `tests/run_notebook.sh` to Python now. Do that if Git Bash turns out not to work for the
+  dashboard run path (`run_notebook.sh`, `build_store.py`, `npm run dev`). The other `tests/*.sh` are not on that
+  path and stay bash.
+- **Moves:** no register number, no detection, no code change. Not yet tried on Windows by us: the first Windows run
+  of this branch is the test (STATUS, "Where we are").
