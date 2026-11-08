@@ -27,8 +27,9 @@ def main():
         "RECONCILIATION_CONFIG": str(ROOT / "config/reconciliation.toml"),
         "RECONCILIATION_OUTPUTS": str(output),
         "STORE_PATH": str(output / "store.duckdb"),
+        "MPLBACKEND": "Agg",   # the severity plot's plt.show() must not open a window outside a kernel
     })
-    notebook = json.loads((ROOT / "notebooks/02_reconcile.ipynb").read_text(encoding="utf-8"))
+    notebook = json.loads((ROOT / "notebooks/deliverable.ipynb").read_text(encoding="utf-8"))
     shell = InteractiveShell.instance()
     log_path = output / "notebook.log"
     try:

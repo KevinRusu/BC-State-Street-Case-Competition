@@ -1,14 +1,16 @@
 # Status
 
-Last updated: 2026-11-07 (Windows run path on branch `windows-support`, not yet merged; D-059)
+Last updated: 2026-11-08 (one deliverable notebook, `notebooks/deliverable.ipynb`; D-060)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
 
 ## Where we are
 
-- **Windows run path (7 Nov):** on branch `windows-support`, not yet merged (D-059). `.gitattributes` keeps `.sh` files on Unix line endings, `dashboard/package.json` requires Node 20.9 or newer, and the root README has a Windows setup block (winget, Git Bash for the `.sh` scripts). Not yet tried on Windows by us.
-  - **Windows teammate:** after merging, run `uv sync`, `bash tests/run_notebook.sh` in Git Bash, `uv run python scripts/build_store.py`, then `npm ci` and `npm run dev` in `dashboard/`; tell Kevin the first step that fails. If `run_notebook.sh` is the one, port it to Python (D-059).
+- **One deliverable notebook (8 Nov):** `notebooks/deliverable.ipynb` (D-060) is the code deliverable of brief §7: the former `02_reconcile.ipynb` with `03_error_severity.ipynb` folded in as section 11 (the run record is section 12). It writes every `outputs/02_*` file, now including `02_severity.csv`, `02_fund_impact.csv`, `02_impact_detail.csv`, `02_account_membership.csv` and `02_severity.png` / `.pdf` (formerly `03_*`). Nothing moved: register checksum `d7e752f55f0a` as before, and the severity files equal the former `03_*` files on the full data. The other notebooks sit in `notebooks/additional/` (`01_explore_tables`, `02_quantity_mismatches`, `checkin1_evidence`); none of them is needed to run the deliverable or the dashboard. `tests/run_notebook.sh` runs the deliverable by default and `tests/fixture_test.sh` runs the severity section under every fixture config.
+  - **Team:** `git pull` then reopen the notebook under its new name; `tests/run_notebook.sh` rebuilds `outputs/`. Numbers on slides and in the catalog are unchanged.
+
+- **Windows run path (7 Nov, merged 8 Nov as PR #6):** `.gitattributes` keeps `.sh` files on Unix line endings, `dashboard/package.json` requires Node 20.9 or newer, and the root README has a Windows setup block (winget, Git Bash for the `.sh` scripts) (D-059). First Windows run (8 Nov, while merging the notebooks): see "Windows first run" below.
 
 - **Calm dashboard (6 Nov):** done and merged to `main` (PR #5; D-058). The Trace page has a story picker, a plain headline, one-line steps and a "Technical details" link; the map panel shows a stage overview and folded sections; the State Street logo and a short startup screen are in. Plain wording for every finding, stage and map place lives in `scripts/plain_language.json` and flows through the store. Design: `docs/superpowers/specs/2026-11-06-calm-dashboard-design.md`.
   - **Team:** review the wording in `scripts/plain_language.json`, one teammate per stage (as with the catalog).
@@ -25,7 +27,8 @@ Last updated: 2026-11-07 (Windows run path on branch `windows-support`, not yet 
 - **Check-in 1 (architecture):** done. Material frozen in `docs/checkins/checkin1/`.
   Feedback: tell a story rather than list results; the team that explains the data best with good visuals wins,
   ideally with an interactive dashboard or small app.
-- **Check-in 2 (method gate, week of 19 Oct):** the code is done. `notebooks/02_reconcile.ipynb` runs on the full
+- **Check-in 2 (method gate, week of 19 Oct):** the code is done. `notebooks/deliverable.ipynb` (then named
+  `02_reconcile.ipynb`, D-060) runs on the full
   data (all eleven tasks in `docs/checkins/checkin2/CHECKIN2_PLAN.md` §6b), with fixture and robustness tests in
   `tests/`. Clean-kernel run done 17 Oct (`tests/run_notebook.sh`, 49 s; register checksum unchanged, see
   FINDINGS.md). Denominators for the proposed coverage and freshness checks written (D-041). Negative BUYs (D-043):
@@ -40,7 +43,7 @@ Last updated: 2026-11-07 (Windows run path on branch `windows-support`, not yet 
   still in the row; the book appears to drop their units (D-047, `outputs/02_blank_quantity.csv`, new rule
   `TXN_BLANK_QUANTITY_EVIDENCE`, catalog entry 2). Agreed: for Check-in 2 we show where the data is broken and how we
   treat it; we do not correct it.
-- **Code review (23 Oct):** notebook 02 checked rule by rule against RULES.md, and bug-hunted with the deck and figure
+- **Code review (23 Oct):** the deliverable notebook checked rule by rule against RULES.md, and bug-hunted with the deck and figure
   scripts. Fixed: the `sign_conflict` flag now covers negative rows of any status, and a blank-quantity rebook is not
   evaluable (D-048); R3 no longer subtracts a REVERSED row with nothing to offset (D-049); the wrong-sign holding is
   right for a negative SELL; the deck and figure scripts compute or assert their claims instead of typing them. The
@@ -48,7 +51,7 @@ Last updated: 2026-11-07 (Windows run path on branch `windows-support`, not yet 
   headline numbers did not. Deck rebuilt. Review finding for later: 9 rules in RULES.md have no code yet and 5 are
   only partly coded (Job B below).
 
-- **Error severity (30 Oct):** `notebooks/03_error_severity.ipynb` adds NAV sensitivity and distinct-account breadth using notebook 02's existing detections (D-050). Run the notebook to rebuild `outputs/03_severity.csv` and its fund, record and account drill-downs plus plot. Valuation coverage and scenario assumptions accompany each measure; unknown dollar effects remain visible. The severity chart now uses lettered markers, an aligned scenario/value key, and separate unknown-impact cards; PNG and PDF exports are available in `outputs/`. Dashboard integration and verified bond quote/quantity conventions remain future work.
+- **Error severity (30 Oct; merged into the deliverable 8 Nov):** section 11 of `notebooks/deliverable.ipynb` (formerly notebook 03, `03_error_severity.ipynb`; D-050, D-060) adds NAV sensitivity and distinct-account breadth using the register's detections. Run the notebook to rebuild `outputs/02_severity.csv` and its fund, record and account drill-downs plus the plot (`02_severity.png` / `.pdf`). Valuation coverage and scenario assumptions accompany each measure; unknown dollar effects remain visible. The severity chart uses lettered markers, an aligned scenario/value key, and separate unknown-impact cards. Dashboard integration and verified bond quote/quantity conventions remain future work.
 
 - **Sankey / UpSet integration (30 Oct):** merged the locally available `Sankey-Anomaly-Breakdown` branch into `main`. Offline anomaly and overlap views are built with `scripts/build_sankey.py` and `scripts/build_upset.py`; usage and counting contracts are in [SANKEY_GUIDE.md](SANKEY_GUIDE.md) and [UPSET_GUIDE.md](UPSET_GUIDE.md). These views retain their existing benchmark and assessment provenance; they do not measure NAV impact. New guides live in `docs/` rather than frozen check-in material. Remote refresh was unavailable because this checkout lacks GitHub authentication.
 
@@ -63,7 +66,7 @@ slide count). The register is unchanged on the full data; the Check-in decks wer
   is not an example now shows red); the header badge warns when the store is older than the register; a corporate-action trace reaches prices and
   FX; blank key halves; legends and search hint; book/custodian rows on another date or with an unreadable date are set
   aside and counted, never joined; rebooks of a CANCELLED ID with two quantities, or of a blank-ID CANCELLED row;
-  an unreadable USD rate; "not evaluable: other" now names its cause; notebook 03 under R3 and with an empty
+  an unreadable USD rate; "not evaluable: other" now names its cause; the severity section (then notebook 03) under R3 and with an empty
   scenario (it never ran on anything but the full data; the fixture test now runs it); the literal-ID self-check;
   the map listed `POS_REBUILD_MATCHES` on the Trade check line (RULES.md §5 says Position check; RULES.md kept);
   `check_docs.py` (scans `dashboard/README.md`, checks rule IDs); RULES.md cites outputs and config keys instead of
@@ -74,11 +77,12 @@ slide count). The register is unchanged on the full data; the Check-in decks wer
   rebooks that fit neither way; the NAV `reason` text cannot appear on a passing row (it is set only on the
   not-evaluable conditions).
 - **Declined (scope):** currency-level findings stay off record traces (D-056).
-- **For the team:** `scripts/findings.py` and `notebooks/02_quantity_mismatches.ipynb` apply different rules from
-  notebook 02; the list is in [DETECTOR_DIFFERENCES.md](DETECTOR_DIFFERENCES.md). Decide, record in DECISIONS.md,
+- **For the team:** `scripts/findings.py` and `notebooks/additional/02_quantity_mismatches.ipynb` apply different rules from
+  the deliverable notebook; the list is in [DETECTOR_DIFFERENCES.md](DETECTOR_DIFFERENCES.md). Decide, record in DECISIONS.md,
   then delete that file.
-- **Left latent, noted:** notebook 03 would fail if no scenario at all had records (not reachable with notebook 02's
-  findings today).
+- **Left latent, noted:** the severity section (section 11 of the deliverable, then notebook 03) would fail if no
+  scenario at all had records (not reachable with the register's findings today; since 8 Nov the fixture test runs
+  the section under every fixture config, and none of them is empty).
 
 ## Next: before Check-in 2
 
@@ -106,7 +110,7 @@ slide count). The register is unchanged on the full data; the Check-in decks wer
   - conflicting copies that differ only on fields that don't change a quantity (could become testable)
 
 - Tag the repo `checkin2`; `docs/checkins/checkin2/` becomes frozen.
-- Move notebook 02's code into `src/` + `run_all.py` (D-012): one command rebuilds every number. Two steps, so each
+- Move the deliverable notebook's code into `src/` + `run_all.py` (D-012): one command rebuilds every number. Two steps, so each
   can be checked: (1) move what exists, and prove every output is unchanged; (2) add the rules RULES.md states but no
   code runs yet, one at a time, as entries in a rule table (rule id, testable and fail conditions, config key for the
   threshold). Not coded today: `ACC_NOT_OPEN_ON_TRADE_DATE`, `ACC_REQUIRED_FIELDS`, `SEC_IDENTIFIER_VALID`,
@@ -138,11 +142,54 @@ Record the answer here when we get it, then add a decision.
    instructions acceptable?
 8. A negative BUY: wrong sign or wrong type? Needs the order side or the cash direction. (D-043)
 
+## Windows first run (8 Nov)
+
+The repo ran end to end on Windows 11 for the first time while the notebooks were merged (D-060): PowerShell for `uv`
+and `npm`, Git Bash (`C:\Program Files\Git\bin\bash.exe`) for the `.sh` scripts, as the README's Windows block says.
+What worked, what did not, and what a Windows teammate should know:
+
+- **Worked unchanged:** `tests/run_notebook.sh` (the deliverable in 96–97 s; from their new path,
+  `notebooks/additional/01_explore_tables.ipynb` in 130 s, `02_quantity_mismatches` in 12 s, `checkin1_evidence` in
+  18 s). With notebook 01's outputs present, the deliverable's reproduction checks fire ("settings equal to notebook 01:
+  True; same data: True ... variants that differ: 0" and "join counts equal notebook 01"). `uv run python -m unittest
+  discover tests` (45 tests), `tests/store_test.sh` (store contracts, the unit suite, `next build`) and
+  `scripts/build_findings.py` (register checksum unchanged). `tests/robustness_test.sh` passed in 10.6 min with the
+  `python3` workaround below, and its shuffle comparison now covers the four severity tables because they carry the
+  `02_` prefix (D-060).
+- **Notebook 03's `%run` (now gone):** `%run` splits its line on whitespace, so the absolute path it was given failed
+  with `File '...\School\Fall' not found` because the checkout path has spaces. The merge removed the `%run` (D-060);
+  nothing else in the repo uses one. The pre-merge baseline for the comparison in D-060 came from a throwaway copy of
+  notebook 03 with the path quoted.
+- **`python3` is the Microsoft Store stub:** `tests/fixture_test.sh` and `tests/robustness_test.sh` run their checks
+  with `python3 - <<'PY'`; on Windows `python3` on PATH is the Store launcher, so both scripts stop at that line. They
+  pass once a `python3` that runs `.venv/Scripts/python.exe` is first on PATH (fixture test: 41 checks, the severity
+  section under every config). Fix to make: call `uv run --quiet python -` there, as `tests/run_notebook.sh` does.
+- **`scripts/check_docs.py` reads files in the console code page:** `Path.read_text()` without an encoding is cp1252
+  on Windows, so the curly quotes in `docs/SANKEY_GUIDE.md` and `docs/UPSET_GUIDE.md` raise `UnicodeDecodeError`. Run
+  it as `uv run python -X utf8 scripts/check_docs.py` (passes), or add `encoding='utf-8'` to the script.
+- **`scripts/build_store.py` while `npm run dev` is running:** the build completes (about 2 min) but the final swap,
+  `os.replace(store.duckdb.building, store.duckdb)`, fails with `PermissionError: [WinError 5]`: Windows will not
+  replace a file another process holds open, where macOS and Linux would. Stop the dev server, then rerun the script
+  (it deletes a leftover `.building` file itself) or rename the finished `outputs/store.duckdb.building` into place.
+  Worth knowing for whoever runs the dashboard: the store the dev server had open was built 6 Nov without a register
+  (`store_info.member_source` = `examples`), so its Trace page shows example records only until the store is rebuilt.
+- **Playwright's browser is not installed by `npm ci`:** every `npm run test:e2e` test fails with "Looks like
+  Playwright was just installed" until `npx playwright install chromium` has run once on the computer (dashboard
+  README), or `DASHBOARD_TEST_BROWSER` names an installed browser. With Edge
+  (`C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`) all 20 browser tests pass (33 s).
+- **matplotlib outside a kernel:** the default backend is TkAgg, so the severity section's `plt.show()` opens a window
+  and blocks when the cells run as a script. `tests/prepare_dashboard_fixture.py` now sets `MPLBACKEND=Agg`, as
+  `tests/test_cross_platform.py` already did; nbconvert runs use the inline backend and are unaffected.
+- **Line endings:** the working copies of `tests/*.sh` were CRLF (checked out before PR #6 added the `.gitattributes`
+  rule; bash reads the `\r` as part of each command) and were rewritten with LF before the runs above; a fresh checkout
+  gets LF. Under `core.autocrlf=true` the notebooks are CRLF in the working copy and LF in git; the outputs stay LF
+  (`lineterminator='\n'`), as `tests/test_cross_platform.py` asserts.
+
 ## Housekeeping
 
 - **AI log:** `AI_Logs/` is local and gitignored (D-039). Brief §10 requires the prompts and responses that shaped
   the work: every teammate exports their chats into it before the final.
-- **Deferred minor items in notebook 02** (from the build review; none changes a release count today):
+- **Deferred minor items in the deliverable notebook** (from the build review; none changes a release count today):
   - the intro says notebook 01 checks assert when thresholds match; they also need the same data (D-018)
   - `import os` sits mid-cell in setup
   - the 3 "duplicate copies + REVERSED double offset" keys have no register line of their own (they are in
@@ -154,9 +201,9 @@ Docs known to disagree with a higher source. Fix, then remove the line.
 
 - `docs/figures/01_control_map.png` (`scripts/fig_control_map.py`) still shows the Check-in 1 bands; the dashboard map
   uses the office × stage grid (D-055). Redraw it for the final deck if the team wants one picture.
-- `notebooks/01_explore_tables.ipynb` mentions numbers "from PROJECT_SUMMARY section 5". That is history (the file
+- `notebooks/additional/01_explore_tables.ipynb` mentions numbers "from PROJECT_SUMMARY section 5". That is history (the file
   was deleted 16 Oct); leave it.
-- `notebooks/01_explore_tables.ipynb` labels negative quantities "confirmed (sign contradicts gross_amount)" (also
+- `notebooks/additional/01_explore_tables.ipynb` labels negative quantities "confirmed (sign contradicts gross_amount)" (also
   in `outputs/01_defect_log.csv`). D-043 says gross_amount confirms the size only. Reword when notebook 01 is next
   rerun.
 - `docs/checkins/checkin2/DECK_BRIEF.md` §4–§5 walk through the old 10-slide deck (cover, slides 1–10, backups). The

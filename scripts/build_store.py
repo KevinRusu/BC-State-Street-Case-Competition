@@ -8,8 +8,8 @@ Step by step:
    them and where their data comes from, joins, the control map's handoffs and the rules from docs/RULES.md that
    watch each one). Every rule ID, check and owner is checked against docs/RULES.md and scripts/framework.json.
 3. Join health for every join: rows, blank keys, distinct keys, keys found on one side only, rows per key. This
-   describes the RAW keys before notebook 02's cleaning; it is not a detection rule (D-001).
-4. Copy notebook 02's defect register (outputs/02_defect_register.csv), with the one map element each line counts
+   describes the RAW keys before the deliverable notebook's cleaning; it is not a detection rule (D-001).
+4. Copy the deliverable notebook's defect register (outputs/02_defect_register.csv), with the one map element each line counts
    on, its example IDs and the one the map traces (`trace_example`: the first, when its kind of ID is traceable),
    the rule texts from
    docs/RULES.md, the column descriptions from data_dictionary.csv, and the demo traces (the record of
@@ -18,10 +18,11 @@ Step by step:
    it yet; the build warns), map node and edge, and the status phrases, lead-ins and stage labels (`plain_text`).
 5. Write to a temporary file, then swap it in, so a running dashboard never sees a half-built store.
 
-Paths follow notebook 02: RECONCILIATION_DATA (manifest), RECONCILIATION_CONFIG, RECONCILIATION_OUTPUTS (register in,
-store out). STORE_PATH overrides where the store goes. A missing register is allowed (the map then has no counts).
+Paths follow the deliverable notebook: RECONCILIATION_DATA (manifest), RECONCILIATION_CONFIG, RECONCILIATION_OUTPUTS
+(register in, store out). STORE_PATH overrides where the store goes. A missing register is allowed (the map then has no
+counts).
 
-Run from the repo root after notebook 02: uv run python scripts/build_store.py
+Run from the repo root after the deliverable notebook: uv run python scripts/build_store.py
 """
 import csv, json, os, re, sys, tomllib
 from datetime import datetime
@@ -531,7 +532,7 @@ def read_register():
         for example in [e.strip() for e in row['examples'].split(',') if e.strip()]:
             examples.append(dict(line=order, rule_id=rule_id, finding=row['finding'], status=row['status'],
                                  id_kind=row['id kind'], record_id=example))
-    # Every record each line counts (notebook 02 writes the list beside the register). The list must belong to this
+    # Every record each line counts (the deliverable notebook writes the list beside the register). The list must belong to this
     # register: the same findings, and members exactly for the lines that affect something. Otherwise (no list, or
     # one from another run) the trace falls back to the examples, and the store says so.
     rows = []
@@ -546,7 +547,7 @@ def read_register():
                         id_kind=by_finding[row['finding']]['id_kind'], record_id=row['record_id']) for row in rows]
         return register, examples, members, 'members'
     print(f'  {MEMBERS.name} ' + ('does not match the register' if rows else 'missing') +
-          ': the trace shows register examples only (rerun notebook 02)')
+          ': the trace shows register examples only (rerun notebooks/deliverable.ipynb)')
     return register, examples, examples, 'examples'
 
 

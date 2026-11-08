@@ -12,7 +12,7 @@ export RECONCILIATION_DATA=tests/fixtures/small/manifest.csv
 export RECONCILIATION_OUTPUTS=$W
 export STORE_PATH=$W/store.duckdb          # relative on purpose: the builder and the app both start at the repo root
 
-tests/run_notebook.sh                       # notebook 02 on the fixture: the register the store copies
+tests/run_notebook.sh                       # the deliverable notebook on the fixture: the register the store copies
 uv run --quiet python scripts/build_store.py > "$W/build_store.log"
 uv run --quiet python - <<'PY'
 import os, duckdb

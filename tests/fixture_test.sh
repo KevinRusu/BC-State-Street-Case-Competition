@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Run notebook 02 on the small made-up fixture in tests/fixtures/small (same schema as the release; no row copied
-# from data/) and compare what it finds with what the fixture was built to contain. Outputs go to run_fixture_*,
-# never to outputs/. Runs: default config, rows shuffled, holding_date = settlement, a trace flag no key carries, and
-# an edge copy of the fixture (built below in tests/runs/fixture_edge) with inputs the release does not contain.
+# Run the deliverable notebook on the small made-up fixture in tests/fixtures/small (same schema as the release; no
+# row copied from data/) and compare what it finds with what the fixture was built to contain. Outputs go to
+# run_fixture_*, never to outputs/. Runs: default config, rows shuffled, holding_date = settlement, a trace flag no key
+# carries, an edge copy of the fixture (built below in tests/runs/fixture_edge) with inputs the release does not
+# contain, and an R3 copy under the R3 reading (its severity section is checked too).
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 W=tests/runs
@@ -116,7 +117,7 @@ for old, new in [('reversed_main = "R1"', 'reversed_main = "R3"'), ('reversed_si
     base = base.replace(old, new)
 open('tests/runs/config_fixture_r3.toml', 'w').write(base)
 PY
-run() {  # $1 = label, $2 = config path or empty, $3 = notebook (default: notebook 02)
+run() {  # $1 = label, $2 = config path or empty, $3 = notebook (default: the deliverable notebook)
   rm -rf "$W/run_fixture_$1"
   RECONCILIATION_OUTPUTS="$W/run_fixture_$1" RECONCILIATION_CONFIG="$2" tests/run_notebook.sh ${3:-} | tail -1
 }
@@ -125,7 +126,7 @@ run shuffled "$W/config_fixture_shuffled.toml"
 run settlement "$W/config_fixture_settlement.toml"
 run notrace "$W/config_fixture_notrace.toml"
 RECONCILIATION_DATA="$W/fixture_edge/manifest.csv" run edge ""
-RECONCILIATION_DATA="$W/fixture_r3/manifest.csv" run r3 "$W/config_fixture_r3.toml" notebooks/03_error_severity.ipynb
+RECONCILIATION_DATA="$W/fixture_r3/manifest.csv" run r3 "$W/config_fixture_r3.toml"
 RECONCILIATION_DATA="$W/fixture_r3/manifest.csv" run r3default ""
 uv run --quiet python - <<'PY'
 import glob, os, pandas as pd
@@ -258,12 +259,12 @@ expect('R3 trace on a negative REVERSED row -> wrong-sign value uses what the ch
        (['FXT29'], ['-20.0']),
        (trace_r3.loc[(trace_r3['hop'] == 'source') & (trace_r3['field'] == 'transaction_id'), 'value'].tolist(),
         trace_r3.loc[trace_r3['field'] == 'quantity under the wrong-sign reading', 'value'].tolist()))
-impact = read('r3', '03_impact_detail.csv')
+impact = read('r3', '02_impact_detail.csv')
 reversed_negative = impact[(impact['account_id'] == 'FXACC9') & impact['scenario'].str.contains('wrong-sign')]
-expect('R3 run, notebook 03: a negative BUY and its negative reversal -> wrong-sign scenario moves 0 units', [0.0],
+expect('R3 run, severity section: a negative BUY and its negative reversal -> wrong-sign scenario moves 0 units', [0.0],
        reversed_negative['delta_units'].astype(float).tolist())
 import json, re
-cells = json.load(open('notebooks/02_reconcile.ipynb'))['cells']
+cells = json.load(open('notebooks/deliverable.ipynb'))['cells']
 pattern = re.search(r"re\.findall\(r'(.+?)', source_text\)", ''.join(''.join(c['source']) for c in cells)).group(1)
 expect('literal-ID self-check covers every ID prefix in the release', [],
        [i for i in ['ACC1000001', 'SEC100001', 'TXN100000001', 'CA00001', 'FND00001', 'LDG000001', 'POS000000001',

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# T11: run notebook 02 as delivered, with every table's rows shuffled under several seeds, and with one threshold
+# T11: run the deliverable notebook as delivered, with every table's rows shuffled under several seeds, and with one threshold
 # changed; compare outputs. Restores the default outputs at the end. Exit non-zero on any unexpected difference.
 # The seeds are checked first: at least one of them must reverse the file order of the two REVERSED rows of an
 # original whose two reversals differ in quantity (the case where a row-order-dependent R3 would move a number).

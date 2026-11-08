@@ -1,4 +1,4 @@
-"""Draws the three new Check-in 2 charts from notebook 02's outputs (no number is typed in here).
+"""Draws the three new Check-in 2 charts from the deliverable notebook's outputs (no number is typed in here).
 
 1. 09_waterfall.png: positions that differ from the book under the raw rows, the Guide's BOOKED-only benchmark and
    our chain (02_waterfall.csv, compared with positions).
@@ -8,7 +8,7 @@
    (02_sensitivities.csv, compared with positions).
 
 Same look as figures 06 and 08: Arial, the deck's blue (#001AFF) for the bar the slide is about, grey for context,
-a label on every bar, no grid. Run from the repo root after notebook 02: uv run python scripts/fig_checkin2.py
+a label on every bar, no grid. Run from the repo root after the deliverable notebook: uv run python scripts/fig_checkin2.py
 """
 import sys
 from pathlib import Path
@@ -27,7 +27,7 @@ OUTPUTS, FIGURES = ROOT / "outputs", ROOT / "docs" / "figures"
 def read(name):
     path = OUTPUTS / name
     if not path.exists():
-        sys.exit(f"{path} not found: run notebook 02 first (tests/run_notebook.sh)")
+        sys.exit(f"{path} not found: run notebooks/deliverable.ipynb first (tests/run_notebook.sh)")
     return pd.read_csv(path)
 
 

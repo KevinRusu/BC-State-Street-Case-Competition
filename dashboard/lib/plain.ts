@@ -28,9 +28,9 @@ export function traceHeadline(query: string, marks: RegisterMark[], plain: Plain
   };
 }
 
-/** What the finding badges cover on a store with no full member list (notebook 02 run before it wrote one). */
+/** What the finding badges cover on a store with no full member list (the deliverable notebook run before it wrote one). */
 export const EXAMPLES_ONLY =
-  "Finding badges show only the register's example IDs: this store has no full member list (rerun notebook 02, then rebuild the store).";
+  "Finding badges show only the register's example IDs: this store has no full member list (rerun notebooks/deliverable.ipynb, then rebuild the store).";
 
 /** The note a no-finding headline needs on an examples-only store, where "nothing found" may only mean "not one of
  * the register's examples"; "" when the store marks every member or the record has a finding. */

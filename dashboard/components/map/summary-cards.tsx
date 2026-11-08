@@ -10,7 +10,7 @@ const CARDS = [
   { status: "cleared", label: "Cleared", meaning: "looked wrong, turned out fine" },
 ] as const;
 
-/** Notebook 02's register lines by evidence status: every one of them counts once somewhere on the map. */
+/** The deliverable notebook's register lines by evidence status: every one of them counts once somewhere on the map. */
 export function SummaryCards({ register }: { register: RegisterLine[] }) {
   const counts = totals(register);
   return (

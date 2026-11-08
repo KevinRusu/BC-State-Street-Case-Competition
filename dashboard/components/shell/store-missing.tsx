@@ -9,7 +9,7 @@ export function StoreMissing({ file }: { file: string }) {
           <CardTitle className="flex items-center gap-2">
             <DatabaseZap className="size-5 text-status-warn" /> No store built yet
           </CardTitle>
-          <CardDescription>The app reads one file, built by Python from the data and notebook 02&apos;s register.</CardDescription>
+          <CardDescription>The app reads one file, built by Python from the data and the deliverable notebook&apos;s register.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <p>From the repo root:</p>

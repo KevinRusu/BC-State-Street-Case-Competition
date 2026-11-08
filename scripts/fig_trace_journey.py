@@ -1,13 +1,13 @@
 """Draws Journey 3: the traced negative-quantity BUY, as the mirror of Check-in 1's clean trade (figure 06).
 
 How it works, step by step:
-1. Read the trace that notebook 02 wrote (outputs/02_trace.csv). Every ID and number on the figure comes from it,
+1. Read the trace that the deliverable notebook wrote (outputs/02_trace.csv). Every ID and number on the figure comes from it,
    or from the price and NAV checks for the security and fund the trace names (02_vendor_check.csv, 02_nav_check.csv).
 2. Fill the same six boxes as figure 06. The first box fails (our trade check would reject the row); the later
    boxes use the "missed" status: their check passed, but the record is wrong.
 3. Draw with draw_journey() from make_journeys_simple.py and save the PNG in the folder given on the command line.
 
-Run from the repo root after notebook 02: uv run python scripts/fig_trace_journey.py docs/figures
+Run from the repo root after the deliverable notebook: uv run python scripts/fig_trace_journey.py docs/figures
 """
 import csv
 import sys
@@ -26,7 +26,7 @@ OUTPUTS = ROOT / "outputs"
 def read_csv(name):
     path = OUTPUTS / name
     if not path.exists():
-        sys.exit(f"{path} not found: run notebook 02 first (tests/run_notebook.sh)")
+        sys.exit(f"{path} not found: run notebooks/deliverable.ipynb first (tests/run_notebook.sh)")
     with open(path, newline="") as f:
         return list(csv.DictReader(f))
 

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Execute a notebook headless as committed (no rebuild); exit non-zero if any cell raised. Default: notebook 02;
-# pass another path (e.g. notebooks/03_error_severity.ipynb, which reruns notebook 02 first) as the first argument.
-# Honours RECONCILIATION_CONFIG / RECONCILIATION_DATA / RECONCILIATION_OUTPUTS (see notebook 02's first cell).
+# Execute a notebook headless as committed (no rebuild); exit non-zero if any cell raised. Default: the deliverable
+# notebook; pass another path (e.g. one under notebooks/additional/) as the first argument.
+# Honours RECONCILIATION_CONFIG / RECONCILIATION_DATA / RECONCILIATION_OUTPUTS (see the deliverable's first cell).
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
-NOTEBOOK=${1:-notebooks/02_reconcile.ipynb}
+NOTEBOOK=${1:-notebooks/deliverable.ipynb}
 W=tests/runs
 mkdir -p $W
 start=$(date +%s)

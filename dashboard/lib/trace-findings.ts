@@ -1,4 +1,4 @@
-// Presentation of notebook 02's register: every record a line counts. This does not run new detection rules.
+// Presentation of the deliverable notebook's register: every record a line counts. This does not run new detection rules.
 import { REGISTER_STATUS, HOP_STATUS } from "./status";
 import type { Counts } from "./findings";
 import type { Hop, HopStatus, RegisterMark, Row } from "./types";

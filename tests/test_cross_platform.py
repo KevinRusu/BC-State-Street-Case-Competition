@@ -1,4 +1,4 @@
-"""The doc scripts and notebook 02 give the same results on Windows and Mac.
+"""The doc scripts and the deliverable notebook give the same results on Windows and Mac.
 
 Run from the repo root: uv run python -m unittest tests/test_cross_platform.py -v
 """
@@ -64,12 +64,12 @@ class RegisterChecksumTests(unittest.TestCase):
 
 
 class NotebookLineEndingTests(unittest.TestCase):
-    """Runs notebook 02 on the small made-up fixture (about 15 s) as if on Windows."""
+    """Runs the deliverable notebook on the small made-up fixture (about 15 s) as if on Windows."""
 
     def test_notebook_outputs_use_unix_line_endings_on_windows(self):
         from IPython.core.interactiveshell import InteractiveShell
 
-        notebook = json.loads((ROOT / "notebooks/02_reconcile.ipynb").read_text(encoding="utf-8"))
+        notebook = json.loads((ROOT / "notebooks/deliverable.ipynb").read_text(encoding="utf-8"))
         with tempfile.TemporaryDirectory() as out:
             env = {
                 "RECONCILIATION_DATA": str(ROOT / "tests/fixtures/small/manifest.csv"),

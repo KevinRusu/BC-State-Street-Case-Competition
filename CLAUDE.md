@@ -60,7 +60,7 @@ treat it as current, and don't edit it once that check-in is over.
 - You made a treatment or scope choice: append it to `docs/DECISIONS.md` (never rewrite old entries).
 - The state changed (something done, started or blocked): update `docs/STATUS.md` and its date.
 - New rule: `docs/RULES.md`. New threshold: `config/`.
-- Dashboard or store changed, or notebook 02's outputs did: `uv run python scripts/build_store.py`, then
+- Dashboard or store changed, or the deliverable notebook's outputs did: `uv run python scripts/build_store.py`, then
   `tests/store_test.sh` and, inside `dashboard/`, `npm test` and `npm run test:e2e`.
 - Run `uv run python scripts/check_docs.py` and the test for what you touched.
 
@@ -68,13 +68,12 @@ treat it as current, and don't edit it once that check-in is over.
 
 ```bash
 uv sync                                      # set up the environment
-tests/run_notebook.sh                        # run notebook 02 headless on the full data (~1 min); rebuilds outputs/
-tests/run_notebook.sh notebooks/03_error_severity.ipynb   # notebook 03 (reruns 02 first; ~1.5 min)
-tests/fixture_test.sh                        # notebooks 02 and 03 on the made-up fixture (~25 s)
+tests/run_notebook.sh                        # run the deliverable notebook headless on the full data (~1.5 min); rebuilds outputs/
+tests/fixture_test.sh                        # the deliverable notebook on the made-up fixture (~25 s)
 tests/robustness_test.sh                     # shuffled rows + one threshold change (~5 min, ~4 GB RAM)
 uv run python scripts/build_findings.py      # outputs/02_defect_register.csv -> docs/FINDINGS.md
 uv run python scripts/check_docs.py          # broken paths in living docs, stale FINDINGS
-uv run python scripts/build_store.py         # data + notebook 02 outputs -> outputs/store.duckdb (~15 s)
+uv run python scripts/build_store.py         # data + the deliverable's outputs -> outputs/store.duckdb (~15 s)
 tests/store_test.sh                          # store contracts, dashboard unit tests and a production build
 cd dashboard && npm run dev                  # the dashboard on http://127.0.0.1:3000
 ```

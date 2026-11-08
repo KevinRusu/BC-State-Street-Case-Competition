@@ -36,7 +36,7 @@ export async function StoreBadge() {
           </>
         )}
         Built {info.builtAt.replace("T", " ")} · snapshot {info.snapshotDate} · manifest {info.manifestChecksum} · {info.registerLines} register lines. Rebuild
-        with scripts/build_store.py after notebook 02.
+        with scripts/build_store.py after notebooks/deliverable.ipynb.
       </TooltipContent>
     </Tooltip>
   );

@@ -464,8 +464,8 @@ function Note() {
   return (
     <p className="flex gap-2 rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
       <Info className="mt-0.5 size-3.5 shrink-0" />
-      Key counts describe the raw data, before notebook 02&apos;s cleaning. Findings and their counts come from notebook
-      02&apos;s register; this app detects nothing itself.
+      Key counts describe the raw data, before the deliverable notebook&apos;s cleaning. Findings and their counts come from
+      that notebook&apos;s register; this app detects nothing itself.
     </p>
   );
 }

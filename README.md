@@ -43,8 +43,15 @@ data/              raw competition data (.csv.gz): read-only, never write here
 reference/         brief, dataset guide, working guide as Markdown (tracked)
   official/        original PDF and Word files (NOT committed, copy them in from the package)
 config/            thresholds and rule settings (never hard-code these in code)
-notebooks/         analysis and evidence notebooks (edit the .ipynb directly); 02_reconcile is the one that
-                   writes the register; 03_error_severity adds NAV sensitivity and account breadth
+notebooks/         edit the .ipynb directly (D-037)
+  deliverable.ipynb  the code deliverable (brief §7): loads the release, rebuilds and reconciles positions,
+                   checks price inputs and ledger arithmetic, writes the defect register and the error-severity
+                   measures -> outputs/02_* (the files everything downstream reads)
+  additional/      notebooks that neither the deliverable nor the dashboard needs to run:
+    01_explore_tables.ipynb       exploration of the ten tables; when its outputs/01_*.csv exist, the
+                                  deliverable also checks that it reproduces them
+    02_quantity_mismatches.ipynb  an alternative detector, pending the team's decision (docs/DETECTOR_DIFFERENCES.md)
+    checkin1_evidence.ipynb       the numbers behind the Check-in 1 report
 dashboard/         local Next.js app over outputs/store.duckdb (see dashboard/README.md); never deploy it
 web/               the offline Sankey and UpSet views (built by scripts/build_sankey.py, build_upset.py)
 scripts/           build figures, the framework workbook and docs/FINDINGS.md; check the docs
@@ -72,7 +79,7 @@ data_dictionary.csv
 To rebuild a figure, run its script with an output path, for example
 `uv run python scripts/fig_detection.py docs/figures/03_detection_matrix.png`.
 
-After rerunning notebook 02, regenerate the findings and check the docs:
+After rerunning the deliverable notebook, regenerate the findings and check the docs:
 
 ```bash
 uv run python scripts/build_findings.py
@@ -83,9 +90,9 @@ uv run python scripts/check_docs.py
 
 Run from the repo root. The notebook tests run the committed notebooks headless, without rebuilding them.
 
-- `tests/fixture_test.sh` (~25 s): runs notebook 02 on the made-up data in `tests/fixtures/small/` under the default
-  config, shuffled rows, `holding_date = "settlement"`, a trace flag no key carries and an edge copy of the fixture,
-  then notebook 03 under the R3 reading, and checks the outcomes the fixture was built to contain.
+- `tests/fixture_test.sh` (~25 s): runs the deliverable notebook on the made-up data in `tests/fixtures/small/` under
+  the default config, shuffled rows, `holding_date = "settlement"`, a trace flag no key carries, an edge copy of the
+  fixture and the R3 reading, and checks the outcomes the fixture was built to contain.
 - `tests/robustness_test.sh` (~5 min): runs the release with rows shuffled under several seeds and with one
   threshold changed, and checks that only what should move does. About 4 GB RAM per run; it leaves the default
   run in `outputs/`.

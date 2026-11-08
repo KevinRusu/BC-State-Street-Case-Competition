@@ -13,7 +13,7 @@ You need uv and Node.js 20.9 or newer (Windows setup: the root [README](../READM
 
 ```bash
 uv sync                                   # once: Python environment (the store builder and the notebook need it)
-tests/run_notebook.sh                     # notebook 02 -> outputs/02_*.csv (the register the app shows)
+tests/run_notebook.sh                     # the deliverable notebook -> outputs/02_*.csv (the register the app shows)
 uv run python scripts/build_store.py      # data + register -> outputs/store.duckdb (~15 s, ~400 MB)
 cd dashboard
 npm install                               # once
@@ -21,7 +21,7 @@ npx next telemetry disable                # once: Next.js sends no usage data
 npm run dev                               # http://127.0.0.1:3000
 ```
 
-Rebuild the store after notebook 02 changes; the app picks up the new file on the next page load.
+Rebuild the store after the deliverable notebook changes; the app picks up the new file on the next page load.
 `npm run build && npm start` runs the production version (same address).
 
 ## How it works

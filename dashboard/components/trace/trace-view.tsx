@@ -267,7 +267,7 @@ function TechnicalDetails({ trace, allMembers }: { trace: FoundTrace; allMembers
         </div>
         {trace.marks.length > 0 && (
           <div className="space-y-1.5">
-            <div className="text-xs text-muted-foreground">Notebook 02&apos;s register lines that count this record, its account, security or key:</div>
+            <div className="text-xs text-muted-foreground">The deliverable notebook&apos;s register lines that count this record, its account, security or key:</div>
             <ul className="space-y-1">
               {trace.marks.map((mark) => (
                 <li key={`${mark.line}-${mark.recordId}`} className="flex flex-wrap items-center gap-2 text-sm">

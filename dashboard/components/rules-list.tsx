@@ -2,7 +2,7 @@ import { RegisterStatus } from "@/components/common";
 import { fmt } from "@/lib/status";
 import type { RegisterLine, RuleText } from "@/lib/types";
 
-/** Each rule (text from docs/RULES.md) with the lines notebook 02's register holds for it. */
+/** Each rule (text from docs/RULES.md) with the lines the deliverable notebook's register holds for it. */
 export function RulesList({ ruleIds, catalog, register }: { ruleIds: string[]; catalog: RuleText[]; register: RegisterLine[] }) {
   if (!ruleIds.length) return <p className="text-sm text-muted-foreground">No rule sits here yet.</p>;
   return (

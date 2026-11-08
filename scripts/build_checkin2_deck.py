@@ -4,8 +4,8 @@ Seven slides, one per item on the brief's Check-in 2 "Bring this" list (brief §
 cover and no question slide: the dashboard is shown live beside it.
 
 Step by step:
-1. facts() reads every number and ID from notebook 02's outputs (outputs/02_*.csv) and the register checksum from
-   docs/FINDINGS.md. Nothing on a slide is typed in: rerun notebook 02, scripts/fig_trace_journey.py, then this
+1. facts() reads every number and ID from the deliverable notebook's outputs (outputs/02_*.csv) and the register
+   checksum from docs/FINDINGS.md. Nothing on a slide is typed in: rerun the notebook, scripts/fig_trace_journey.py, then this
    script, and the deck follows the data.
 2. One function per slide writes the deliverable as the header, the finding as one sentence under it, one exhibit (a
    native chart the team can edit, a small table or the trace figure), at most three short cards, and short speaker
@@ -60,7 +60,7 @@ ITEMS = 6                                   # brief §8, Check-in 2 "Bring this"
 def read(name):
     path = OUTPUTS / name
     if not path.exists():
-        sys.exit(f"{path} not found: run notebook 02 first (tests/run_notebook.sh)")
+        sys.exit(f"{path} not found: run notebooks/deliverable.ipynb first (tests/run_notebook.sh)")
     return pd.read_csv(path, keep_default_na=False)
 
 

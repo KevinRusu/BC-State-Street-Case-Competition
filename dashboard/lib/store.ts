@@ -467,7 +467,7 @@ export async function traceRecord(query: string): Promise<TraceResult> {
       }
     }
 
-    // 3. Where this record, its account, its security or their key is counted by a line of notebook 02's register.
+    // 3. Where this record, its account, its security or their key is counted by a line of the deliverable notebook's register.
     const ids = [...new Set([id, account, security, account && security && `${account}/${security}`])]
       .filter((v): v is string => Boolean(v));
     const members = (await hasTable(con, "register_members")) ? "register_members" : "register_examples";

@@ -606,3 +606,37 @@ Made while building notebook 02 and fixing review findings. Source: *build log*,
   path and stay bash.
 - **Moves:** no register number, no detection, no code change. Not yet tried on Windows by us: the first Windows run
   of this branch is the test (STATUS, "Where we are").
+
+### D-060 · 8 Nov · One deliverable notebook, `notebooks/deliverable.ipynb`; the other notebooks in `notebooks/additional/`
+
+- **Decision:** `notebooks/02_reconcile.ipynb` is renamed `notebooks/deliverable.ipynb` (git keeps the history) and
+  `notebooks/03_error_severity.ipynb` is folded into it as section 11 (Error severity), before the run record, which
+  becomes section 12. The severity outputs are renamed `03_*` -> `02_*` (`02_severity.csv`, `02_fund_impact.csv`,
+  `02_impact_detail.csv`, `02_account_membership.csv`, `02_severity.png` / `.pdf`), so `02_` is the prefix of
+  everything the notebook writes. Notebook 03 is deleted. `01_explore_tables.ipynb`, `02_quantity_mismatches.ipynb` and
+  `checkin1_evidence.ipynb` move to `notebooks/additional/`.
+- **Why:** brief §7 asks for one code package that "loads the full release, reconstructs and reconciles positions,
+  checks price inputs and ledger arithmetic, and regenerates scores and impact measures". The file a judge opens
+  should say that it is the deliverable, and `notebooks/` should show one entry point. Notebook 03 was four cells
+  that `%run` notebook 02 and used its variables: one computation in two files. On Windows that `%run` failed on a
+  repo path with a space in it (`...\School\Fall 2026 Fall into ...`); the merged notebook has no `%run`.
+- **Output prefix kept:** the 17 `02_*` files are read by `build_findings.py`, `build_store.py`, `check_docs.py`,
+  the deck and figure scripts, every test and the frozen check-in docs; renaming them would touch about 35 files for
+  no information. The severity files take the `02_` prefix so that the run record's `02_*.csv` glob and
+  `tests/robustness_test.sh` cover them without a code change.
+- **A folder, not deletion, for the other notebooks:** notebook 01 is a live cross-check (the deliverable reproduces
+  `outputs/01_rebuild_steps.csv` and `01_cross_check.csv` when they exist, D-018; `scripts/findings.py` reads its
+  text through `config/findings.json`); `02_quantity_mismatches` awaits the team's decision
+  (`docs/DETECTOR_DIFFERENCES.md`); `checkin1_evidence` is cited by the frozen Check-in 1 docs. The folder is
+  `additional/`, lowercase and without a space like every other path here (`check_docs.py` cannot check a path with
+  a space). `load_data.ipynb` stays at the root beside `manifest.csv` (the provided loader).
+- **Code changes, all cosmetic:** in the merged section the `to_csv` call writes Unix line endings like the rest of
+  the notebook (`tests/test_cross_platform.py` asserts it), and comments and file names say `02_` and "section 2b".
+  `checkin1_evidence.ipynb` finds the repo root by walking up to `manifest.csv` (it assumed `notebooks/` was its
+  parent). `tests/prepare_dashboard_fixture.py` sets `MPLBACKEND=Agg` as `test_cross_platform.py` already did: the
+  severity plot's `plt.show()` would open a Tk window when the cells run outside a kernel. `tests/fixture_test.sh`
+  runs the severity section under every fixture config (before, only the R3 run executed notebook 03).
+- **History:** D-012 and D-050 stand as written, with the old names. `docs/checkins/` keeps the names used at the
+  time.
+- **Moves:** no register number, no detection, no severity number: the register checksum is unchanged
+  (`d7e752f55f0a`) and the `02_severity*` files equal the former `03_*` files on the full data (STATUS, 8 Nov).

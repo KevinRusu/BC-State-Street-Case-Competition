@@ -44,13 +44,15 @@ class FindingIdentityTests(unittest.TestCase):
 def write_fixture(root, shuffle=False, with_terms=True):
     (root/"data").mkdir()
     (root/"config").mkdir()
-    (root/"notebooks").mkdir()
     for name in ("findings.json","exploration.toml"):
         shutil.copyfile(ROOT/"config"/name,root/"config"/name)
-    nb=json.loads((ROOT/"notebooks/01_explore_tables.ipynb").read_text(encoding="utf-8"))
+    # The assessment notebook sits where config/findings.json says (notebooks/additional/ since D-060).
+    notebook=json.loads((ROOT/"config/findings.json").read_text(encoding="utf-8"))["assessment_notebook"]
+    nb=json.loads((ROOT/notebook).read_text(encoding="utf-8"))
     if not with_terms:
         nb["cells"]=[c for c in nb["cells"] if "GUIDE_FIELD_USE =" not in "".join(c.get("source",[]))]
-    (root/"notebooks/01_explore_tables.ipynb").write_text(json.dumps(nb),encoding="utf-8")
+    (root/notebook).parent.mkdir(parents=True)
+    (root/notebook).write_text(json.dumps(nb),encoding="utf-8")
     columns={}
     for name in ["transactions","pipeline_events","positions","comparison_positions","accounts","securities","corporate_actions","prices","fx_rates"]:
         with gzip.open(ROOT/f"data/{name}.csv.gz","rt",encoding="utf-8",newline="") as stream:
