@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-10 (timeliness merged, PR #9, D-065; two Windows fixes on branch `windows-fixes`)
+Last updated: 2026-11-10 (Windows fixes merged, PR #10; Check-in 3 order and scope agreed, D-066)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
@@ -117,11 +117,36 @@ slide count). The register is unchanged on the full data; the Check-in decks wer
 
 ## Next: toward Check-in 3 (week of 9 Nov)
 
-- **Review the catalog draft** (six entries): one teammate per entry checks the prose and fills *Reviewed by* in
-  `docs/DEFECT_CATALOG.md`. Still open from before Check-in 2.
+Order agreed 10 Nov (D-066): after step 1 we add no new checks; the rest is depth, robustness and the story.
+Check-in 3 list (brief §8): full-data reconciliation, quality checks, scores with impact and coverage, sensitivity
+and stress tests, roadmap, working executive view, complete slide draft.
 
-- **Open the groups we have only counted** (agreed 21 Oct, for Check-in 3's quality checks). Each is a register line or
-  an output row that nobody has looked inside yet:
+1. **Quality checks (next session, Kevin).** Price data quality: `PRC_QUOTE_ELIGIBLE` coverage and freshness with
+   the D-041 denominators, and a look inside the vendor-spread and scale flags (confirmed, unresolved or cleared).
+   Finish the partly coded rules: `TXN_FIELDS_VALID` (T+2 in business days, amount tolerance, blank price),
+   `FX_RATE_VALID` (uniqueness, rate > 0, day-on-day band), `TXN_DUPLICATE` (same economics, new ID),
+   `TXN_CORRECTION_LINK` (same account and security). Their thresholds are not in the config yet (T+2 limit, FX
+   band). Every check publishes pass, fail and not-evaluable counts for the scorecard. Same workflow as timeliness
+   (spec, plan, TDD, code review), plus a session summary beside the spec and plan.
+2. **Scorecard and indicators (Kevin).** Brief §5: scores at account, domain and platform level with formulas,
+   weights, aggregation rules and a sensitivity check; evaluable coverage beside every score; at least six
+   indicators, three leading, marked computed, simulated or proposed (at least three computed, one of them leading).
+   Picks up App. B's week-over-week doubling, left by the timeliness session.
+3. **Stress test (Kevin).** On a copy of the data, inject one new defect and one valid look-alike; record the changed
+   fields and expected outcomes; report before and after, false positives and misses (brief §5). The row-shuffle
+   half is done (`tests/robustness_test.sh`).
+4. **Executive view (Kevin).** Confirm the dashboard has one functional executive view with drill-down to
+   record-level evidence (brief §5 Dashboard), probably showing the scorecard; add it if not.
+
+- **Team:** review the catalog draft (six entries; one teammate per entry checks the prose and fills *Reviewed by*
+  in `docs/DEFECT_CATALOG.md`, still open from before Check-in 2); the roadmap; the complete slide draft.
+
+## After Check-in 3: toward the final (week of 16 Nov)
+
+- **Open the groups we have only counted** (agreed 21 Oct) and turn them into the three defect traces and two
+  cleared look-alikes the final needs (brief §5 "Trace back to origin"). Suggested: start with the classes that
+  carry the largest exposure in the severity section, so the traces match the deck's "why it matters". Each is a
+  register line or an output row that nobody has looked inside yet:
   - break classes "Custodian differs from both the book and the trades", "Book and custodian agree on a quantity the
     trades do not explain" and "Book and custodian hold the opposite sign to the trades"
   - "Position with no contributing trade", and the keys not evaluable only in the rebuild
@@ -129,26 +154,17 @@ slide count). The register is unchanged on the full data; the Check-in decks wer
   - "CANCELLED row linked to an ID that does not exist", "More than one REVERSED row per original", "settlement_date
     before trade_date"
   - the backtest misses on rows with no link (`outputs/02_blank_quantity.csv`, part "backtest")
-  - the NAV fails and the vendor spread and scale flags
+  - the NAV fails (the vendor spread and scale flags move to step 1 above)
   - conflicting copies that differ only on fields that don't change a quantity (could become testable)
-
-- Move the deliverable notebook's code into `src/` + `run_all.py` (D-012): one command rebuilds every number. Two steps, so each
-  can be checked: (1) move what exists, and prove every output is unchanged; (2) add the rules RULES.md states but no
-  code runs yet, one at a time, as entries in a rule table (rule id, testable and fail conditions, config key for the
-  threshold). Not coded today: `ACC_NOT_OPEN_ON_TRADE_DATE`, `ACC_REQUIRED_FIELDS`, `SEC_IDENTIFIER_VALID`,
-  `TXN_SECURITY_NOT_MASTERED`, `NAV_SHARE_CLASS_MAPPING`,
-  `NAV_OPEN_ISSUES_BEFORE_RELEASE` (needs materiality), `CA_ALL_HOLDERS_ADJUSTED` (needs a posting log). Partly coded:
-  `TXN_DUPLICATE` (same economics, new ID), `TXN_FIELDS_VALID` (T+2 in business days, amount tolerance, blank
-  price), `TXN_CORRECTION_LINK` (same account and security), `FX_RATE_VALID` (uniqueness, rate > 0, day-on-day band),
-  `PRC_QUOTE_ELIGIBLE` (coverage and freshness, D-041). Thresholds these need are not in the config yet (T+2 limit,
-  FX band, NAV materiality). Coded since: `TXN_TIMESTAMPS_IN_ORDER`, `TXN_AFTER_CUTOFF` (10 Nov, D-065).
-- Check-in 3 list (brief §8): full-data reconciliation, quality checks, scores with impact and coverage,
-  sensitivity and stress tests, roadmap, working executive view, complete slide draft.
+- Wireframes for the three office personas (brief §5 Dashboard).
 - Final (brief §5, §7): three defect traces and two cleared look-alikes; timeliness by feed and day; scores at
   account, domain and platform level with coverage; at least six indicators (three leading); stress test with one
   injected defect and one valid look-alike; executive dashboard with record-level drill-down plus wireframes for the
   three offices; event-adjusted corporate-action scenario (D-016); second trace on the 100x price (D-014).
 - Final deck: new, in `docs/final/`, with speaker notes beside it. Suggested shape: Working Guide §8.
+- Later, no date: move the deliverable notebook's code into `src/` + `run_all.py` (D-012) so one command rebuilds
+  every number; move what exists and prove every output is unchanged. The rules RULES.md states with no code stay
+  proposed controls and are not coded (D-066). Advanced valuation is optional and comes last.
 
 ## Open questions for faculty
 
