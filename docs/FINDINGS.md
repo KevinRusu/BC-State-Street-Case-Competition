@@ -4,12 +4,12 @@
 `notebooks/deliverable.ipynb`, then the script. Full write-ups of the classes we take forward are in
 `docs/DEFECT_CATALOG.md`.*
 
-- Register checksum: `d7e752f55f0a` (built at commit `d608d62`)
-- Run: config `reconciliation.toml`, snapshot 2026-07-10, shuffle seed 0, 94.6 s
-- 39 findings: 17 confirmed, 21 unresolved, 1 cleared
+- Register checksum: `cbc9d8763346` (built at commit `e5ff212`)
+- Run: config `reconciliation.toml`, snapshot 2026-07-10, shuffle seed 0, 90.7 s
+- 46 findings: 22 confirmed, 23 unresolved, 1 cleared
 - Denominators: eligible + not evaluable = population (D-027 in `docs/DECISIONS.md`).
 
-## Confirmed (17)
+## Confirmed (22)
 
 | finding | stage | unit | affected | eligible | not evaluable | rule | examples |
 |---|---|---|---|---|---|---|---|
@@ -30,8 +30,13 @@
 | Held security with no price at all | pricing | position rows | 1,118 | 480,663 | 0 | PRC_QUOTE_ELIGIBLE | SEC188562, SEC204363, SEC219998 |
 | Price with no FX rate for its currency on the price date | pricing | price rows | 1,080 | 539,970 | 0 | FX_RATE_COVERAGE (added) | XYZ |
 | NAV arithmetic does not hold (net_assets / shares_outstanding vs nav_per_share) | NAV | ledger rows | 40 | 2,000 | 0 | NAV_ARITHMETIC | LDG0000016, LDG0000102, LDG0000110 |
+| Pipeline timestamp missing | pipeline | transaction_ids | 1,268 | 1,407,428 | 0 | TXN_TIMESTAMPS_IN_ORDER | TXN100002722, TXN100003705, TXN100004289 |
+| Pipeline timestamp unparseable | pipeline | transaction_ids | 0 | 1,407,428 | 0 | TXN_TIMESTAMPS_IN_ORDER |  |
+| Pipeline timestamps out of order | pipeline | transaction_ids | 1,797 | 1,406,160 | 1,268 | TXN_TIMESTAMPS_IN_ORDER | TXN100001128, TXN100001922, TXN100003011 |
+| Booked after cutoff | pipeline | transaction_ids | 5,744 | 1,405,631 | 1,797 | TXN_AFTER_CUTOFF | TXN100000564, TXN100001239, TXN100001416 |
+| Published after cutoff | pipeline | transaction_ids | 5,921 | 1,407,421 | 7 | TXN_AFTER_CUTOFF | TXN100000564, TXN100001239, TXN100001416 |
 
-## Unresolved (21)
+## Unresolved (23)
 
 | finding | stage | unit | affected | eligible | not evaluable | rule | examples |
 |---|---|---|---|---|---|---|---|
@@ -56,6 +61,8 @@
 | Book, custodian and trades all differ; no cause rule fits | positions | keys | 2 | 478,026 | 2,836 | POS_REBUILD_MATCHES | ACC2136711/SEC293070, ACC6430464/SEC474787 |
 | Position with no contributing trade | positions | keys | 384 | 478,026 | 2,836 | POS_REBUILD_MATCHES | ACC1018875/SEC644939, ACC1021585/SEC164305, ACC1031593/SEC679529 |
 | Rebuilt quantity differs from the book (Guide's BOOKED-only benchmark) | positions | keys | 1,625 | 477,639 | 2,797 | POS_REBUILD_MATCHES | ACC1000696/SEC836970, ACC1001641/SEC746810, ACC1009764/SEC115369 |
+| Feed latency: daily median above the feed's limit | pipeline | feed-days | 0 | 90 | 0 | TXN_TIMESTAMPS_IN_ORDER |  |
+| Processing latency: daily median above the feed's limit | pipeline | feed-days | 0 | 90 | 0 | TXN_TIMESTAMPS_IN_ORDER |  |
 
 ## Cleared (1)
 

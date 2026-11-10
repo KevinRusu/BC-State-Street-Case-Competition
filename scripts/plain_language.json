@@ -65,7 +65,14 @@
   "Closed position not reported (trades net to zero, absent from book and custodian)": "The trades add up to zero and neither the book nor the custodian lists the holding.",
   "NAV arithmetic does not hold (net_assets / shares_outstanding vs nav_per_share)": "The fund's net assets divided by its shares does not equal its published price per share (NAV); which figure is wrong is unknown.",
   "Custodian differs from both the book and the trades (custodian on settlement-date basis)": "The custodian disagrees with the book and the trades but matches the trades counted by settlement date; it may count only settled trades.",
-  "Book differs from both the custodian and the trades (unexplained)": "The book's quantity disagrees with both the custodian and the trades, which agree with each other; no known cause fits."
+  "Book differs from both the custodian and the trades (unexplained)": "The book's quantity disagrees with both the custodian and the trades, which agree with each other; no known cause fits.",
+  "Pipeline timestamp missing": "The trade's processing record has no time for at least one step (event, receipt, booking, publication or cutoff), or the trade has no processing record at all.",
+  "Pipeline timestamp unparseable": "At least one step time in the trade's processing record is written in a form that does not read as a date and time.",
+  "Pipeline timestamps out of order": "The trade's processing times run backwards: a later step (receipt, booking or publication) is stamped before an earlier one.",
+  "Feed latency: daily median above the feed's limit": "On this day, at least half of this feed's trades took longer than the time limit we set to reach the platform after they happened.",
+  "Processing latency: daily median above the feed's limit": "On this day, at least half of this feed's trades took longer than the time limit we set to be booked after the platform received them.",
+  "Booked after cutoff": "The trade was booked after that day's cutoff time, so it falls into the next day's cycle.",
+  "Published after cutoff": "The trade was published after that day's cutoff time, so it falls into the next day's cycle."
  },
  "nodes": {
   "accounts": "The list of client accounts, each with its fund, share class and the dates it opened and closed.",

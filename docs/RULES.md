@@ -1,6 +1,6 @@
 # Rules: the detailed rules under our 7 checks
 
-Last updated: 2026-11-06
+Last updated: 2026-11-10
 
 *Built 12 Oct 2026 from the old spine workbook (`Spine_Checkin1_v0.3.xlsx`, in git history); rule gaps added 16 Oct (D-036 in `docs/DECISIONS.md`). Thresholds live in `config/*.toml`; which rules have run, and what they found, is in `docs/FINDINGS.md`.*
 
@@ -43,8 +43,8 @@ Last updated: 2026-11-06
 | `TXN_CORRECTION_LINK` | related_transaction_id points to an existing transaction, not to itself, with the same account and security; CANCELLED/REVERSED/BOOKED combinations follow the stated rule; no double offset | hold | REVERSED semantics unresolved until the data owner tells us what REVERSED means |
 | `TXN_ONE_REVERSAL_PER_ORIGINAL` | At most one REVERSED row points to each BOOKED original | hold | Added 16 Oct (Check-in 2 register). Counts: `outputs/02_defect_register.csv`, line "More than one REVERSED row per original" |
 | `TXN_PIPELINE_ONE_TO_ONE` | Every transaction_id has exactly one pipeline_events record and every pipeline record has one transaction | hold | Added 16 Oct (Check-in 2 register). Counts: `outputs/02_defect_register.csv`, line "Repeated transaction_id in the pipeline" |
-| `TXN_TIMESTAMPS_IN_ORDER` | event ≤ received ≤ booked ≤ published; all timestamps present and parseable; received − event within the feed's latency limit (per source_system) | flag | Missing / out-of-order timestamps reported separately, never as on time |
-| `TXN_AFTER_CUTOFF` | booked_timestamp and published_timestamp ≤ cutoff_timestamp; late trades carried to the next cycle with a flag | flag |  |
+| `TXN_TIMESTAMPS_IN_ORDER` | event ≤ received ≤ booked ≤ published; all timestamps present and parseable; the daily median of received − event (feed latency) and of booked − received (processing latency) per feed within that feed's limit (`[timeliness] feed_latency_limit_minutes`, `processing_latency_limit_minutes` in `config/reconciliation.toml`; brief App. B judges the daily median by feed) | flag | Coded 10 Nov (D-065, notebook section 9b). Missing, unparseable and out-of-order timestamps reported separately, never as on time; a negative interval is out of order, not zero latency. Measures by feed and day: `outputs/02_timeliness.csv`. Counts: `outputs/02_defect_register.csv`, lines "Pipeline timestamp missing", "Pipeline timestamp unparseable", "Pipeline timestamps out of order", "Feed latency: daily median above the feed's limit" and "Processing latency: daily median above the feed's limit" (unresolved: the limits are team assumptions) |
+| `TXN_AFTER_CUTOFF` | booked_timestamp and published_timestamp ≤ cutoff_timestamp; late trades carried to the next cycle with a flag | flag | Coded 10 Nov (D-065, notebook section 9b). Booking and publication judged separately, never merged; exactly at the cutoff is on time. Not evaluable: the step or the cutoff missing or unreadable, or the step stamped before an earlier one. One record per transaction_id (a repeated ID uses its latest time). By feed and day: `outputs/02_timeliness.csv`; counts: `outputs/02_defect_register.csv`, lines "Booked after cutoff" and "Published after cutoff" |
 
 ## 4. Corporate action check
 
