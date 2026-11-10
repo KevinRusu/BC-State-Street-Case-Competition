@@ -16,6 +16,7 @@ export function GridLayer({ offices, stages }: { offices: MapOffice[]; stages: M
         {offices.map((office) => (
           <div
             key={office.id}
+            data-office-id={office.id}
             className={`absolute rounded-2xl px-3.5 py-3 ${office.kind === "independent" ? "border border-dashed" : ""}`}
             style={{
               width: office.w,

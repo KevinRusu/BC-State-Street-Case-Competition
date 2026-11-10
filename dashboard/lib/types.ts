@@ -38,6 +38,8 @@ export type MapNode = {
   checkOffice: string;
   x: number;
   y: number;
+  /** Vertical fraction anchored at y: 0 = top, 0.5 = centre of a box shared by two offices. */
+  originY: number;
   grain: string;
   note: string;
   rows: number;

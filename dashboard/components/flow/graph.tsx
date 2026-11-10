@@ -107,6 +107,7 @@ export function Graph({ data, showLookups, animate, selection, onSelect, trace, 
         id: node.id,
         type: "table",
         position: { x: node.x, y: node.y },
+        origin: [0, node.originY],
         data: {
           node,
           counts: trace ? markCounts(trace.findings.nodes[node.id] ?? []) : countsFor(data.register, "node", node.id),

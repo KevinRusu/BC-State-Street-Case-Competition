@@ -655,3 +655,15 @@ Made while building notebook 02 and fixing review findings. Source: *build log*,
 - **Checks:** browser coverage exercises the zoom floor, off-centre wheel zoom, Fit View, resizing, every synthetic
   example at desktop viewport sizes, and map-to-evidence navigation without page scrolling. Existing lookup,
   finding-status, picker, mobile and startup checks remain in the suite.
+
+### D-062 · 9 Nov · Space trace boxes and balance shared-office placement
+
+- **Why:** trace status labels increase node height. Top-left placement left Transactions touching Pipeline events,
+  with Corporate actions nearby; it also put more of Transactions in the middle office than in the front office.
+- **Decision:** the graph definition in `scripts/build_store.py` now carries a vertical anchor for each node.
+  Transactions uses its centre at the midpoint between the front and middle bands, so changing its rendered height
+  preserves equal overlap. Other boxes keep top-left anchors, including when reading a store made before this field.
+  Pipeline events and Corporate actions have larger gaps within a taller middle-office band; back-office and
+  independent-source positions move down together. Office ownership, controls and findings do not change.
+- **Check:** browser assertions measure the rendered gaps, the shared box's centre and office containment on the
+  main map and across the fixture stories. This covers both shorter ordinary boxes and taller trace boxes.

@@ -1,11 +1,14 @@
 # Status
 
-Last updated: 2026-11-09 (compact trace layout and bounded map zoom; D-061)
+Last updated: 2026-11-09 (trace node spacing and office alignment; D-062)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
 
 ## Where we are
+
+- **Trace node spacing (9 Nov):** Transactions is anchored by its vertical centre at the front/middle office boundary, so the box stays balanced when trace labels change its height. Pipeline events and Corporate actions have larger gaps and remain within an expanded middle-office band; the lower bands move down together. The graph metadata still comes from the store builder (D-062).
+  - **Validation:** rebuilt the local store and restarted the dashboard; all current-store examples passed the spacing, equal-overlap and desktop-fit checks. Unit/store and production browser suites, store contracts, lint, type and documentation checks passed. The store harness uses the existing Windows npm entry-point workaround described below.
 
 - **Compact trace layout (9 Nov):** on branch `codex/dashboard-compact-trace-layout`. The example picker and map share the left column; the selected-record summary sits above an independently scrolling evidence timeline on the right. Desktop height follows the viewport; narrow screens stack the panels. Manual lookup is under "Find an ID" beside the picker. Both maps stop zooming out at their centred full-grid view and refit after resizing. Detection and reconciliation logic are unchanged (D-061).
   - **Validation:** full-data store rebuild using the existing analysis outputs; synthetic notebook/store contracts (including absent and foreign membership fallbacks); unit and production browser suites; lint, type and documentation checks passed. Every current-store example was also checked at laptop size. The Windows store harness needed its final npm commands run through npm's JavaScript entry point because the bundled Node launcher could not locate npm; those commands passed.

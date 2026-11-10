@@ -5,6 +5,35 @@ const viewport = (page: Page) => page.locator(".react-flow__viewport").evaluate(
   return { x: matrix.e, y: matrix.f, zoom: matrix.a };
 });
 
+async function expectOfficeLayout(page: Page) {
+  const table = (id: string) => page.locator(`.react-flow__node[data-id="${id}"]`);
+  const office = (id: string) => page.locator(`[data-office-id="${id}"]`);
+  await expect(table("transactions")).toBeVisible();
+  // The shared box's actual centre must follow the office boundary even when a trace adds a label.
+  await expect.poll(async () => {
+    const transaction = (await table("transactions").boundingBox())!;
+    const front = (await office("front").boundingBox())!;
+    const middle = (await office("middle").boundingBox())!;
+    return Math.abs(transaction.y + transaction.height / 2 - (front.y + front.height + middle.y) / 2);
+  }).toBeLessThan(0.75);
+  const transaction = (await table("transactions").boundingBox())!;
+  const pipeline = (await table("pipeline_events").boundingBox())!;
+  const corporate = (await table("corporate_actions").boundingBox())!;
+  const { zoom } = await viewport(page);
+  expect(pipeline.y - transaction.y - transaction.height).toBeGreaterThanOrEqual(20 * zoom);
+  expect(corporate.y - pipeline.y - pipeline.height).toBeGreaterThanOrEqual(20 * zoom);
+  for (const [id, layer] of [
+    ["accounts", "front"], ["pipeline_events", "middle"], ["corporate_actions", "middle"],
+    ["securities", "middle"], ["positions", "middle"], ["ledger_nav", "back"],
+    ["comparison_positions", "independent"], ["prices", "independent"], ["fx_rates", "independent"],
+  ]) {
+    const node = (await table(id).boundingBox())!;
+    const band = (await office(layer).boundingBox())!;
+    expect(node.y, id).toBeGreaterThanOrEqual(band.y);
+    expect(node.y + node.height, id).toBeLessThanOrEqual(band.y + band.height);
+  }
+}
+
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("theme", "light");
@@ -67,6 +96,7 @@ for (const size of [{ width: 1280, height: 720 }, { width: 1366, height: 768 }, 
       await picker.selectOption(id);
       const summary = page.locator("[data-trace-summary]");
       await expect(summary).toContainText(id);
+      await expectOfficeLayout(page);
       const map = (await page.locator("[data-trace-map]").boundingBox())!;
       const details = (await summary.boundingBox())!;
       const steps = (await page.locator("[data-trace-steps]").boundingBox())!;
@@ -81,6 +111,11 @@ for (const size of [{ width: 1280, height: 720 }, { width: 1366, height: 768 }, 
     await expect(page.getByRole("textbox", { name: "Record ID" })).not.toBeVisible();
   });
 }
+
+test("the data map keeps the shared transaction box balanced and all other boxes inside their office", async ({ page }) => {
+  await page.goto("/");
+  await expectOfficeLayout(page);
+});
 
 test("map selection scrolls the evidence pane while the map and record stay in place", async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 });

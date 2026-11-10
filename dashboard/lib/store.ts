@@ -166,6 +166,7 @@ export async function getMapData(): Promise<MapData> {
     const nodes: MapNode[] = (await rows(con, "SELECT * FROM map_nodes")).map((r) => ({
       id: text(r.id), label: text(r.label), office: text(r.office), stage: text(r.stage), place: text(r.place),
       check: text(r.check), owner: text(r.owner), checkOffice: text(r.check_office), x: num(r.x), y: num(r.y),
+      originY: num(r.origin_y), // Older stores used top-left positions for every box.
       grain: text(r.grain), note: text(r.note), rows: num(r.rows), manifestRows: num(r.manifest_rows),
       columns: num(r.columns), unreadableDates: text(r.unreadable_dates), rules: rulesOf("node", text(r.id)),
       sources: sourcesOf(text(r.id)), plain: text(r.plain),

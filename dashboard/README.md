@@ -110,6 +110,10 @@ panels stack and the page scrolls. Long record IDs and link summaries wrap withi
 Both maps stop zooming out at the centred whole-grid view. Zoom in to pan around; Fit View restores the default.
 Resizing the window or toggling a menu/panel recomputes the fit and its zoom-out limit.
 
+Transactions is centred across the front/middle office boundary, including when trace labels change its height.
+Pipeline events and Corporate actions have clear vertical gaps and stay fully inside the middle-office band.
+The store's graph definition carries the positions and vertical anchors (D-062); rebuild the store after changing them.
+
 ## Test
 
 After `uv sync` in the repo root, run these commands inside `dashboard/`:
@@ -131,7 +135,7 @@ Browser tests cover map details and lookups, panel/theme/menu controls, confirme
 the headline's tone), the no-finding caveat, every "Trace an example" link, search and unknown IDs, the story picker,
 search/timeline reset, the logo in light and dark mode, the startup screen (plays once, skips on a key, survives
 blocked storage), the logo and folded ID lookup on a narrow viewport, the map zoom floor and recentring after
-resizing, every fixture story's desktop layout, and map-to-evidence scrolling. Their production
+resizing, every fixture story's desktop layout, node spacing and office alignment, and map-to-evidence scrolling. Their production
 server listens on `127.0.0.1:3100` and uses `.next-tests`, so it can run beside `npm run dev`. Results, failure
 screenshots and traces stay in `tests/runs/dashboard_browser/`. A busy test port causes a failure rather than
 reusing an unrelated server. Set `DASHBOARD_TEST_PORT` to use another port.
