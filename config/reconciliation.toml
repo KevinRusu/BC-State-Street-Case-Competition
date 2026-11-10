@@ -16,6 +16,11 @@ quantity_match_tolerance = 1e-6      # absolute units; only absorbs float noise 
 gross_amount_tolerance = 0.01        # currency units; gross_amount is stored to the cent
 derived_units_tolerance = 0.01       # units; a blank quantity is derived only if gross_amount / price is this close to a
                                      # whole number (sensitivity only, D-047)
+# Set on 10 Nov before the quality checks looked at the data (quality-checks spec §5 and §6.1; Global Constraints).
+float_decimals = 9                   # rounding before a threshold comparison; absorbs float noise only, judges nothing
+settlement_lag_limit_business_days = 2   # flat T+2 in business days (Mon-Fri, no holidays, Dataset Guide calendar);
+                                         # team assumption (RULES.md TXN_FIELDS_VALID), spec §5
+settlement_extension_note = "EXTENDED_SETTLEMENT_AGREED"   # the settlement_note that clears a longer lag (spec §5)
 
 [policies]
 # The main chain. Each choice is shown beside its alternatives in the sensitivity table.
@@ -62,9 +67,16 @@ CUSTODY_FEED = 240
 spread_threshold = 0.005             # (max - min) / mean across vendors; 0.5% from brief Appendix A (illustrative)
 scale_ratio_low = 80                 # max / min in [80, 125] = within 0.1 of a factor 100 on a log10 scale:
 scale_ratio_high = 125               # percent-of-par vs per-unit, or a unit error; never auto-corrected
+# Set on 10 Nov before the quality checks looked at the data (quality-checks spec §5 and §6.1).
+nav_cutoff_time = "18:00:00"         # the data's own cutoff (pipeline_events.cutoff_timestamp is 18:00 every day; brief
+                                     # App. B ties missing it to a stale NAV); a quote stamped exactly at it is on time
+flat_run_dates = 3                   # identical chosen price on this many consecutive business dates ending on the
+                                     # snapshot = flat run (a look-alike, not stale by itself, D-041)
 
 [fx]
 reporting_currency = "USD"           # Dataset Guide: USD is the reporting convention; prices in it need no FX rate
+day_on_day_band = 0.05               # |rate / previous business day's rate - 1| above this is flagged; set on 10 Nov
+                                     # before the quality checks looked at the data (quality-checks spec §5 and §6.1)
 
 [corporate_actions]
 # Required terms per action type (Dataset Guide §4 conventions). A type with no ratio convention for

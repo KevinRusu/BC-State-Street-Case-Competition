@@ -1,11 +1,30 @@
 # Status
 
-Last updated: 2026-11-10 (Windows fixes merged, PR #10; Check-in 3 order and scope agreed, D-066)
+Last updated: 2026-11-10 (quality checks built on branch `quality-checks`, D-067; Check-in 3 order and scope agreed, D-066)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
 
 ## Where we are
+
+- **Quality checks (10 Nov):** built on branch `quality-checks`; no PR yet. Section 8b of the deliverable codes
+  coverage, fallback-only and freshness of the chosen quote (`PRC_QUOTE_ELIGIBLE`, D-041) and looks inside the vendor
+  spread and scale flags (`PRC_VENDOR_DISPERSION`); section 9c codes `FX_RATE_VALID`, the rest of `TXN_FIELDS_VALID`
+  (blank price, amount, lag), `TXN_DUPLICATE` and `TXN_CORRECTION_LINK`. The register gains new lines at its end (after "Published after cutoff"; see `outputs/02_defect_register.csv`) and
+  `outputs/02_price_quality.csv` has one row per held security. Settings are in `config/reconciliation.toml`
+  (`nav_cutoff_time`, `flat_run_dates`, `day_on_day_band`, `settlement_lag_limit_business_days`,
+  `settlement_extension_note`, `float_decimals`). Choices: D-067; design and plan: `docs/superpowers/specs/` and
+  `docs/superpowers/plans/` (2026-11-10). Left: the session summary and the whole-branch code review (Phase B), then
+  the user commits.
+  - **Validation:** every existing register line is byte-identical and still first, and every other baseline `02_*`
+    output is unchanged except `02_finding_members.csv` (new members added) and the run record; the register
+    checksum moved (new value in FINDINGS.md) only because lines were added. An independent DuckDB recount on the raw
+    files matches the register on four counts (blank or unreadable trade price, holdings with no eligible quote,
+    chosen quotes after the cutoff, lag above T+2 with no extension note). Passed: `tests/run_notebook.sh`,
+    `tests/fixture_test.sh` (new quality fixture, run again at T+3), `tests/robustness_test.sh` (run in Task 6: three
+    shuffles and one live threshold run changing the spread threshold, the FX band and one feed's processing limit;
+    every other line identical), `tests/store_test.sh`, dashboard `npm test` and
+    `npm run test:e2e`, `check_docs.py` and the Python unit tests.
 
 - **Timeliness (10 Nov):** done and merged to `main`
   ([PR #9](https://github.com/KevinRusu/BC-State-Street-Case-Competition/pull/9)). Section 9b of the deliverable
@@ -121,13 +140,10 @@ Order agreed 10 Nov (D-066): after step 1 we add no new checks; the rest is dept
 Check-in 3 list (brief §8): full-data reconciliation, quality checks, scores with impact and coverage, sensitivity
 and stress tests, roadmap, working executive view, complete slide draft.
 
-1. **Quality checks (next session, Kevin).** Price data quality: `PRC_QUOTE_ELIGIBLE` coverage and freshness with
-   the D-041 denominators, and a look inside the vendor-spread and scale flags (confirmed, unresolved or cleared).
-   Finish the partly coded rules: `TXN_FIELDS_VALID` (T+2 in business days, amount tolerance, blank price),
-   `FX_RATE_VALID` (uniqueness, rate > 0, day-on-day band), `TXN_DUPLICATE` (same economics, new ID),
-   `TXN_CORRECTION_LINK` (same account and security). Their thresholds are not in the config yet (T+2 limit, FX
-   band). Every check publishes pass, fail and not-evaluable counts for the scorecard. Same workflow as timeliness
-   (spec, plan, TDD, code review), plus a session summary beside the spec and plan.
+1. **Quality checks: done 10 Nov (D-067; see "Where we are").** Coverage and freshness (D-041 denominators), the look
+   inside the vendor-spread and scale flags, and the four partly coded rules are coded; the thresholds are in the
+   config. Every check publishes pass, fail and not-evaluable counts for the scorecard. Still to do for the session:
+   whole-branch code review and the session summary beside the spec and plan.
 2. **Scorecard and indicators (Kevin).** Brief §5: scores at account, domain and platform level with formulas,
    weights, aggregation rules and a sensitivity check; evaluable coverage beside every score; at least six
    indicators, three leading, marked computed, simulated or proposed (at least three computed, one of them leading).
