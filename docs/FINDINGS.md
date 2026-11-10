@@ -4,8 +4,8 @@
 `notebooks/deliverable.ipynb`, then the script. Full write-ups of the classes we take forward are in
 `docs/DEFECT_CATALOG.md`.*
 
-- Register checksum: `9d150bb53111` (built at commit `a492773`)
-- Run: config `reconciliation.toml`, snapshot 2026-07-10, shuffle seed 0, 97.6 s
+- Register checksum: `aa27c43d5a75` (built at commit `5ae93ce`)
+- Run: config `reconciliation.toml`, snapshot 2026-07-10, shuffle seed 0, 103.6 s
 - 63 findings: 30 confirmed, 29 unresolved, 4 cleared
 - Denominators: eligible + not evaluable = population (D-027 in `docs/DECISIONS.md`).
 
@@ -42,7 +42,7 @@
 | FX rate not positive or unreadable | pricing | rate rows | 0 | 180 | 0 | FX_RATE_VALID |  |
 | Blank or unreadable trade price | trade capture | rows | 2,104 | 1,409,513 | 20 | TXN_FIELDS_VALID | TXN100000339, TXN100000564, TXN100000863 |
 | gross_amount does not equal quantity x price | trade capture | rows | 4,462 | 1,404,583 | 4,950 | TXN_FIELDS_VALID | TXN100000037, TXN100000367, TXN100000467 |
-| Correction link points to itself or to another account or security | trade capture | rows | 13 | 4,913 | 842 | TXN_CORRECTION_LINK | TXN100095195, TXN100442375, TXN100469483 |
+| Correction link points to itself, to a missing ID, or to another account or security | trade capture | rows | 13 | 4,913 | 842 | TXN_CORRECTION_LINK | TXN100095195, TXN100442375, TXN100469483 |
 
 ## Unresolved (29)
 
@@ -75,7 +75,7 @@
 | Spread flag: the chosen quote is the odd one out | pricing | securities | 333 | 388 | 0 | PRC_VENDOR_DISPERSION | SEC100631, SEC109161, SEC113071 |
 | Spread or scale flag: no two vendors agree | pricing | securities | 1 | 398 | 0 | PRC_VENDOR_DISPERSION | SEC902184 |
 | FX rate moves more than the band from the previous business day | pricing | rate rows | 0 | 174 | 6 | FX_RATE_VALID |  |
-| Settlement later than T+2 with no agreed extension | trade capture | rows | 2,106 | 1,406,692 | 2,841 | TXN_FIELDS_VALID | TXN100001003, TXN100001845, TXN100002051 |
+| Settlement later than the lag limit with no agreed extension | trade capture | rows | 2,106 | 1,406,692 | 2,841 | TXN_FIELDS_VALID | TXN100001003, TXN100001845, TXN100002051 |
 | Same economics under a different transaction_id | trade capture | transaction_ids | 5,001 | 1,402,516 | 4,912 | TXN_DUPLICATE | TXN100000530, TXN100000618, TXN100001138 |
 
 ## Cleared (4)
@@ -85,4 +85,4 @@
 | Closed position not reported (trades net to zero, absent from book and custodian) | positions | keys | 42 | 478,026 | 2,836 | POS_REBUILD_MATCHES | ACC1269575/SEC116404, ACC1319772/SEC586059, ACC1412582/SEC722924 |
 | Scale flag: the chosen quote is backed by another vendor | pricing | securities | 6 | 10 | 0 | PRC_VENDOR_DISPERSION | SEC140715, SEC385778, SEC479397 |
 | Spread flag: the chosen quote is backed by another vendor | pricing | securities | 54 | 388 | 0 | PRC_VENDOR_DISPERSION | SEC109016, SEC110436, SEC127904 |
-| Settlement later than T+2 with an agreed extension | trade capture | rows | 842 | 1,406,692 | 2,841 | TXN_FIELDS_VALID | TXN100000542, TXN100003782, TXN100004664 |
+| Settlement later than the lag limit with an agreed extension | trade capture | rows | 842 | 1,406,692 | 2,841 | TXN_FIELDS_VALID | TXN100000542, TXN100003782, TXN100004664 |

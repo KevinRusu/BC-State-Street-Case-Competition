@@ -86,10 +86,10 @@
   "FX rate moves more than the band from the previous business day": "A currency's rate to US dollars differs from its rate on the previous weekday by more than the allowed band. The band is our own assumption, and real markets can move that much.",
   "Blank or unreadable trade price": "A trade has no price, or one that is not a number, so its value cannot be checked or priced.",
   "gross_amount does not equal quantity x price": "A trade's gross amount differs from its quantity times its price by more than the allowed tolerance, so at least one of the three figures is wrong.",
-  "Settlement later than T+2 with no agreed extension": "A trade settled more than two business days after the trade date, and no longer settlement was agreed. Whether the delay is a mistake is not known.",
-  "Settlement later than T+2 with an agreed extension": "A trade settled more than two business days after the trade date, but a longer settlement was agreed in advance.",
+  "Settlement later than the lag limit with no agreed extension": "A trade settled more business days after the trade date than our settlement limit allows, and no longer settlement was agreed. Whether the delay is a mistake is not known.",
+  "Settlement later than the lag limit with an agreed extension": "A trade settled more business days after the trade date than our settlement limit allows, but a longer settlement was agreed in advance.",
   "Same economics under a different transaction_id": "Two trades with different IDs have the same account, security, buy or sell, trade date, quantity and price, and no chain of correction links joins them, so one trade may be recorded twice.",
-  "Correction link points to itself or to another account or security": "A trade's correction link points back to the trade itself, or to a trade on a different account or security from its own."
+  "Correction link points to itself, to a missing ID, or to another account or security": "A trade's correction link points back to the trade itself, to a trade ID that is not in the data, or to a trade on a different account or security from its own."
  },
  "nodes": {
   "accounts": "The list of client accounts, each with its fund, share class and the dates it opened and closed.",

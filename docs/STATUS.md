@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-10 (quality checks built on branch `quality-checks`, D-067; Check-in 3 order and scope agreed, D-066)
+Last updated: 2026-11-10 (quality checks built on branch `quality-checks`, D-067, and the review's fixes applied, D-068; Check-in 3 order and scope agreed, D-066)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
@@ -14,8 +14,15 @@ Last updated: 2026-11-10 (quality checks built on branch `quality-checks`, D-067
   `outputs/02_price_quality.csv` has one row per held security. Settings are in `config/reconciliation.toml`
   (`nav_cutoff_time`, `flat_run_dates`, `day_on_day_band`, `settlement_lag_limit_business_days`,
   `settlement_extension_note`, `float_decimals`). Choices: D-067; design and plan: `docs/superpowers/specs/` and
-  `docs/superpowers/plans/` (2026-11-10). Left: the session summary and the whole-branch code review (Phase B), then
-  the user commits.
+  `docs/superpowers/plans/` (2026-11-10). The whole-branch code review (Phase B) is done; its six fixes are applied
+  and not yet committed (D-068): a BOOKED or REVERSED link to a missing ID now fails, `inf` and `nan` are unreadable,
+  the odd vendor follows the flag class, a blank master currency is not evaluable, the lag lines have stable names,
+  and a DD/MM/YYYY FX fixture case. No count moves on the full data. Left: the user commits, then a PR to `main`.
+  - **Review fixes validation (D-068):** passed `tests/run_notebook.sh`, `tests/fixture_test.sh` (139 outcomes),
+    `tests/robustness_test.sh` (three shuffles and the live threshold run), `scripts/build_store.py` then
+    `tests/store_test.sh`, dashboard `npm run test:e2e`, `check_docs.py` and the Python unit tests. The full-data
+    register before and after: same lines, order and counts; three names changed; text changed on the eight lines
+    D-068 names; `02_price_quality.csv` differs only in `odd_vendor` on 19 securities.
   - **Validation:** every existing register line is byte-identical and still first, and every other baseline `02_*`
     output is unchanged except `02_finding_members.csv` (new members added) and the run record; the register
     checksum moved (new value in FINDINGS.md) only because lines were added. An independent DuckDB recount on the raw

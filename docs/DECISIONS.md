@@ -832,3 +832,35 @@ during the build in §10); plan: `docs/superpowers/plans/2026-11-10-quality-chec
   follow `LAG_LIMIT`, so a live T+n change shows the raw line name on the dashboard, because
   `scripts/plain_language.json` holds wording for T+2 only and the store falls back to the register name. None changes
   a count on the release.
+
+### D-068 · 10 Nov · Fixes from the whole-branch review of the quality checks (D-067)
+
+The Phase B review of branch `quality-checks` found six issues; the user chose each fix (10 Nov). Fixture cases for
+each are in `tests/fixture_test.sh` (quality fixture, and FXT58 in the R3 fixture).
+
+- **Decision:** (1) **Correction link to a missing ID:** a row that is not CANCELLED whose `related_transaction_id`
+  names no transaction now fails on the correction-link line, renamed "Correction link points to itself, to a missing
+  ID, or to another account or security" (still confirmed). A CANCELLED row with a missing target stays not evaluable
+  there, because "CANCELLED row linked to an ID that does not exist" already counts it. (2) **Non-finite numbers:** one
+  helper, `to_number`, parses trade quantity, price and gross amount (section 1), quote prices (section 8) and FX rates
+  (section 9c); `inf` and `nan` read as unreadable, never as a value. The amount check is written so a difference that
+  is not a number never passes. (3) **Odd vendor:** on a backed line it is never the chosen vendor (the vendors that
+  disagree with the chosen quote come first); on a "chosen is odd" line it is the chosen vendor; otherwise any vendor;
+  then the farthest from the median, ties by vendor name. (4) **Blank master currency:** treated as no currency, so a
+  quoted security mastered with a blank currency is not evaluable for coverage (as an unmastered one is) and a quote
+  with a blank currency can never match it. A blank quote price stays a coverage fail. (5) **Lag line names:**
+  "Settlement later than the lag limit with no agreed extension" and "… with an agreed extension"; the how-detected
+  text states the live T+n. (6) A fixture case for an FX rate dated DD/MM/YYYY.
+- **Why:** RULES.md says the link must point to an existing transaction, and only CANCELLED rows were checked for it.
+  CLAUDE.md says unreadable values are kept and reported, but `pd.to_numeric` reads `inf` as a number. The cleared
+  backed line said "the odd vendor is logged for the vendor owner" while naming the vendor we price from. A blank
+  currency is unknown, as a missing security is, and D-041 keeps the absence of a price as the evidence of a fail.
+  Stable lag names keep the plain wording and the docs true when a judge changes the limit live.
+- **Instead of:** a separate line for BOOKED and REVERSED links to a missing ID, or recording the gap only; filtering
+  non-finite values inside the new checks only, or in every number parse of the notebook; keeping the T+n names.
+- **Moves:** on the full data no count moves and the first 47 register lines are byte-identical. Three line names
+  change (FINDINGS.md), finding members are identical apart from those names, and the how-detected text changes on
+  the five vendor-flag lines, the two lag lines and the link line. In `outputs/02_price_quality.csv` only
+  `odd_vendor` moves: on 19 backed spread-flagged securities the chosen vendor was named as the odd one, and now none
+  is. The release has no `inf` or `nan` text, no BOOKED or REVERSED link to a missing ID and no blank master currency.
+  D-067's known limit on the lag line names no longer applies.
