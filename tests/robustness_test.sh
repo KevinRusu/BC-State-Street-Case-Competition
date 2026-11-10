@@ -10,7 +10,7 @@ cd "$(git rev-parse --show-toplevel)"
 W=tests/runs
 mkdir -p "$W"
 SEEDS="3 11 25"
-python3 - "$SEEDS" <<'PY'
+uv run --quiet python - "$SEEDS" <<'PY'
 import sys
 base = open('config/reconciliation.toml').read()
 assert 'shuffle_seed = 0' in base, 'config has no [robustness] shuffle_seed = 0 line'

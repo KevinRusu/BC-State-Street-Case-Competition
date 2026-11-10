@@ -1,13 +1,14 @@
 # Status
 
-Last updated: 2026-11-10 (timeliness coded on branch `timeliness-checks`, D-065)
+Last updated: 2026-11-10 (timeliness merged, PR #9, D-065; two Windows fixes on branch `windows-fixes`)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
 
 ## Where we are
 
-- **Timeliness (10 Nov):** on branch `timeliness-checks`, not yet committed or merged. Section 9b of the deliverable
+- **Timeliness (10 Nov):** done and merged to `main`
+  ([PR #9](https://github.com/KevinRusu/BC-State-Street-Case-Competition/pull/9)). Section 9b of the deliverable
   codes `TXN_TIMESTAMPS_IN_ORDER` and `TXN_AFTER_CUTOFF` (brief §5 Timeliness bullet): feed latency, processing
   latency, booking and publication cutoff, and timestamp order, by feed and day, with missing, unparseable and
   out-of-order timestamps apart, in `outputs/02_timeliness.csv`; latency limits per feed in `[timeliness]` of the
@@ -174,20 +175,15 @@ What worked, what did not, and what a Windows teammate should know:
   18 s). With notebook 01's outputs present, the deliverable's reproduction checks fire ("settings equal to notebook 01:
   True; same data: True ... variants that differ: 0" and "join counts equal notebook 01"). `uv run python -m unittest
   discover tests` (45 tests), `tests/store_test.sh` (store contracts, the unit suite, `next build`) and
-  `scripts/build_findings.py` (register checksum unchanged). `tests/robustness_test.sh` passed in 10.6 min with the
-  `python3` workaround below, and its shuffle comparison now covers the four severity tables because they carry the
-  `02_` prefix (D-060).
+  `scripts/build_findings.py` (register checksum unchanged). `tests/robustness_test.sh` passed in 10.6 min with a
+  `python3` workaround (`python3` on Windows is the Microsoft Store stub); since 10 Nov the test scripts call
+  `uv run --quiet python -` instead, and `scripts/check_docs.py` reads every file as UTF-8 (unit test: no
+  `EncodingWarning`), so neither workaround is needed. Its shuffle comparison now covers the four severity tables
+  because they carry the `02_` prefix (D-060).
 - **Notebook 03's `%run` (now gone):** `%run` splits its line on whitespace, so the absolute path it was given failed
   with `File '...\School\Fall' not found` because the checkout path has spaces. The merge removed the `%run` (D-060);
   nothing else in the repo uses one. The pre-merge baseline for the comparison in D-060 came from a throwaway copy of
   notebook 03 with the path quoted.
-- **`python3` is the Microsoft Store stub:** `tests/fixture_test.sh` and `tests/robustness_test.sh` run their checks
-  with `python3 - <<'PY'`; on Windows `python3` on PATH is the Store launcher, so both scripts stop at that line. They
-  pass once a `python3` that runs the virtual environment's `python.exe` (its Windows `Scripts` folder) is first on PATH (fixture test: 41 checks, the severity
-  section under every config). Fix to make: call `uv run --quiet python -` there, as `tests/run_notebook.sh` does.
-- **`scripts/check_docs.py` reads files in the console code page:** `Path.read_text()` without an encoding is cp1252
-  on Windows, so the curly quotes in `docs/SANKEY_GUIDE.md` and `docs/UPSET_GUIDE.md` raise `UnicodeDecodeError`. Run
-  it as `uv run python -X utf8 scripts/check_docs.py` (passes), or add `encoding='utf-8'` to the script.
 - **`scripts/build_store.py` while `npm run dev` is running:** the build completes (about 2 min) but the final swap,
   `os.replace(store.duckdb.building, store.duckdb)`, fails with `PermissionError: [WinError 5]`: Windows will not
   replace a file another process holds open, where macOS and Linux would. Stop the dev server, then rerun the script
