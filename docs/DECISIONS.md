@@ -640,3 +640,56 @@ Made while building notebook 02 and fixing review findings. Source: *build log*,
   time.
 - **Moves:** no register number, no detection, no severity number: the register checksum is unchanged
   (`d7e752f55f0a`) and the `02_severity*` files equal the former `03_*` files on the full data (STATUS, 8 Nov).
+
+### D-061 · 9 Nov · Keep the trace workspace in view and bound map zoom
+
+- **Why:** the full-width record banner pushed the map and evidence down while leaving unused space on the right.
+  Unbounded zoom-out also made the map too small to read.
+- **Layout:** on desktop the example picker and map fill the left column; the selected-record summary starts the
+  right column above the steps. The evidence pane scrolls independently, and clicking a map place scrolls that pane
+  without moving the map. Expanded technical details have their own bounded summary area. Narrow screens stack
+  the panels and retain page scrolling. Manual ID lookup remains available under "Find an ID" beside the picker.
+- **Zoom:** both maps derive their minimum zoom from the whole office/stage grid and the available container size.
+  Returning to this minimum recentres the map; Fit View and a container resize restore the same default view.
+  Panning is available while zoomed in. These are presentation changes; no rules, counts or treatment changed.
+- **Checks:** browser coverage exercises the zoom floor, off-centre wheel zoom, Fit View, resizing, every synthetic
+  example at desktop viewport sizes, and map-to-evidence navigation without page scrolling. Existing lookup,
+  finding-status, picker, mobile and startup checks remain in the suite.
+
+### D-062 · 9 Nov · Space trace boxes and balance shared-office placement
+
+- **Why:** trace status labels increase node height. Top-left placement left Transactions touching Pipeline events,
+  with Corporate actions nearby; it also put more of Transactions in the middle office than in the front office.
+- **Decision:** the graph definition in `scripts/build_store.py` now carries a vertical anchor for each node.
+  Transactions uses its centre at the midpoint between the front and middle bands, so changing its rendered height
+  preserves equal overlap. Other boxes keep top-left anchors, including when reading a store made before this field.
+  Pipeline events and Corporate actions have larger gaps within a taller middle-office band; back-office and
+  independent-source positions move down together. Office ownership, controls and findings do not change.
+- **Check:** browser assertions measure the rendered gaps, the shared box's centre and office containment on the
+  main map and across the fixture stories. This covers both shorter ordinary boxes and taller trace boxes.
+
+### D-063 · 9 Nov · Centre office boxes, distinguish external sources and toggle trace evidence from the map
+
+- **Placement:** Accounts and Ledger NAV use centre anchors at the vertical midpoint of their office bands, in
+  both map views and at every trace-label height. The existing shared-office anchor for Transactions remains.
+- **Grouping:** a labelled outline in State Street blue (`#001AFF`) encloses the three office bands. Independent
+  sources stay outside it with a thicker dashed border and more contrast in both themes. Both views use the shared
+  grid component, so these boundaries stay consistent.
+- **Interaction:** traced map boxes and timeline headers share expansion state. A box toggles all its matching
+  steps together (any open means close the group; otherwise open it), then scrolls the evidence into view. The
+  buttons support keyboard activation and expose their expansion state and controlled panels. Context-only boxes
+  without a matching step are disabled and labelled as outside the trace. Selecting another record restores the
+  usual default: steps with findings open, other steps closed. Raw-row details stay behind their existing toggle.
+- **Scope:** no joins, controls, counts or data treatment change.
+
+### D-064 · 9 Nov · A quieter office palette, with readable context
+
+- **Refines D-063:** after reviewing the bright-blue outline, the user prioritised readability and a coordinated
+  State Street-inspired scheme and explicitly allowed the border colour to change. The office grouping and the
+  external-source boundary remain; the office outline now uses a muted blue rather than the vivid brand blue.
+- **Decision:** use slightly deeper blue-grey office fills, a darker navy office-group label and a slate dashed
+  external-source border in light mode, with coordinated navy bands and lighter labels in dark mode. These colours
+  live in `dashboard/app/globals.css` and both views read the same tokens. Context boxes are less faded so their
+  labels remain legible. Finding colours and the blue control numbers keep their existing meanings.
+- **Validation:** review both map views in light and dark themes, verify the rendered colours rather than only
+  the stylesheet, and retain the functional and geometry checks from D-063.

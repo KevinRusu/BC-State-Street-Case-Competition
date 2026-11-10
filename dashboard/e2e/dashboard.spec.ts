@@ -134,6 +134,7 @@ test("legends and the search hint name every state and ID the pages can show", a
   await page.goto("/trace?id=FXT01");
   await page.getByRole("button", { name: "Technical details", exact: true }).click();
   await expect(page.locator("p", { hasText: "Record links:" })).toContainText("Not reached");
+  await page.getByRole("button", { name: "Find an ID", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Record ID" })).toHaveAttribute("placeholder", /CMP…/);
 });
 
@@ -152,6 +153,7 @@ test("the story picker groups stories and navigates; draft and timeline reset pe
   await stepHeader(page, "transaction").click();
   await expect(stepHeader(page, "transaction")).toHaveAttribute("aria-expanded", "false");
   await expect(page.locator("#trace-step-transaction")).not.toContainText("quantity = -50");
+  await page.getByRole("button", { name: "Find an ID", exact: true }).click();
   await page.getByRole("textbox", { name: "Record ID" }).fill("UNSUBMITTED DRAFT");
   await picker(page).selectOption("FXT02");
   await expect(page.getByRole("textbox", { name: "Record ID" })).toHaveValue("FXT02");
@@ -181,6 +183,7 @@ test("a typed record that is not a story leaves the picker on its placeholder", 
   await page.goto("/trace");
   // FXACC2/FXSEC1 is a found holding that no story points to (checked here so a fixture change cannot hide it).
   await expect(picker(page).locator('option[value="FXACC2/FXSEC1"]')).toHaveCount(0);
+  await page.getByRole("button", { name: "Find an ID", exact: true }).click();
   const input = page.getByRole("textbox", { name: "Record ID" });
   await input.fill("FXACC2/FXSEC1");
   await input.press("Enter");
@@ -197,6 +200,7 @@ test("a finding that reaches a trade through its security says so", async ({ pag
 
 test("search, holding keys, and unknown IDs work without treating missing evidence as a pass", async ({ page }) => {
   await page.goto("/trace");
+  await page.getByRole("button", { name: "Find an ID", exact: true }).click();
   const input = page.getByRole("textbox", { name: "Record ID" });
   await input.fill("FXACC2/FXSEC1");
   await input.press("Enter");
@@ -258,6 +262,7 @@ test("the State Street logo stays visible in the top bar on a narrow screen", as
 test("the trace search and evidence remain usable on a narrow screen", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/trace?id=FXT03");
+  await page.getByRole("button", { name: "Find an ID", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Record ID" })).toBeVisible();
   await expect(picker(page)).toBeVisible();
   await expect(page.locator("#trace-step-transaction")).toContainText("quantity = -50");
@@ -279,7 +284,7 @@ test("the startup screen plays once, skips on a key, and does not return", async
   await page.keyboard.press("Escape");
   await expect(boot).toBeHidden({ timeout: 1_000 });
   await page.goto("/trace");
-  await expect(page.getByRole("textbox", { name: "Record ID" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Find an ID", exact: true })).toBeVisible();
   await expect(boot).not.toBeVisible();
   expect(errors).toEqual([]);
   await context.close();

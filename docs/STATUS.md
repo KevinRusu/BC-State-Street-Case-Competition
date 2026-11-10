@@ -1,11 +1,24 @@
 # Status
 
-Last updated: 2026-11-08 (one deliverable notebook, `notebooks/deliverable.ipynb`; D-060)
+Last updated: 2026-11-09 (coordinated map palette and map-controlled trace steps; D-063, D-064)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
 
 ## Where we are
+
+- **Dashboard review (9 Nov):** [PR #8](https://github.com/KevinRusu/BC-State-Street-Case-Competition/pull/8) is open for review from `codex/dashboard-compact-trace-layout` into `main`. It includes the compact trace workspace, bounded zoom, office alignment, map-controlled steps and coordinated styling; validation and store-rebuild instructions are in the PR description.
+
+- **Map palette (9 Nov):** deeper blue-grey office backgrounds, a muted blue collective office outline, a navy group label and a stronger separate dashed external-source border. Both views share the light/dark palette; context boxes are less faded for readability. This refines the initial bright-blue grouping border at the user's request (D-064).
+
+- **Office grouping and trace controls (9 Nov):** Accounts and Ledger NAV are vertically centred in their bands. Both map views show a blue "State Street Offices" outline and a stronger separate dashed boundary for independent sources. Traced boxes toggle their matching timeline steps, share state with the timeline headers and support keyboard activation; context-only boxes explain why they have no matching step (D-063).
+  - **Validation:** rebuilt the full-data store using the existing analysis outputs and restarted the local app. Unit/store checks, the synthetic notebook/store-contract harness, the production browser suite, lint, type and documentation checks passed. Both views were visually reviewed in light/dark mode and their actual rendered palette checked; real-record map buttons were exercised locally.
+
+- **Trace node spacing (9 Nov):** Transactions is anchored by its vertical centre at the front/middle office boundary, so the box stays balanced when trace labels change its height. Pipeline events and Corporate actions have larger gaps and remain within an expanded middle-office band; the lower bands move down together. The graph metadata still comes from the store builder (D-062).
+  - **Validation:** rebuilt the local store and restarted the dashboard; all current-store examples passed the spacing, equal-overlap and desktop-fit checks. Unit/store and production browser suites, store contracts, lint, type and documentation checks passed. The store harness uses the existing Windows npm entry-point workaround described below.
+
+- **Compact trace layout (9 Nov):** on branch `codex/dashboard-compact-trace-layout`. The example picker and map share the left column; the selected-record summary sits above an independently scrolling evidence timeline on the right. Desktop height follows the viewport; narrow screens stack the panels. Manual lookup is under "Find an ID" beside the picker. Both maps stop zooming out at their centred full-grid view and refit after resizing. Detection and reconciliation logic are unchanged (D-061).
+  - **Validation:** full-data store rebuild using the existing analysis outputs; synthetic notebook/store contracts (including absent and foreign membership fallbacks); unit and production browser suites; lint, type and documentation checks passed. Every current-store example was also checked at laptop size. The Windows store harness needed its final npm commands run through npm's JavaScript entry point because the bundled Node launcher could not locate npm; those commands passed.
 
 - **One deliverable notebook (8 Nov):** `notebooks/deliverable.ipynb` (D-060) is the code deliverable of brief §7: the former `02_reconcile.ipynb` with `03_error_severity.ipynb` folded in as section 11 (the run record is section 12). It writes every `outputs/02_*` file, now including `02_severity.csv`, `02_fund_impact.csv`, `02_impact_detail.csv`, `02_account_membership.csv` and `02_severity.png` / `.pdf` (formerly `03_*`). Nothing moved: register checksum `d7e752f55f0a` as before, and the severity files equal the former `03_*` files on the full data. The other notebooks sit in `notebooks/additional/` (`01_explore_tables`, `02_quantity_mismatches`, `checkin1_evidence`); none of them is needed to run the deliverable or the dashboard. `tests/run_notebook.sh` runs the deliverable by default and `tests/fixture_test.sh` runs the severity section under every fixture config.
   - **Team:** `git pull` then reopen the notebook under its new name; `tests/run_notebook.sh` rebuilds `outputs/`. Numbers on slides and in the catalog are unchanged.

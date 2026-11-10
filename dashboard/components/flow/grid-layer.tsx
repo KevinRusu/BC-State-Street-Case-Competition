@@ -9,6 +9,7 @@ import type { MapOffice, MapStage } from "@/lib/types";
 export function GridLayer({ offices, stages }: { offices: MapOffice[]; stages: MapStage[] }) {
   const rows = offices.filter((o) => o.kind === "office");
   const top = Math.min(...rows.map((o) => o.y)), bottom = Math.max(...rows.map((o) => o.y + o.h));
+  const left = Math.min(...rows.map((o) => o.x)), right = Math.max(...rows.map((o) => o.x + o.w));
   const flowFrom = stages[1]?.x ?? 0, flowTo = Math.max(...stages.map((s) => s.x + s.w)) - 6;
   return (
     <ViewportPortal>
@@ -16,13 +17,14 @@ export function GridLayer({ offices, stages }: { offices: MapOffice[]; stages: M
         {offices.map((office) => (
           <div
             key={office.id}
-            className={`absolute rounded-2xl px-3.5 py-3 ${office.kind === "independent" ? "border border-dashed" : ""}`}
+            data-office-id={office.id}
+            className={`absolute rounded-2xl px-3.5 py-3 ${office.kind === "independent" ? "border-2 border-dashed" : ""}`}
             style={{
               width: office.w,
               height: office.h,
               transform: `translate(${office.x}px, ${office.y}px)`,
               background: `var(--row-${office.id})`,
-              borderColor: "var(--row-independent-line)",
+              borderColor: "var(--row-independent-border)",
             }}
           >
             <div className="w-[92px] text-sm leading-tight font-semibold">{office.label}</div>
@@ -35,6 +37,15 @@ export function GridLayer({ offices, stages }: { offices: MapOffice[]; stages: M
             style={{ height: bottom - top, transform: `translate(${stage.x - 1.5}px, ${top}px)` }}
           />
         ))}
+        <div
+          data-office-group
+          className="absolute rounded-2xl border-2"
+          style={{ width: right - left, height: bottom - top, transform: `translate(${left}px, ${top}px)`, borderColor: "var(--row-office-border)" }}
+        >
+          <span className="absolute -top-2.5 left-3 bg-[var(--canvas)] px-1.5 text-xs font-semibold" style={{ color: "var(--row-office-label)" }}>
+            State Street Offices
+          </span>
+        </div>
         {stages.map((stage) => (
           <div key={stage.id} className="absolute" style={{ width: stage.w, transform: `translate(${stage.x}px, 0px)` }}>
             {stage.note && (

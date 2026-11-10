@@ -75,7 +75,8 @@ INDEXES = {
 # The graph: a grid. Rows are the offices (plus the independent sources), columns are the stages of the flow
 # (D-049, drafted in dashboard/README.md). A table sits in the row of the office that handles it: the owner of its
 # check in scripts/framework.json. Handoffs follow the control map; joins follow Dataset Guide §2.
-# x/y are the top-left corner of each box on the dashboard canvas (pixels).
+# x/y are the top-left corner of each box on the dashboard canvas (pixels), unless origin_y is set:
+# origin_y=0.5 anchors the vertical centre, so a shared-office box stays balanced as trace labels change its height.
 # comes_from: a chip on the box. data = the data names the source (values read from `column`); reasoning = ours.
 # kind: handoff = numbered control-map handoff; flow = data moving, not numbered; lookup = reference join (toggle).
 # from_handle/to_handle: the side a line leaves or enters, with -a / -b for a point 30 % / 70 % along that side.
@@ -85,9 +86,9 @@ INDEXES = {
 GRAPH = {
     'offices': [
         dict(id='front', label='Front office', kind='office', x=10, y=70, w=980, h=136),
-        dict(id='middle', label='Middle office', kind='office', x=10, y=212, w=980, h=214),
-        dict(id='back', label='Back office', kind='office', x=10, y=432, w=980, h=96),
-        dict(id='independent', label='Independent sources', kind='independent', x=10, y=542, w=980, h=130),
+        dict(id='middle', label='Middle office', kind='office', x=10, y=212, w=980, h=270),
+        dict(id='back', label='Back office', kind='office', x=10, y=488, w=980, h=96),
+        dict(id='independent', label='Independent sources', kind='independent', x=10, y=598, w=980, h=130),
     ],
     'stages': [
         dict(id='address_books', label='Address books', note='master data, feeds the flow', x=110, w=220),
@@ -96,18 +97,18 @@ GRAPH = {
         dict(id='nav', label='NAV & ledger', note='', x=770, w=220),
     ],
     'nodes': [
-        dict(id='accounts', label='Accounts', office='front', stage='address_books', check='Account check', x=130, y=112,
+        dict(id='accounts', label='Accounts', office='front', stage='address_books', check='Account check', x=130, y=138, origin_y=0.5,
              grain='1 row = 1 account', rules=['ACC_REQUIRED_FIELDS'],
              note='The back office uses its fund and share class for the NAV (brief §3: front and back).',
              comes_from=[dict(label='client onboarding', evidence='reasoning',
                               reason='Our reasoning: no column says where accounts come from.')]),
         dict(id='transactions', label='Transactions', office='middle', office_label='Front + middle office',
-             stage='transactions', check='Trade check', x=350, y=180, grain='1 row = 1 trade record',
+             stage='transactions', check='Trade check', x=350, y=209, origin_y=0.5, grain='1 row = 1 trade record',
              note='Created in the front office; the middle office accepts and books it.',
              rules=['TXN_DUPLICATE', 'TXN_FIELDS_VALID', 'TXN_NEGATIVE_SIDE_EVIDENCE', 'TXN_BLANK_QUANTITY_EVIDENCE'],
              comes_from=[dict(label='{n} trade system{s}', evidence='data', column='transactions.source_system')]),
         dict(id='corporate_actions', label='Corporate actions', office='middle', stage='transactions',
-             check='Corporate action check', x=350, y=342, grain='1 row = 1 issuer event (not per account)',
+             check='Corporate action check', x=350, y=372, grain='1 row = 1 issuer event (not per account)',
              rules=['CA_TERMS_COMPLETE'],
              comes_from=[dict(label='company notices', evidence='reasoning',
                               reason="Our reasoning: no column records the issuer's notice of the event.")]),
@@ -116,20 +117,20 @@ GRAPH = {
              comes_from=[dict(label='reference data', evidence='reasoning',
                               reason='Our reasoning: no column says where the security master comes from.')]),
         dict(id='pipeline_events', label='Pipeline events', office='middle', stage='transactions', check='Trade check',
-             x=350, y=270, grain='1 row = timestamps of 1 trade', rules=['TXN_TIMESTAMPS_IN_ORDER', 'TXN_AFTER_CUTOFF']),
+             x=350, y=282, grain='1 row = timestamps of 1 trade', rules=['TXN_TIMESTAMPS_IN_ORDER', 'TXN_AFTER_CUTOFF']),
         # POS_KEYS_MASTERED and NAV_SHARE_CLASS_MAPPING also sit on their (hidden) lookup lines; the table wins the
         # count, so their findings show on the map with lookups off.
         dict(id='positions', label='Positions (our book)', office='middle', stage='positions', check='Position check',
              x=570, y=290, grain='1 row = account x security x date', rules=['POS_REBUILD_MATCHES', 'POS_KEYS_MASTERED']),
-        dict(id='ledger_nav', label='Ledger NAV', office='back', stage='nav', check='NAV check', x=790, y=458,
+        dict(id='ledger_nav', label='Ledger NAV', office='back', stage='nav', check='NAV check', x=790, y=536, origin_y=0.5,
              grain='1 row = fund x share class x date', rules=['NAV_ARITHMETIC', 'NAV_SHARE_CLASS_MAPPING']),
         dict(id='comparison_positions', label='Custodian positions', office='independent', stage='positions',
-             check='Position check', x=390, y=558, grain='1 row = account x security x date', rules=[],
+             check='Position check', x=390, y=614, grain='1 row = account x security x date', rules=[],
              comes_from=[dict(label='custodian feed', evidence='data', column='comparison_positions.source')]),
-        dict(id='prices', label='Prices', office='independent', stage='positions', check='Price check', x=590, y=558,
+        dict(id='prices', label='Prices', office='independent', stage='positions', check='Price check', x=590, y=614,
              grain='1 row = security x date x vendor', rules=['PRC_VENDOR_DISPERSION'],
              comes_from=[dict(label='{n} price vendor{s}', evidence='data', column='prices.vendor')]),
-        dict(id='fx_rates', label='FX rates', office='independent', stage='positions', check='Price check', x=790, y=558,
+        dict(id='fx_rates', label='FX rates', office='independent', stage='positions', check='Price check', x=790, y=614,
              grain='1 row = currency x date', rules=['FX_RATE_VALID'],
              comes_from=[dict(label='FX provider', evidence='reasoning',
                               reason='Our reasoning: fx_rates has no source column.')]),
@@ -455,6 +456,7 @@ def check_graph(catalog, framework, graph=GRAPH):
     section = {r['rule_id']: r['section'] for r in catalog}
     for n in graph['nodes']:
         assert n['office'] in offices and n['stage'] in stages, f"{n['id']}: unknown office or stage"
+        assert n.get('origin_y', 0) in (0, 0.5), f"{n['id']}: unsupported vertical anchor"
         assert n['check'] in framework, f"{n['id']}: check {n['check']!r} is not in scripts/framework.json"
         if offices[n['office']]['kind'] == 'office':
             assert framework[n['check']]['office'] == offices[n['office']]['label'], \
@@ -635,6 +637,7 @@ def main():
                                        place=place_of(n, offices, stages, framework), check=n['check'],
                                        owner=framework[n['check']]['owner'],
                                        check_office=framework[n['check']]['office'], x=n['x'], y=n['y'],
+                                       origin_y=n.get('origin_y', 0),
                                        grain=n['grain'], note=n.get('note', ''),
                                        rows=loaded[n['id']]['rows'], manifest_rows=loaded[n['id']]['manifest_rows'],
                                        columns=loaded[n['id']]['columns'],

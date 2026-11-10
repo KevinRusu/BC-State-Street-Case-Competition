@@ -57,7 +57,7 @@
 
 :root {
   /* One job per colour (D-049): brand blue = our framework (check numbers, selection, buttons); green, amber, red
-     and grey = data health only; soft greys = the office rows. Text uses the -text tones (4.5:1 on white). */
+     and grey = data health only; muted blue-greys = the office rows. Text uses the -text tones (4.5:1 on white). */
   --brand: #001aff;
   --brand-line: #001aff;
   --status-ok: #1a7f50;
@@ -65,11 +65,14 @@
   --status-warn-text: #9a6200;
   --status-bad: #c0392b;
   --status-info: #8a93a5;
-  --row-front: #f7f8fa;
-  --row-middle: #eff1f4;
-  --row-back: #f7f8fa;
-  --row-independent: #f6f7f9;
+  --row-front: #edf1f8;
+  --row-middle: #e1e8f2;
+  --row-back: #edf1f8;
+  --row-independent: #e9edf2;
   --row-independent-line: #c9ccd6;
+  --row-independent-border: #7b879b;
+  --row-office-border: #6b7fac;
+  --row-office-label: #29416d;
   --chip-data: #e9ecf2;
   --chip-reason-line: #8a93a5;
   --chip-reason-text: #4b5363;
@@ -117,11 +120,14 @@
   --status-warn-text: #e3ad42;
   --status-bad: #ec7466;
   --status-info: #98a2b3;
-  --row-front: #14161a;
-  --row-middle: #191c21;
-  --row-back: #14161a;
-  --row-independent: #111317;
+  --row-front: #1b2535;
+  --row-middle: #223149;
+  --row-back: #1b2535;
+  --row-independent: #18232f;
   --row-independent-line: #3a3f4b;
+  --row-independent-border: #8292aa;
+  --row-office-border: #687ea8;
+  --row-office-label: #b3c4e6;
   --chip-data: #3a404d;
   --chip-reason-line: #7d8594;
   --chip-reason-text: #b8beca;
