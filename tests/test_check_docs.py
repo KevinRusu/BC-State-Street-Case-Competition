@@ -45,6 +45,15 @@ class CheckDocs(unittest.TestCase):
     def test_planned_lists_only_files_that_do_not_exist_yet(self):
         self.assertEqual([p for p in check_docs.PLANNED if (ROOT / p).exists()], [])
 
+    def test_every_file_is_read_with_an_explicit_encoding(self):
+        # Without one, Python uses the console code page (cp1252 on Windows) and the curly quotes in docs/ fail to
+        # decode. -X warn_default_encoding flags each such read on any platform; -W error makes it fatal.
+        import subprocess
+        result = subprocess.run(
+            [sys.executable, '-X', 'warn_default_encoding', '-W', 'error::EncodingWarning', 'scripts/check_docs.py'],
+            cwd=ROOT, capture_output=True, text=True, encoding='utf-8')
+        self.assertNotIn('EncodingWarning', result.stderr)
+
 
 if __name__ == '__main__':
     unittest.main()

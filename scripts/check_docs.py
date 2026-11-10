@@ -67,7 +67,7 @@ def check_paths():
         if not doc.exists():
             problems.append(f'{doc.relative_to(ROOT)}: file missing')
             continue
-        text = doc.read_text()
+        text = doc.read_text(encoding='utf-8')
         refs = [(m, ROOT) for m in TICKED.findall(text) if is_repo_path(m)]
         refs += [(m, doc.parent) for m in LINKED.findall(text) if not m.startswith(('http', 'mailto:'))]
         for ref, base in refs:
@@ -83,7 +83,7 @@ def check_paths():
 
 def rule_ids():
     """The rule IDs docs/RULES.md defines: the first cell of each rule table row."""
-    text = (ROOT / 'docs' / 'RULES.md').read_text()
+    text = (ROOT / 'docs' / 'RULES.md').read_text(encoding='utf-8')
     return set(re.findall(r'^\|\s*`([A-Z]+_[A-Z_]+)`\s*\|', text, flags=re.M))
 
 
@@ -94,7 +94,8 @@ def unknown_rule_ids(text, known):
 def check_rule_ids():
     known = rule_ids()
     return [f'{doc.relative_to(ROOT)}: rule {rule} is not in docs/RULES.md'
-            for doc in living_docs() if doc.exists() for rule in unknown_rule_ids(doc.read_text(), known)]
+            for doc in living_docs() if doc.exists()
+            for rule in unknown_rule_ids(doc.read_text(encoding='utf-8'), known)]
 
 
 def check_findings():
@@ -107,12 +108,12 @@ def check_findings():
         return ['docs/FINDINGS.md missing: run scripts/build_findings.py']
     current = checksum(register)
     problems = []
-    m = re.search(r'Register checksum: `([0-9a-f]+)`', findings.read_text())
+    m = re.search(r'Register checksum: `([0-9a-f]+)`', findings.read_text(encoding='utf-8'))
     if not m or m.group(1) != current:
         problems.append('docs/FINDINGS.md is older than outputs/02_defect_register.csv: run scripts/build_findings.py')
     catalog = ROOT / 'docs' / 'DEFECT_CATALOG.md'
     if catalog.exists():
-        stale = set(re.findall(r'register \(checksum `([0-9a-f]+)`\)', catalog.read_text())) - {current}
+        stale = set(re.findall(r'register \(checksum `([0-9a-f]+)`\)', catalog.read_text(encoding='utf-8'))) - {current}
         if stale:
             problems.append('docs/DEFECT_CATALOG.md cards are older than the register: run scripts/build_findings.py')
     return problems

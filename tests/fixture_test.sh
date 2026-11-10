@@ -9,7 +9,7 @@ cd "$(git rev-parse --show-toplevel)"
 W=tests/runs
 mkdir -p "$W"
 export RECONCILIATION_DATA=tests/fixtures/small/manifest.csv
-python3 - <<'PY'
+uv run --quiet python - <<'PY'
 base = open('config/reconciliation.toml').read()
 W = 'tests/runs'
 for name, old, new in [('shuffled', 'shuffle_seed = 0', 'shuffle_seed = 3'),
@@ -20,7 +20,7 @@ for name, old, new in [('shuffled', 'shuffle_seed = 0', 'shuffle_seed = 3'),
 PY
 # Edge fixture: a copy of tests/fixtures/small with the cases a schema-compatible file may hold and the release does
 # not (built here, so the default fixture and its expected outcomes stay as they are).
-python3 - <<'PY'
+uv run --quiet python - <<'PY'
 import csv, shutil
 src, dst = 'tests/fixtures/small', 'tests/runs/fixture_edge'
 shutil.rmtree(dst, ignore_errors=True)
@@ -158,7 +158,7 @@ counts = {'transactions': edit('transactions', add(
     'FXT29,FXACC0,FXSEC3,FXCUSIP03,BUY,2026-06-15,2026-06-17,-10,5.00,USD,50.00,REVERSED,FXT30,FIXTURE_OMS,2026-06-15 10:00:00,'))}
 edit('manifest', lambda rows, fields: [{**row, 'rows': str(counts.get(row['table'], row['rows']))} for row in rows])
 PY
-python3 - <<'PY'
+uv run --quiet python - <<'PY'
 base = open('config/reconciliation.toml').read()
 for old, new in [('reversed_main = "R1"', 'reversed_main = "R3"'), ('reversed_side = "R3"', 'reversed_side = "R1"')]:
     assert old in base, f'config has no line {old!r}'
