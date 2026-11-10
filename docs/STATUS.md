@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-09 (coordinated map palette and map-controlled trace steps; D-063, D-064)
+Last updated: 2026-11-09 (Check-in 2 marked done and frozen; coordinated map palette and map-controlled trace steps; D-063, D-064)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
@@ -40,7 +40,8 @@ Last updated: 2026-11-09 (coordinated map palette and map-controlled trace steps
 - **Check-in 1 (architecture):** done. Material frozen in `docs/checkins/checkin1/`.
   Feedback: tell a story rather than list results; the team that explains the data best with good visuals wins,
   ideally with an interactive dashboard or small app.
-- **Check-in 2 (method gate, week of 19 Oct):** the code is done. `notebooks/deliverable.ipynb` (then named
+- **Check-in 2 (method gate):** done and presented (about 2 Nov). Material frozen in `docs/checkins/checkin2/`; tag
+  `checkin2`. The code was done by then. `notebooks/deliverable.ipynb` (then named
   `02_reconcile.ipynb`, D-060) runs on the full
   data (all eleven tasks in `docs/checkins/checkin2/CHECKIN2_PLAN.md` §6b), with fixture and robustness tests in
   `tests/`. Clean-kernel run done 17 Oct (`tests/run_notebook.sh`, 49 s; register checksum unchanged, see
@@ -97,18 +98,10 @@ slide count). The register is unchanged on the full data; the Check-in decks wer
   scenario at all had records (not reachable with the register's findings today; since 8 Nov the fixture test runs
   the section under every fixture config, and none of them is empty).
 
-## Next: before Check-in 2
+## Next: toward Check-in 3 (week of 9 Nov)
 
-| Work | Where | Owner |
-|---|---|---|
-| Review the catalog draft (six entries now): one teammate per entry checks the prose and fills *Reviewed by* | `docs/DEFECT_CATALOG.md` | |
-| Read the team guide first: the project, the six Check-in 2 items, the three statuses and how to put the numbers on slides, in plain words | `docs/checkins/checkin2/TEAM_GUIDE.md` | everyone |
-| Read the story before the dry run (one broken trade, end to end, with the detours and the cleared flag) | `docs/checkins/checkin2/STORY.md` | everyone |
-| **Deck (27 Oct, replaces both earlier decks)**: 7 slides, one per brief §8 item (the last item has two), for 8–10 minutes beside the live dashboard. No cover, no question slide. Each slide: the deliverable as the header, the finding in one sentence, one chart or table, short cards; short speaker notes beside it. Rebuild after a notebook rerun: `uv run python scripts/build_checkin2_deck.py` (a rerun overwrites hand edits) | `docs/checkins/checkin2/Checkin2.pptx`, `SPEAKER_NOTES.md` | team |
-| **Study guide (27 Oct)**: every Check-in 2 item, the ten tables, the code and tests explained from zero, with one worked example per idea and the source file of every number | `docs/checkins/checkin2/STUDY_GUIDE.md` | everyone |
-| **Next: dry run.** Each member explains one slide and one number, using DECK_BRIEF.md §4 | | |
-
-## Next: after Check-in 2
+- **Review the catalog draft** (six entries): one teammate per entry checks the prose and fills *Reviewed by* in
+  `docs/DEFECT_CATALOG.md`. Still open from before Check-in 2.
 
 - **Open the groups we have only counted** (agreed 21 Oct, for Check-in 3's quality checks). Each is a register line or
   an output row that nobody has looked inside yet:
@@ -122,7 +115,6 @@ slide count). The register is unchanged on the full data; the Check-in decks wer
   - the NAV fails and the vendor spread and scale flags
   - conflicting copies that differ only on fields that don't change a quantity (could become testable)
 
-- Tag the repo `checkin2`; `docs/checkins/checkin2/` becomes frozen.
 - Move the deliverable notebook's code into `src/` + `run_all.py` (D-012): one command rebuilds every number. Two steps, so each
   can be checked: (1) move what exists, and prove every output is unchanged; (2) add the rules RULES.md states but no
   code runs yet, one at a time, as entries in a rule table (rule id, testable and fail conditions, config key for the
@@ -175,7 +167,7 @@ What worked, what did not, and what a Windows teammate should know:
   notebook 03 with the path quoted.
 - **`python3` is the Microsoft Store stub:** `tests/fixture_test.sh` and `tests/robustness_test.sh` run their checks
   with `python3 - <<'PY'`; on Windows `python3` on PATH is the Store launcher, so both scripts stop at that line. They
-  pass once a `python3` that runs `.venv/Scripts/python.exe` is first on PATH (fixture test: 41 checks, the severity
+  pass once a `python3` that runs the virtual environment's `python.exe` (its Windows `Scripts` folder) is first on PATH (fixture test: 41 checks, the severity
   section under every config). Fix to make: call `uv run --quiet python -` there, as `tests/run_notebook.sh` does.
 - **`scripts/check_docs.py` reads files in the console code page:** `Path.read_text()` without an encoding is cp1252
   on Windows, so the curly quotes in `docs/SANKEY_GUIDE.md` and `docs/UPSET_GUIDE.md` raise `UnicodeDecodeError`. Run
