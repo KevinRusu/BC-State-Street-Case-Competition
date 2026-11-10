@@ -18,8 +18,10 @@ for seed in sys.argv[1].split():
     open(f'tests/runs/config_shuffled_{seed}.toml', 'w').write(
         base.replace('shuffle_seed = 0', f'shuffle_seed = {seed}'))
 assert 'spread_threshold = 0.005' in base and base.count('OMS_FRONT = 240') == 1
-# Two live changes in one run: a price threshold, and one feed's processing-latency limit (D-065)
+assert base.count('day_on_day_band = 0.05') == 1, 'config has no day_on_day_band = 0.05 line'
+# Three live changes in one run: a price threshold, the FX day-on-day band, and one feed's processing-latency limit (D-065)
 open('tests/runs/config_threshold.toml', 'w').write(base.replace('spread_threshold = 0.005', 'spread_threshold = 0.01')
+                                                    .replace('day_on_day_band = 0.05', 'day_on_day_band = 0.10')
                                                     .replace('OMS_FRONT = 240', 'OMS_FRONT = 480'))
 PY
 uv run --quiet python - "$SEEDS" <<'PY'
@@ -122,6 +124,36 @@ assert not ((ta.loc[own, 'median_above_limit'] == 'no') & (tc.loc[own, 'median_a
 yes_a, yes_c = int((ta.loc[own, 'median_above_limit'] == 'yes').sum()), int((tc.loc[own, 'median_above_limit'] == 'yes').sum())
 print(f'threshold rehearsal: processing limit OMS_FRONT 240 -> 480 min: "yes" feed-days {yes_a} -> {yes_c}')
 assert yes_c <= yes_a
+# FX band 0.05 -> 0.10: its register line may only flag fewer rows; every other line, outside the price-threshold,
+# scale/spread and processing-limit lines that these rehearsals move, stays identical.
+FX_LINE = 'FX rate moves more than the band from the previous business day'
+MOVING_LINES = {FX_LINE,
+                'Scale flag: the chosen quote is the odd one out', 'Scale flag: the chosen quote is backed by another vendor',
+                'Spread flag: the chosen quote is the odd one out', 'Spread flag: the chosen quote is backed by another vendor',
+                'Spread or scale flag: no two vendors agree',
+                'Vendor quotes on the snapshot date: spread above threshold',
+                'Vendor quotes on the snapshot date: scale flag (ratio near 100)',
+                'Processing latency: daily median above the feed\'s limit'}
+ga = pd.read_csv(f'{W}/run_a/02_defect_register.csv', dtype=str, keep_default_na=False).set_index('finding')
+gc = pd.read_csv(f'{W}/run_c/02_defect_register.csv', dtype=str, keep_default_na=False).set_index('finding')
+assert list(ga.index) == list(gc.index), 'the register lines or their order changed with a threshold'
+fa, fc = ga.loc[FX_LINE], gc.loc[FX_LINE]
+assert int(fc['affected']) <= int(fa['affected']), 'a wider FX band flagged more rate rows'
+assert (fa['eligible'], fa['population']) == (fc['eligible'], fc['population']), 'the FX band moved the eligible set or population'
+print(f'threshold rehearsal: fx day_on_day_band 0.05 -> 0.10: "{FX_LINE}" affected {fa["affected"]} -> {fc["affected"]}')
+missing = [name for name in MOVING_LINES if name not in ga.index]
+assert not missing, f'register lines expected by the robustness test are missing: {missing}'
+keep = [name for name in ga.index if name not in MOVING_LINES]
+assert ga.loc[keep].equals(gc.loc[keep]), 'a register line moved that the threshold changes do not explain: ' + \
+    str([n for n in keep if not ga.loc[n].equals(gc.loc[n])])
+pa = pd.read_csv(f'{W}/run_a/02_price_quality.csv', dtype=str, keep_default_na=False)
+pc = pd.read_csv(f'{W}/run_c/02_price_quality.csv', dtype=str, keep_default_na=False)
+price_moving = ['vendor_check_result', 'flag_class', 'odd_vendor', 'dates_spread_flagged']
+assert list(pa.columns) == list(pc.columns) and (pa['security_id'] == pc['security_id']).all(), \
+    '02_price_quality.csv changed shape with a threshold'
+assert pa.drop(columns=price_moving).equals(pc.drop(columns=price_moving)), \
+    '02_price_quality.csv moved in a column the spread threshold does not explain'
+print(f'threshold rehearsal: other register lines ({len(keep)}) and 02_price_quality.csv columns outside {price_moving} identical')
 assert not problems, f'outputs changed under shuffling: {problems}'
 print(f'robustness test passed: rows shuffled with seeds {", ".join(seeds)} give the same outputs; '
       'a threshold change moves only its own check')

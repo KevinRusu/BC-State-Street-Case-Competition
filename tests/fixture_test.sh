@@ -3,7 +3,8 @@
 # row copied from data/) and compare what it finds with what the fixture was built to contain. Outputs go to
 # run_fixture_*, never to outputs/. Runs: default config, rows shuffled, holding_date = settlement, a trace flag no key
 # carries, an edge copy of the fixture (built below in tests/runs/fixture_edge) with inputs the release does not
-# contain, and an R3 copy under the R3 reading (its severity section is checked too).
+# contain, an R3 copy under the R3 reading (its severity section is checked too), and a quality copy (built below in
+# tests/runs/fixture_quality) with the price, FX and trade quality cases, run as is and with a T+3 settlement limit.
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 W=tests/runs
@@ -14,7 +15,8 @@ base = open('config/reconciliation.toml').read()
 W = 'tests/runs'
 for name, old, new in [('shuffled', 'shuffle_seed = 0', 'shuffle_seed = 3'),
                        ('settlement', 'holding_date = "trade"', 'holding_date = "settlement"'),
-                       ('notrace', 'flag = "sign_conflict"', 'flag = "rebook_old_gross"')]:
+                       ('notrace', 'flag = "sign_conflict"', 'flag = "rebook_old_gross"'),
+                       ('lag3', 'settlement_lag_limit_business_days = 2', 'settlement_lag_limit_business_days = 3')]:
     assert old in base, f'config has no line {old!r}'
     open(f'{W}/config_fixture_{name}.toml', 'w').write(base.replace(old, new))
 PY
@@ -158,6 +160,112 @@ counts = {'transactions': edit('transactions', add(
     'FXT29,FXACC0,FXSEC3,FXCUSIP03,BUY,2026-06-15,2026-06-17,-10,5.00,USD,50.00,REVERSED,FXT30,FIXTURE_OMS,2026-06-15 10:00:00,'))}
 edit('manifest', lambda rows, fields: [{**row, 'rows': str(counts.get(row['table'], row['rows']))} for row in rows])
 PY
+# Quality fixture: a copy of tests/fixtures/small with one case per price, FX and trade quality check (quality-checks
+# spec §7). A third vendor, FIXTURE_V3, has priority 3. Quote timestamps are 17:00:00 on the price date unless stated.
+# No pipeline records are added; positions FXQP* have no trades and no custodian row (not asserted).
+uv run --quiet python - <<'PY'
+import csv, shutil
+src, dst = 'tests/fixtures/small', 'tests/runs/fixture_quality'
+shutil.rmtree(dst, ignore_errors=True)
+shutil.copytree(src, dst)
+def edit(table, change):
+    path = f'{dst}/{table}.csv'
+    with open(path, newline='') as stream:
+        reader = csv.DictReader(stream)
+        fields, rows = reader.fieldnames, list(reader)
+    rows = change(rows, fields)
+    with open(path, 'w', newline='') as stream:
+        writer = csv.DictWriter(stream, fieldnames=fields, lineterminator='\n')
+        writer.writeheader()
+        writer.writerows(rows)
+    return len(rows)
+def add(*lines):
+    return lambda rows, fields: rows + [dict(zip(fields, line.split(','))) for line in lines]
+S, D = '2026-07-10', '2026-07-09'
+SECURITIES, BONDS = range(4, 22), {12, 13}
+def quote(n, day, vendor, price, currency='USD', stamp=None):
+    stamp = f'{day} 17:00:00' if stamp is None else stamp
+    return f'FXSEC{n},{day},FIXTURE_V{vendor},{price},{currency},{stamp},{vendor}'
+def trade(tid, account, security, kind, trade_day, settle_day, quantity, price, gross, status, rel='', note=''):
+    currency = 'EUR' if security == 'FXSEC2' else 'USD'
+    return (f'{tid},{account},{security},FXCUSIP0{security[-1]},{kind},{trade_day},{settle_day},{quantity},{price},'
+            f'{currency},{gross},{status},{rel},FIXTURE_OMS,{trade_day} 09:00:00,{note}')
+EXT = 'EXTENDED_SETTLEMENT_AGREED'
+counts = {
+    # FXSEC4-FXSEC21 mastered in USD (FXSEC12 and FXSEC13 are bonds); FXSEC22 mastered with a blank currency;
+    # FXSEC90 is held and quoted but not mastered.
+    'securities': edit('securities', add(*[
+        f"FXSEC{n},FXCUSIP{n:02d},FX00000000{n:02d},FXQ{n},Fixture {'Bond' if n in BONDS else 'Equity'} {n},"
+        f"{'BOND' if n in BONDS else 'EQUITY'},USD,XFIX,US,,," for n in SECURITIES],
+        'FXSEC22,FXCUSIP22,FX0000000022,FXQ22,Fixture Equity 22,EQUITY,,XFIX,US,,,')),
+    'positions': edit('positions', add(*[f'FXQP{n},FXACC1,FXSEC{n},10,1,{S},BOOK_OF_RECORD'
+                                         for n in [*SECURITIES, 22, 90]])),
+    'prices': edit('prices', add(
+        quote(4, D, 1, '10.00'),                                              # coverage fail: no snapshot quote
+        quote(5, S, 1, ''), quote(5, S, 2, '10.00'),                          # fallback-only
+        quote(90, S, 1, '10.00'),                                             # not mastered, quoted: not evaluable
+        f'FXSEC18,not-a-date,FIXTURE_V1,10.00,USD,{S} 17:00:00,1',           # unreadable price_date only: not evaluable
+        quote(6, S, 1, '10.00', stamp=f'{S} 18:00:00'), quote(6, S, 2, '10.01'),   # fresh at the cutoff
+        quote(7, S, 1, '10.00', stamp=f'{S} 18:01:00'), quote(7, S, 2, '10.01'),   # stale, fresh fallback
+        quote(8, S, 1, '10.00', stamp='2026-07-11 09:00:00'),                      # stale (other day), and the
+        quote(8, S, 2, '10.01', stamp='2026-07-11 09:00:00'),                      # fallback is no fresher
+        quote(9, S, 1, '10.00', stamp=''), quote(9, S, 2, '10.01'),                # freshness not evaluable
+        *[quote(10, day, 1, '10.00') for day in ['2026-07-03', '2026-07-06', '2026-07-07', '2026-07-08', D, S]],
+        quote(10, S, 2, '10.01'),                                             # flat run of 6 across a weekend
+        *[quote(11, day, 1, '10.00') for day in ['2026-07-07', D, S]],
+        quote(11, S, 2, '10.01'),                                             # no quote on 8 July: run of 2
+        quote(12, S, 1, '0.95'), quote(12, S, 2, '95.00'), quote(12, S, 3, '95.02'),     # scale, chosen is odd
+        quote(13, S, 1, '95.00'), quote(13, S, 2, '95.01'), quote(13, S, 3, '0.9502'),   # scale, backed
+        quote(14, S, 1, '10.20'), quote(14, S, 2, '10.00'), quote(14, S, 3, '10.01'),    # spread, chosen is odd
+        quote(14, D, 1, '1.00'), quote(14, D, 2, '100.00'), quote(14, D, 3, '100.10'),    # earlier dates: scale (not
+        quote(14, '2026-07-08', 1, '10.20'), quote(14, '2026-07-08', 2, '10.00'),        # also spread), spread, and
+        quote(14, '2026-07-08', 3, '10.01'), *[quote(14, '2026-07-07', v, p)             # not flagged
+                                               for v, p in [(1, '10.00'), (2, '10.00'), (3, '10.01')]],
+        quote(15, S, 1, '10.00'), quote(15, S, 2, '10.01'), quote(15, S, 3, '10.30'),    # spread, backed
+        quote(16, S, 1, '10.00'), quote(16, S, 2, '10.20'), quote(16, S, 3, '10.40'),    # spread, no two agree
+        quote(17, S, 1, '10.00', 'EUR'), quote(17, S, 2, '10.30', 'EUR'),              # only EUR; master USD
+        quote(19, S, 1, 'inf'),                                                         # infinite price: unreadable
+        quote(20, S, 1, '10.00'), quote(20, S, 2, '10.04'), quote(20, S, 3, '10.08'),  # spread, backed; V1 and V3
+                                                                                        # tie on the median distance
+        quote(21, S, 1, '10.00'), quote(21, S, 2, '10.10'), quote(21, S, 3, '10.11'),  # spread, chosen is odd; V4 is
+        quote(21, S, 4, '12.00'),                                                       # farther from the median
+        quote(22, S, 1, '10.00', ''))),                                                 # blank currency both sides
+    'fx_rates': edit('fx_rates', add(
+        'EUR,2026-07-09,1.100000', 'GBP,2026-07-09,1.250000', 'GBP,2026-07-09,1.260000', 'GBP,2026-07-10,1.250000',
+        'CHF,2026-07-09,abc', 'CHF,2026-07-10,0', 'CAD,2026-07-09,1.000000', 'CAD,2026-07-10,1.050000',
+        'JPY,2026-07-03,0.006400', 'JPY,2026-07-06,0.0067264', 'JPY,2026-07-08,0.006700',
+        'NOK,2026-07-09,1.000000', 'NOK,2026-07-10,inf',                       # infinite rate: unusable
+        'AUD,09/07/2026,1.000000', 'AUD,2026-07-10,1.080000')),                # previous day written DD/MM/YYYY
+    'transactions': edit('transactions', add(
+        trade('FXQ01', 'FXACC1', 'FXSEC3', 'BUY', '2026-06-22', '2026-06-24', '10', '', '50.00', 'BOOKED'),
+        trade('FXQ02', 'FXACC1', 'FXSEC1', 'BUY', '2026-06-22', '2026-06-24', '10', '10.00', '100.01', 'BOOKED'),
+        trade('FXQ03', 'FXACC1', 'FXSEC1', 'BUY', '2026-06-23', '2026-06-25', '10', '10.00', '100.02', 'BOOKED'),
+        trade('FXQ04', 'FXACC1', 'FXSEC2', 'BUY', '2026-06-22', '2026-06-24', '-10', '10.00', '100.00', 'BOOKED'),
+        trade('FXQ05', 'FXACC2', 'FXSEC1', 'BUY', '2026-06-19', '2026-06-23', '1', '20.00', '20.00', 'BOOKED'),
+        trade('FXQ06', 'FXACC2', 'FXSEC1', 'BUY', '2026-06-19', '2026-06-24', '2', '20.00', '40.00', 'BOOKED'),
+        trade('FXQ07', 'FXACC2', 'FXSEC1', 'BUY', '2026-06-19', '2026-06-24', '3', '20.00', '60.00', 'BOOKED', note=EXT),
+        trade('FXQ08', 'FXACC2', 'FXSEC2', 'BUY', '2026-06-22', '24/06/2026', '4', '10.00', '40.00', 'BOOKED'),
+        trade('FXQ09', 'FXACC2', 'FXSEC3', 'BUY', '2026-06-22', '2026-06-24', '15', '5.00', '75.00', 'BOOKED'),
+        trade('FXQ10', 'FXACC2', 'FXSEC3', 'BUY', '2026-06-22', '2026-06-24', '15.0', '5.0', '75.00', 'BOOKED'),
+        trade('FXQ11', 'FXACC1', 'FXSEC3', 'BUY', '2026-06-23', '2026-06-25', '7', '5.00', '35.00', 'CANCELLED'),
+        trade('FXQ12', 'FXACC1', 'FXSEC3', 'BUY', '2026-06-23', '2026-06-25', '7', '5.00', '35.00', 'BOOKED', rel='FXQ11'),
+        trade('FXQ13', 'FXACC1', 'FXSEC3', 'BUY', '2026-06-24', '2026-06-26', '8', '5.00', '40.00', 'CANCELLED'),
+        trade('FXQ14', 'FXACC1', 'FXSEC3', 'BUY', '2026-06-24', '2026-06-26', '9', '5.00', '45.00', 'CANCELLED', rel='FXQ13'),
+        trade('FXQ15', 'FXACC1', 'FXSEC3', 'BUY', '2026-06-24', '2026-06-26', '8', '5.00', '40.00', 'BOOKED', rel='FXQ14'),
+        trade('FXQ16', 'FXACC2', 'FXSEC1', 'SELL', '2026-06-25', '2026-06-29', '1', '20.00', '20.00', 'REVERSED', rel='FXT01'),
+        trade('FXQ17', 'FXACC3', 'FXSEC3', 'BUY', '2026-06-19', '2026-06-24', '6', '5.00', '30.00', 'BOOKED', note=EXT),
+        trade('FXQ17', 'FXACC3', 'FXSEC3', 'BUY', '2026-06-19', '2026-06-24', '6', '5.00', '30.00', 'BOOKED'),
+        trade('FXQ18', 'FXACC3', 'FXSEC3', 'SELL', '2026-06-25', '2026-06-29', '1', '5.00', '5.00', 'BOOKED', rel='FXQ18'),
+        trade('FXQ19', 'FXACC3', 'FXSEC3', 'SELL', '2026-06-26', '2026-06-30', '2', '5.00', '10.00', 'BOOKED', rel='FXQ99'),
+        trade('FXQ20', 'FXACC1', 'FXSEC3', 'BUY', '2026-06-26', '2026-06-30', '1', '5.00', '5.00', 'BOOKED'),
+        trade('FXQ20', 'FXACC2', 'FXSEC3', 'BUY', '2026-06-26', '2026-06-30', '1', '', '5.00', 'BOOKED'),
+        trade('FXQ21', 'FXACC1', 'FXSEC3', 'SELL', '2026-06-29', '2026-07-01', '1', '5.00', '5.00', 'BOOKED', rel='FXQ20'),
+        trade('FXQ22', 'FXACC3', 'FXSEC3', 'SELL', '2026-06-30', '2026-07-02', '3', '5.00', '15.00', 'CANCELLED',
+              rel='FXQ98'),
+        trade('FXQ23', 'FXACC3', 'FXSEC3', 'BUY', '2026-06-30', '2026-07-02', '1', 'inf', 'inf', 'BOOKED'))),
+}
+edit('manifest', lambda rows, fields: [{**row, 'rows': str(counts.get(row['table'], row['rows']))} for row in rows])
+PY
 uv run --quiet python - <<'PY'
 base = open('config/reconciliation.toml').read()
 for old, new in [('reversed_main = "R1"', 'reversed_main = "R3"'), ('reversed_side = "R3"', 'reversed_side = "R1"')]:
@@ -176,6 +284,8 @@ run notrace "$W/config_fixture_notrace.toml"
 RECONCILIATION_DATA="$W/fixture_edge/manifest.csv" run edge ""
 RECONCILIATION_DATA="$W/fixture_r3/manifest.csv" run r3 "$W/config_fixture_r3.toml"
 RECONCILIATION_DATA="$W/fixture_r3/manifest.csv" run r3default ""
+RECONCILIATION_DATA="$W/fixture_quality/manifest.csv" run quality ""
+RECONCILIATION_DATA="$W/fixture_quality/manifest.csv" run quality_lag3 "$W/config_fixture_lag3.toml"
 uv run --quiet python - <<'PY'
 import glob, os, pandas as pd
 W = 'tests/runs'
@@ -442,10 +552,12 @@ expect('timeliness register edge: feed-latency median above limit = one feed-day
        member("Feed latency: daily median above the feed's limit"))
 expect('timeliness register edge: processing median above limit = one feed-day', {'OMS_FRONT 2026-06-04'},
        member("Processing latency: daily median above the feed's limit"))
+NAV_LINE = 'NAV arithmetic does not hold (net_assets / shares_outstanding vs nav_per_share)'
 for run in ['default', 'edge']:
     register = read(run, '02_defect_register.csv')
-    expect(f'timeliness register {run}: the seven lines come last, in order', TIMELINESS_LINES,
-           register['finding'].tolist()[-7:])
+    names = register['finding'].tolist(); i = names.index(NAV_LINE)
+    expect(f'timeliness register {run}: the seven lines follow the NAV line, in order', TIMELINESS_LINES,
+           names[i + 1:i + 8])
     lines = register.set_index('finding')
     expect(f'timeliness register {run}: latency lines unresolved, the rest confirmed',
            ['confirmed'] * 3 + ['unresolved'] * 2 + ['confirmed'] * 2, [lines.loc[n, 'status'] for n in TIMELINESS_LINES])
@@ -454,6 +566,165 @@ expect('timeliness register default: nothing unparseable; no limit for FIXTURE_O
        ('0', '0', '0', '0', '0'),
        (lines.loc['Pipeline timestamp unparseable', 'affected'],
         *[lines.loc[n, c] for n in TIMELINESS_LINES[3:5] for c in ('affected', 'eligible')]))
+
+# Price data quality (section 8b, quality-checks spec §6.2-§6.4): coverage, fallback-only, freshness, flat runs.
+QUALITY_LINES = ['Holding with no eligible quote on the snapshot date',
+                 'Holding priced only by a fallback vendor on the snapshot date',
+                 'Chosen quote stamped after the NAV cutoff',
+                 'Scale flag: the chosen quote is the odd one out',
+                 'Scale flag: the chosen quote is backed by another vendor',
+                 'Spread flag: the chosen quote is the odd one out',
+                 'Spread flag: the chosen quote is backed by another vendor',
+                 'Spread or scale flag: no two vendors agree',
+                 'FX rate repeated for a currency and date',
+                 'FX rate not positive or unreadable',
+                 'FX rate moves more than the band from the previous business day',
+                 'Blank or unreadable trade price',
+                 'gross_amount does not equal quantity x price',
+                 'Settlement later than the lag limit with no agreed extension',
+                 'Settlement later than the lag limit with an agreed extension',
+                 'Same economics under a different transaction_id',
+                 'Correction link points to itself, to a missing ID, or to another account or security']   # spec order
+def line_counts(run, name):
+    row = read(run, '02_defect_register.csv').set_index('finding').loc[name]
+    return tuple(row[c] for c in ('affected', 'eligible', 'not evaluable', 'population'))
+for run in ['default', 'quality']:
+    names = read(run, '02_defect_register.csv')['finding'].tolist()
+    expect(f'quality {run}: new lines follow the timeliness lines, in order', QUALITY_LINES,
+           names[names.index('Published after cutoff') + 1:][:len(QUALITY_LINES)])
+expect('quality default: every holding covered by the priority vendor, every chosen quote fresh',
+       [('0', '7', '0', '7'), ('0', '7', '0', '7'), ('0', '3', '0', '3')],
+       [line_counts('default', n) for n in QUALITY_LINES[:3]])
+pq = read('default', '02_price_quality.csv').set_index('security_id')
+expect('quality default: FXSEC1 chosen V1 20.0, fresh, run 1 (its 07-09 V1 price is blank)',
+       ('FIXTURE_V1', '20.0', 'pass', 'pass', '1'),
+       tuple(pq.loc['FXSEC1', c] for c in ['chosen_vendor', 'chosen_price', 'coverage', 'freshness', 'flat_run_dates']))
+expect('quality: coverage fail = no snapshot quote and quotes only in another currency (2 rows); not evaluable = '
+       'unmastered, unreadable price_date, an infinite price and a blank master currency', ('2', '23', '4', '27'),
+       line_counts('quality', QUALITY_LINES[0]))
+members = read('quality', '02_finding_members.csv').groupby('finding')['record_id'].apply(set)
+expect('quality: coverage fail members', {'FXSEC4', 'FXSEC17'}, members[QUALITY_LINES[0]])
+expect('quality: fallback-only = FXSEC5; population = coverage passes only', ('1', '21', '0', '21'),
+       line_counts('quality', QUALITY_LINES[1]))
+expect('quality: stale = 18:01 and next-day stamps; 18:00 on time; blank stamp not evaluable', ('2', '16', '1', '17'),
+       line_counts('quality', QUALITY_LINES[2]))
+expect('quality: stale members', {'FXSEC7', 'FXSEC8'}, members[QUALITY_LINES[2]])
+pq = read('quality', '02_price_quality.csv').set_index('security_id')
+col = lambda c: {s: pq.loc[s, c] for s in pq.index}
+expect('quality: fresh fallback yes for FXSEC7 (V2 at 17:00), no for FXSEC8 (V2 also next day)', ('yes', 'no'),
+       (pq.loc['FXSEC7', 'fresh_fallback'], pq.loc['FXSEC8', 'fresh_fallback']))
+expect('quality: freshness reasons', ('after the NAV cutoff', 'stamped on another day', 'timestamp missing'),
+       tuple(pq.loc[s, 'freshness_reason'] for s in ['FXSEC7', 'FXSEC8', 'FXSEC9']))
+expect('quality: flat run 6 across a weekend; a missing date breaks the run (2)', ('6', '2'),
+       (pq.loc['FXSEC10', 'flat_run_dates'], pq.loc['FXSEC11', 'flat_run_dates']))
+expect('quality: coverage results of the special cases',
+       {'FXSEC4': 'fail', 'FXSEC5': 'pass', 'FXSEC17': 'fail', 'FXSEC18': 'not evaluable', 'FXSEC19': 'not evaluable',
+        'FXSEC22': 'not evaluable', 'FXSEC90': 'not evaluable'},
+       {s: col('coverage')[s] for s in ['FXSEC4', 'FXSEC5', 'FXSEC17', 'FXSEC18', 'FXSEC19', 'FXSEC22', 'FXSEC90']})
+expect('quality: an infinite price and a blank currency give no chosen quote', ('', ''),
+       (pq.loc['FXSEC19', 'chosen_vendor'], pq.loc['FXSEC22', 'chosen_vendor']))
+edge_pq = read('edge', '02_price_quality.csv').set_index('security_id')
+expect('edge: two V1 quotes on the snapshot -> chosen is the lower-sorting one, whatever the row order', '20.0',
+       edge_pq.loc['FXSEC1', 'chosen_price'])
+for run in ['default', 'quality']:
+    pq = read(run, '02_price_quality.csv')
+    held = pq[pq['coverage'] != 'not held on the snapshot']
+    expect(f'quality {run}: coverage pass + fail + not evaluable rows = positions rows on the snapshot',
+           line_counts(run, QUALITY_LINES[0])[3], str(held['snapshot_position_rows'].astype(int).sum()))
+
+# Inside the spread and scale flags (section 8b, quality-checks spec §6.5): register lines 4-8.
+LOOK = QUALITY_LINES[3:8]
+expect('quality default: no flags -> five zero lines', [('0', '0', '0', '0')] * 5, [line_counts('default', n) for n in LOOK])
+expect('quality: lines 4-8 counts',
+       [('1', '2', '0', '2'), ('1', '2', '0', '2'), ('2', '5', '1', '6'), ('2', '5', '1', '6'), ('1', '7', '1', '8')],
+       [line_counts('quality', n) for n in LOOK])
+expect('quality: lines 4-8 members',
+       [{'FXSEC12'}, {'FXSEC13'}, {'FXSEC14', 'FXSEC21'}, {'FXSEC15', 'FXSEC20'}, {'FXSEC16'}],
+       [members[n] for n in LOOK])
+pq = read('quality', '02_price_quality.csv').set_index('security_id')
+# Odd vendor: backed -> never the chosen vendor, the farthest of those that disagree with it (FXSEC20: V1 and V3 tie
+# on the median distance, V1 is chosen, V3 is odd); chosen is odd -> the chosen vendor (FXSEC21: V4 is farther from
+# the median, but V1 is the odd one out); otherwise the farthest from the median, ties by vendor name.
+expect('quality: classes and odd vendors',
+       [('chosen is odd', 'FIXTURE_V1'), ('backed', 'FIXTURE_V3'), ('chosen is odd', 'FIXTURE_V1'),
+        ('backed', 'FIXTURE_V3'), ('no two agree', 'FIXTURE_V1'), ('not evaluable: no chosen quote', 'FIXTURE_V1'),
+        ('backed', 'FIXTURE_V3'), ('chosen is odd', 'FIXTURE_V1')],
+       [(pq.loc[s, 'flag_class'], pq.loc[s, 'odd_vendor']) for s in
+        ['FXSEC12', 'FXSEC13', 'FXSEC14', 'FXSEC15', 'FXSEC16', 'FXSEC17', 'FXSEC20', 'FXSEC21']])
+# Spec §7 identity, from the register itself: per flag, affected(odd) + affected(backed) + that flag's members of
+# "no two agree" + not evaluable = section 8's count of the flag (02_vendor_check.csv).
+for run in ['default', 'quality']:
+    section8 = read(run, '02_vendor_check.csv').set_index('security_id')['result']
+    no_two_agree = read(run, '02_finding_members.csv').query('finding == @LOOK[4]')['record_id']
+    for flag, kind, odd_line, backed_line in [('scale flag (ratio near 100)', 'scale', LOOK[0], LOOK[1]),
+                                              ('spread above threshold', 'spread', LOOK[2], LOOK[3])]:
+        odd, backed = line_counts(run, odd_line), line_counts(run, backed_line)
+        expect(f'quality {run}: {kind} lines: affected + no two agree + not evaluable = section 8 {kind} flags',
+               int((section8 == flag).sum()),
+               int(odd[0]) + int(backed[0]) + int((section8[no_two_agree] == flag).sum()) + int(odd[2]))
+pq = read('quality', '02_price_quality.csv').set_index('security_id')
+expect('quality: dates flagged on the snapshot only (one date of quotes)', '1', pq.loc['FXSEC12', 'dates_scale_flagged'])
+expect('quality: dates counted across dates; the scale date (07-09) is not also a spread date; 07-07 not flagged',
+       ('2', '1'), (pq.loc['FXSEC14', 'dates_spread_flagged'], pq.loc['FXSEC14', 'dates_scale_flagged']))
+expect('quality: FXSEC14 earlier dates leave its snapshot results alone (chosen V1 10.2, run 1, chosen is odd)',
+       ('FIXTURE_V1', '10.2', 'pass', 'pass', '1', 'chosen is odd'),
+       tuple(pq.loc['FXSEC14', c] for c in ['chosen_vendor', 'chosen_price', 'coverage', 'freshness', 'flat_run_dates',
+                                            'flag_class']))
+
+# FX rates (section 9c, quality-checks spec §6.6): register lines 9-11.
+FX = QUALITY_LINES[8:11]
+expect('quality default FX: nothing repeated or unusable; band judges USD 07-10 only',
+       [('0', '3', '0', '3'), ('0', '3', '0', '3'), ('0', '1', '2', '3')], [line_counts('default', n) for n in FX])
+expect('quality FX: repeated GBP pair; CHF 0 and abc, NOK inf; JPY +5.1% Friday to Monday and AUD +8% from a '
+       'DD/MM/YYYY date (CAD exactly 5% passes)',
+       [('2', '18', '0', '18'), ('3', '18', '0', '18'), ('2', '5', '13', '18')], [line_counts('quality', n) for n in FX])
+expect('quality FX members', [{'GBP'}, {'CHF', 'NOK'}, {'JPY', 'AUD'}], [members[n] for n in FX])
+
+# Trade field checks (section 9c, quality-checks spec §6.7): register lines 12-15.
+TRADE = QUALITY_LINES[11:15]
+expect('quality default trades: all priced, all amounts fit, every lag T+2; FXT07 has no trade date',
+       [('0', '18', '0', '18'), ('0', '18', '0', '18'), ('0', '17', '1', '18'), ('0', '17', '1', '18')],
+       [line_counts('default', n) for n in TRADE])
+expect('quality trades: blank and infinite price; 0.02 off (0.01 passes; inf x inf not evaluable); T+3 without and '
+       'with the note; FXQ17 and FXQ20 copies disagree',
+       [('2', '41', '2', '43'), ('1', '39', '4', '43'), ('1', '40', '3', '43'), ('1', '40', '3', '43')],
+       [line_counts('quality', n) for n in TRADE])
+expect('quality trade members', [{'FXQ01', 'FXQ23'}, {'FXQ03'}, {'FXQ06'}, {'FXQ07'}], [members[n] for n in TRADE])
+expect('quality: FXQ17 on neither lag line', False,
+       any('FXQ17' in members.get(n, set()) for n in TRADE[2:]))
+lag3 = read('quality_lag3', '02_defect_register.csv').set_index('finding')
+# FXQ06 and FXQ07 (lag 3) pass; FXQ17's copies (lag 3) both pass too, so they agree and are judged: 43 - FXT07 = 42.
+expect('quality_lag3: the lag lines keep their names; FXQ06, FXQ07 and both FXQ17 copies now pass',
+       (('0', '42'), ('0', '42')), tuple((lag3.loc[n, 'affected'], lag3.loc[n, 'eligible']) for n in TRADE[2:]))
+expect('quality_lag3: the how-detected text states the live limit, T+3', (True, True),
+       tuple('T+3' in lag3.loc[n, 'how detected'] for n in TRADE[2:]))
+base = read('quality', '02_defect_register.csv').set_index('finding')
+expect('quality_lag3: every other register line unchanged', True,
+       base.drop(index=TRADE[2:]).equals(lag3.drop(index=TRADE[2:])))
+
+# Economic duplicates and correction links (section 9c, quality-checks spec §6.7): register lines 16-17.
+DUP, LINK = QUALITY_LINES[15], QUALITY_LINES[16]
+expect('quality default: linked reversals of FXT10 and FXT20 are one family -> no economic duplicate',
+       ('0', '16', '1', '17'), line_counts('default', DUP))
+expect('quality default: four links, all same account and security', ('0', '4', '0', '4'), line_counts('default', LINK))
+expect('quality: FXQ09/FXQ10 match (15 vs 15.0, 5.00 vs 5.0); FXQ11/12 linked and FXQ13/15 chained are not; '
+       'FXT07, FXQ01 and FXQ23 (inf price) not evaluable', ('2', '37', '3', '40'), line_counts('quality', DUP))
+expect('quality: economic duplicate members', {'FXQ09', 'FXQ10'}, members[DUP])
+expect('quality: link to another account (FXQ16), self-link (FXQ18) and a BOOKED link to a missing ID (FXQ19) fail; '
+       'a CANCELLED link to a missing ID (FXQ22, its own line) and a target whose copies disagree on the account '
+       '(FXQ21) are not evaluable', ('3', '10', '2', '12'), line_counts('quality', LINK))
+expect('quality: correction-link members', {'FXQ16', 'FXQ18', 'FXQ19'}, members[LINK])
+r3_members = read('r3', '02_finding_members.csv').groupby('finding')['record_id'].apply(set)
+expect('r3: a REVERSED row linked to a missing ID (FXT58) fails the correction-link line', True,
+       'FXT58' in r3_members[LINK])
+
+quality_how = read('quality', '02_defect_register.csv').set_index('finding')['how detected']
+expect('quality: the cleared lag line says the evidence is the note in the same row and what would reopen it',
+       (True, True), tuple(w in quality_how[TRADE[3]] for w in ('same row', 'reopen')))
+expect('quality: economic duplicate text counts the groups sharing one event minute and one feed', True,
+       '1 of 1 groups share one event minute and one feed' in quality_how[DUP])
+expect('quality: price text counts blank on the failing row only, the disagreeing copy apart', True,
+       '1 blank, 1 unreadable (1 more on copies that disagree, not evaluable)' in quality_how[TRADE[0]])
 
 width = max(len(r[0]) for r in results)
 for what, expected, observed, ok in results:

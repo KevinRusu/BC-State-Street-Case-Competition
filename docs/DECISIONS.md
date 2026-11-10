@@ -781,3 +781,86 @@ Made while building notebook 02 and fixing review findings. Source: *build log*,
   partly coded rules above); opening the counted groups before the scorecard (the scorecard is due at Check-in 3 and
   reads the checks' pass rates and coverage; the traces are due at the final).
 - **Moves:** nothing; a scope choice.
+
+### D-067 · 10 Nov · Quality checks: price coverage and freshness, a look inside the vendor flags, FX, trade fields, economic duplicates, correction links
+
+Design: `docs/superpowers/specs/2026-11-10-quality-checks-design.md` (user decisions in §5, calls in §8, choices taken
+during the build in §10); plan: `docs/superpowers/plans/2026-11-10-quality-checks.md`.
+
+- **Decision:** sections 8b (price data quality) and 9c (trade and FX field checks) of `notebooks/deliverable.ipynb`
+  code `PRC_QUOTE_ELIGIBLE` (coverage, fallback-only, freshness), the look inside `PRC_VENDOR_DISPERSION`,
+  `FX_RATE_VALID`, the rest of `TXN_FIELDS_VALID` (blank price, amount, lag), `TXN_DUPLICATE` (same economics under a
+  different transaction_id) and `TXN_CORRECTION_LINK` (self-link, other account or security). The register gains new
+  lines after "Published after cutoff" (listed in `outputs/02_defect_register.csv`; new checksum in FINDINGS.md) and `outputs/02_price_quality.csv` has one row
+  per held security (columns in the notebook; `02_vendor_check.csv` is unchanged). Settings in
+  `config/reconciliation.toml`: `[tolerances] settlement_lag_limit_business_days`, `settlement_extension_note`,
+  `float_decimals`; `[prices] nav_cutoff_time`, `flat_run_dates`; `[fx] day_on_day_band`. They were written before the
+  build looked at the data.
+- **Why (the user's decisions, spec §5):** the NAV cutoff is the data's own pipeline cutoff, and a quote exactly at it
+  is on time; the lag limit is a flat T+2 in Monday-Friday business days; the FX band applies to every currency
+  including USD; flat runs and fresh fallbacks are reported beside freshness, not as lines (D-041). Coverage and
+  fallback-only are new confirmed lines that state their overlap with the old ones; the old lines are untouched. Lag
+  above T+2 without an agreed extension is unresolved, with the agreed extension it is cleared (look-alike); economic
+  duplicates are unresolved because a split child order is a real look-alike. In the vendor flags, a chosen quote
+  backed by another vendor is cleared; the chosen quote as the odd one is confirmed for scale and unresolved for
+  spread (priority is preference, not accuracy, Dataset Guide §4); no two vendors agreeing is unresolved. Everything
+  is published as register lines plus the one price file; there is no separate check-results table.
+- **Copies that disagree:** the row-based trade lines count rows. Where the copies of one transaction_id get different
+  results on a line, every copy is not evaluable on it, the same way the main policy treats conflicting pairs
+  (`conflicting_pairs = "not_evaluable"`). A kinder copy is never picked.
+- **Instead of:** a per-line pick of the best copy (flatters the result); re-picking the vendor by freshness (D-041
+  judges the chosen quote; the count of fresh fallbacks shows what that would rescue); a hard-coded 18:00, 5% or T+2
+  (they are settings a judge may change live; the fixture test runs T+3 live); comparing floats unrounded (a 5% move
+  or a 0.01 difference must pass, so these are rounded to `float_decimals` first, which absorbs float noise only);
+  new thresholds for "backed" (it reuses `spread_threshold`).
+- **Moves:** nothing existing. On the full data every existing register line is byte-identical and still first, every
+  other baseline `02_*` output is byte-identical except `02_finding_members.csv` (baseline members kept, new members
+  added) and the run record's runtime; the register checksum moved only because lines were added. Plain wording for
+  every new line is in `scripts/plain_language.json`.
+- **Build-level rulings, kept for the record:** (1) in the lag-3 fixture, at T+3 both copies of FXQ17 pass and agree,
+  so the copy rule keeps them evaluable (spec §6.7); the plan's expectation was corrected. (2) The
+  price line keeps the copy rule, so it can have a not-evaluable count when copies disagree on blank versus priced
+  (a fixture row shows it). (3) The robustness rehearsal also excludes "Processing latency: daily median above the
+  feed's limit" from its identical-lines comparison, because the rehearsal loosens that limit (an existing
+  rehearsal); the timeliness assertions still cover it. (4) Task 5's three choices are in spec §10: duplicates need
+  account, security and type present; a link target with any blank copy is not evaluable, checked before "no copy
+  matches"; link rows with a blank transaction_id are outside the link population.
+- **Known limits:** the FX band and processing-latency rehearsals move no lines on the release, so they show no
+  leakage but do not show the band biting (the fixture tests the band). The flat-run price match is exact; the
+  walk-back to the previous business day rolls forward from the snapshot date (a choice: from a weekend date it gives the
+  Friday first); the median used to find the odd vendor counts a vendor's duplicate quotes twice; the lag line names
+  follow `LAG_LIMIT`, so a live T+n change shows the raw line name on the dashboard, because
+  `scripts/plain_language.json` holds wording for T+2 only and the store falls back to the register name. None changes
+  a count on the release.
+
+### D-068 · 10 Nov · Fixes from the whole-branch review of the quality checks (D-067)
+
+The Phase B review of branch `quality-checks` found six issues; the user chose each fix (10 Nov). Fixture cases for
+each are in `tests/fixture_test.sh` (quality fixture, and FXT58 in the R3 fixture).
+
+- **Decision:** (1) **Correction link to a missing ID:** a row that is not CANCELLED whose `related_transaction_id`
+  names no transaction now fails on the correction-link line, renamed "Correction link points to itself, to a missing
+  ID, or to another account or security" (still confirmed). A CANCELLED row with a missing target stays not evaluable
+  there, because "CANCELLED row linked to an ID that does not exist" already counts it. (2) **Non-finite numbers:** one
+  helper, `to_number`, parses trade quantity, price and gross amount (section 1), quote prices (section 8) and FX rates
+  (section 9c); `inf` and `nan` read as unreadable, never as a value. The amount check is written so a difference that
+  is not a number never passes. (3) **Odd vendor:** on a backed line it is never the chosen vendor (the vendors that
+  disagree with the chosen quote come first); on a "chosen is odd" line it is the chosen vendor; otherwise any vendor;
+  then the farthest from the median, ties by vendor name. (4) **Blank master currency:** treated as no currency, so a
+  quoted security mastered with a blank currency is not evaluable for coverage (as an unmastered one is) and a quote
+  with a blank currency can never match it. A blank quote price stays a coverage fail. (5) **Lag line names:**
+  "Settlement later than the lag limit with no agreed extension" and "… with an agreed extension"; the how-detected
+  text states the live T+n. (6) A fixture case for an FX rate dated DD/MM/YYYY.
+- **Why:** RULES.md says the link must point to an existing transaction, and only CANCELLED rows were checked for it.
+  CLAUDE.md says unreadable values are kept and reported, but `pd.to_numeric` reads `inf` as a number. The cleared
+  backed line said "the odd vendor is logged for the vendor owner" while naming the vendor we price from. A blank
+  currency is unknown, as a missing security is, and D-041 keeps the absence of a price as the evidence of a fail.
+  Stable lag names keep the plain wording and the docs true when a judge changes the limit live.
+- **Instead of:** a separate line for BOOKED and REVERSED links to a missing ID, or recording the gap only; filtering
+  non-finite values inside the new checks only, or in every number parse of the notebook; keeping the T+n names.
+- **Moves:** on the full data no count moves and the first 47 register lines are byte-identical. Three line names
+  change (FINDINGS.md), finding members are identical apart from those names, and the how-detected text changes on
+  the five vendor-flag lines, the two lag lines and the link line. In `outputs/02_price_quality.csv` only
+  `odd_vendor` moves: on 19 backed spread-flagged securities the chosen vendor was named as the odd one, and now none
+  is. The release has no `inf` or `nan` text, no BOOKED or REVERSED link to a missing ID and no blank master currency.
+  D-067's known limit on the lag line names no longer applies.
