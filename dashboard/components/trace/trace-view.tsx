@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { ChevronDown, Loader2, Search, SearchX } from "lucide-react";
 import { Dot, Pill, RegisterStatus } from "@/components/common";
 import { Graph, type TraceHighlight } from "@/components/flow/graph";
@@ -28,7 +28,7 @@ function TraceSearch({ query }: { query: string }) {
 
   return (
     <form
-      className="flex w-full max-w-md gap-2"
+      className="flex w-full gap-2"
       onSubmit={(event) => {
         event.preventDefault();
         if (value.trim()) startTransition(() => go(router, value));
@@ -56,7 +56,7 @@ function StoryPicker({ demos, query, plain }: { demos: DemoTrace[]; query: strin
   const groups = useMemo(() => storyGroups(demos, plain), [demos, plain]);
   const current = demos.some((d) => d.recordId === query) ? query : "";
   return (
-    <div className="flex w-full max-w-2xl items-center gap-2">
+    <div className="flex min-w-0 flex-1 items-center gap-2">
       <div className="relative min-w-0 flex-1">
         <select
           aria-label="Pick an example"
@@ -88,6 +88,7 @@ function StoryPicker({ demos, query, plain }: { demos: DemoTrace[]; query: strin
 }
 
 export function TraceView({ map, demos, query, trace }: Props) {
+  const steps = useRef<HTMLDivElement>(null);
   const highlight = useMemo<TraceHighlight | undefined>(() => {
     if (!trace?.found) return undefined;
     const group = (key: (h: Hop) => string | null) => {
@@ -105,62 +106,72 @@ export function TraceView({ map, demos, query, trace }: Props) {
   }, [trace]);
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="space-y-5 p-5">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-lg font-semibold">Trace a record</h1>
-            <p className="text-sm text-muted-foreground">
-              Type any ID and follow it through every join, from capture to NAV. The trail lights up on the map.
-            </p>
-          </div>
-          <TraceSearch key={query} query={query} />
+    <div data-trace-layout className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 lg:grid lg:grid-cols-[minmax(0,1.35fr)_minmax(340px,1fr)] lg:overflow-hidden">
+      <section className="flex min-w-0 shrink-0 flex-col gap-3 lg:min-h-0" aria-label="Record picker and map">
+        <div>
+          <h1 className="text-lg font-semibold">Trace a record</h1>
+          <p className="text-sm text-muted-foreground">
+            Follow a record from capture to NAV. Select a place on the map to jump to its evidence.
+          </p>
         </div>
+        <Collapsible>
+          <div className="flex min-w-0 items-center gap-2">
+            {/* Use the resolved ID so a padded URL still selects its story. */}
+            {demos.length > 0 && <StoryPicker key={query} demos={demos} query={trace?.query ?? query} plain={map.plain} />}
+            <CollapsibleTrigger render={<Button variant="ghost" size="sm" className="shrink-0" />}>
+              <Search className="size-3.5" /> Find an ID
+            </CollapsibleTrigger>
+          </div>
+          <CollapsibleContent className="pt-2">
+            <TraceSearch key={query} query={query} />
+          </CollapsibleContent>
+        </Collapsible>
+        <Card data-trace-map className="h-[420px] shrink-0 overflow-hidden p-0 lg:h-auto lg:min-h-0 lg:flex-1">
+          <Graph
+            data={map}
+            showLookups={false}
+            animate={false}
+            trace={highlight}
+            onSelect={(selection) => {
+              if (!selection) return;
+              const candidates = trace?.found ? trace.hops.filter((h) => selection.kind === "node"
+                ? h.table === selection.id : h.edge === selection.id) : [];
+              const hop = candidates.find((h) => highlight?.findings.hops[h.id]?.length) ?? candidates[0];
+              const target = hop && document.getElementById(`trace-step-${hop.id}`);
+              if (!target || !steps.current) return;
+              if (window.matchMedia("(min-width: 1024px)").matches) {
+                steps.current.scrollTo({
+                  top: target.getBoundingClientRect().top - steps.current.getBoundingClientRect().top + steps.current.scrollTop,
+                  behavior: "smooth",
+                });
+              } else target.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+          />
+        </Card>
+      </section>
 
-        {/* The record the trace resolved (trimmed), so a padded URL still selects its story. */}
-        {demos.length > 0 && <StoryPicker key={query} demos={demos} query={trace?.query ?? query} plain={map.plain} />}
-
-        {trace && !trace.found && (
-          <Card className="bg-block ring-0">
-            <CardContent className="flex items-start gap-3 py-2 text-sm">
-              <SearchX className="mt-0.5 size-5 text-status-warn" />
-              <div>
-                <p>
-                  No record has the ID <span className="font-mono">{trace.query}</span> in any table.
-                </p>
-                <p className="text-muted-foreground">
-                  IDs look like TXN…, ACC…, SEC…, POS…, CMP…, LDG…, FND…, CA…, or ACC…/SEC… for an account + security key.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {trace?.found && <TraceSummary trace={trace} plain={map.plain} allMembers={map.info.memberSource === "members"} />}
-
-        {/* From xl up the map stays in view (sticky) beside the steps; below that they stack. */}
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] xl:items-start">
-          <Card className="overflow-hidden p-0 xl:sticky xl:top-0">
-            <div className="h-[460px] xl:h-[600px]">
-              <Graph
-                data={map}
-                showLookups={false}
-                animate={false}
-                trace={highlight}
-                onSelect={(selection) => {
-                  if (!selection) return;
-                  const candidates = trace?.found ? trace.hops.filter((h) => selection.kind === "node"
-                    ? h.table === selection.id : h.edge === selection.id) : [];
-                  const hop = candidates.find((h) => highlight?.findings.hops[h.id]?.length) ?? candidates[0];
-                  if (hop) document.getElementById(`trace-step-${hop.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-                }}
-              />
+      <section data-trace-details className="flex min-w-0 shrink-0 flex-col gap-3 lg:min-h-0" aria-label="Selected record and steps">
+        <div className="shrink-0 lg:max-h-[45%] lg:overflow-y-auto lg:overscroll-contain">
+          {trace?.found && <TraceSummary key={query} trace={trace} plain={map.plain} allMembers={map.info.memberSource === "members"} />}
+          {trace && !trace.found && (
+            <Card className="bg-block ring-0">
+              <CardContent className="flex items-start gap-3 py-1 text-sm">
+                <SearchX className="mt-0.5 size-5 shrink-0 text-status-warn" />
+                <div className="min-w-0 space-y-1">
+                  <p>No record has the ID <span className="font-mono break-all">{trace.query}</span> in any table.</p>
+                  <p className="text-muted-foreground">Try another example or use Find an ID to look up a transaction, account, security or holding key.</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+        {trace?.found ? (
+          <>
+            <div className="flex items-baseline justify-between gap-2">
+              <h2 id="trace-steps-heading" className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">The steps</h2>
+              <span className="text-xs text-muted-foreground">{trace.hops.length} steps · expand for evidence</span>
             </div>
-          </Card>
-
-          {trace?.found ? (
-            <div className="space-y-2">
-              <div className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">The steps</div>
+            <div ref={steps} key={query} data-trace-steps role="region" tabIndex={0} aria-labelledby="trace-steps-heading" className="rounded-lg pr-1 focus-visible:outline-2 focus-visible:outline-ring lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain">
               <ol>
                 {trace.hops.map((hop, index) => (
                   <TimelineStep
@@ -176,13 +187,13 @@ export function TraceView({ map, demos, query, trace }: Props) {
                 ))}
               </ol>
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Pick an example above or type an ID. Each step shows the raw rows (as text) the join found.
-            </p>
-          )}
-        </div>
-      </div>
+          </>
+        ) : (
+          <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+            Pick an example or use Find an ID. The selected record and its steps appear here, with raw evidence one click deeper.
+          </p>
+        )}
+      </section>
     </div>
   );
 }
@@ -197,15 +208,15 @@ function TraceSummary({ trace, plain, allMembers }: { trace: FoundTrace; plain: 
   const note = examplesOnlyNote(trace.marks, allMembers);
   const tone = REGISTER_STATUS[headline.status] ?? "info";
   return (
-    <Card className="bg-block ring-0">
-      <CardContent className="space-y-3 py-1">
+    <Card data-trace-summary size="sm" className="min-w-0 bg-block ring-0">
+      <CardContent className="space-y-2 py-0">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="font-mono text-base font-semibold">{trace.query}</span>
+          <span className="min-w-0 font-mono text-sm font-semibold break-all">{trace.query}</span>
           <span className="text-sm text-muted-foreground">{trace.kind}</span>
         </div>
         <div className="space-y-1 border-l-[3px] pl-3" style={{ borderColor: toneColor(tone) }} data-headline-tone={tone}>
           {headline.text ? (
-            <p className="text-base leading-snug">{headline.text}</p>
+            <p className="text-sm leading-snug break-words">{headline.text}</p>
           ) : (
             <p className="text-sm text-muted-foreground">
               {OLD_STORE}
@@ -230,7 +241,7 @@ function TraceSummary({ trace, plain, allMembers }: { trace: FoundTrace; plain: 
         </div>
         <div className="flex flex-wrap items-center gap-2 text-sm">
           {broken.length ? (
-            <Pill tone="bad">Trail breaks at: {broken.map((h) => h.title).join(", ")}</Pill>
+            <Pill tone="bad" className="whitespace-normal">Trail breaks at: {broken.map((h) => h.title).join(", ")}</Pill>
           ) : (
             <Pill tone="ok">Required record links found</Pill>
           )}
@@ -254,7 +265,7 @@ function TechnicalDetails({ trace, allMembers }: { trace: FoundTrace; allMembers
       <CollapsibleContent className="space-y-3 pt-3">
         {trace.summary && <p className="text-sm text-muted-foreground">{trace.summary}</p>}
         <div className="flex flex-wrap items-center gap-2 text-sm">
-          {extra.length > 0 && <Pill tone="warn">More rows than expected at: {extra.map((h) => h.title).join(", ")}</Pill>}
+          {extra.length > 0 && <Pill tone="warn" className="whitespace-normal">More rows than expected at: {extra.map((h) => h.title).join(", ")}</Pill>}
           {(["confirmed", "unresolved", "cleared"] as const).filter((s) => findings[s] > 0).map((status) => (
             <Pill key={status} tone={REGISTER_STATUS[status]}>
               {findings[status]} {status} finding{findings[status] === 1 ? "" : "s"}

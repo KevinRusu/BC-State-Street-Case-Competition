@@ -102,6 +102,14 @@ Choosing another example from the picker resets the search draft and the timelin
 record. The headline shows the record's own findings before indirect ones; everything technical is behind "Technical
 details".
 
+The desktop trace workspace keeps the picker and map on the left and the selected-record summary above the steps on
+the right (D-061). The map fills the remaining viewport height; the steps scroll independently. Clicking a map place
+jumps within that evidence pane. Manual lookup is folded under "Find an ID" beside the picker. On narrow screens the
+panels stack and the page scrolls. Long record IDs and link summaries wrap within the details column.
+
+Both maps stop zooming out at the centred whole-grid view. Zoom in to pan around; Fit View restores the default.
+Resizing the window or toggling a menu/panel recomputes the fit and its zoom-out limit.
+
 ## Test
 
 After `uv sync` in the repo root, run these commands inside `dashboard/`:
@@ -122,7 +130,8 @@ picker there lists the fixture trace and the first traceable example of each reg
 Browser tests cover map details and lookups, panel/theme/menu controls, confirmed versus unresolved findings (and
 the headline's tone), the no-finding caveat, every "Trace an example" link, search and unknown IDs, the story picker,
 search/timeline reset, the logo in light and dark mode, the startup screen (plays once, skips on a key, survives
-blocked storage), and the logo and trace search on a narrow viewport. Their production
+blocked storage), the logo and folded ID lookup on a narrow viewport, the map zoom floor and recentring after
+resizing, every fixture story's desktop layout, and map-to-evidence scrolling. Their production
 server listens on `127.0.0.1:3100` and uses `.next-tests`, so it can run beside `npm run dev`. Results, failure
 screenshots and traces stay in `tests/runs/dashboard_browser/`. A busy test port causes a failure rather than
 reusing an unrelated server. Set `DASHBOARD_TEST_PORT` to use another port.

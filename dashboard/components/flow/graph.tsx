@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
-import { Controls, MarkerType, ReactFlow, type Edge, type Node, type ReactFlowInstance } from "@xyflow/react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { ControlButton, Controls, getViewportForBounds, MarkerType, ReactFlow, type Edge, type Node, type ReactFlowInstance, type Viewport } from "@xyflow/react";
+import { Maximize } from "lucide-react";
 import { useTheme } from "next-themes";
 import { countsFor } from "@/lib/findings";
 import { JOIN_STATUS, fmt } from "@/lib/status";
@@ -12,7 +13,7 @@ import { GridLayer } from "./grid-layer";
 import { StatusEdge, type StatusEdgeType } from "./status-edge";
 import { TableNode, type TableNodeType } from "./table-node";
 
-// Two invisible corner nodes make fitView (and the fit button) frame the whole grid, not just the tables.
+// Invisible corner nodes describe the whole grid, including the space around the tables.
 function Anchor() {
   return <div className="size-px" />;
 }
@@ -54,7 +55,8 @@ export function edgeIssue(edgeId: string, health: JoinSide[]): string {
 }
 
 const subscribeNothing = () => () => {};
-const FIT = { padding: 0.02 };
+const FIT_PADDING = 0.02;
+const MAX_ZOOM = 2;
 
 export function Graph({ data, showLookups, animate, selection, onSelect, trace, className }: Props) {
   const { resolvedTheme } = useTheme();
@@ -65,12 +67,33 @@ export function Graph({ data, showLookups, animate, selection, onSelect, trace, 
   // Refit whenever the map's box changes size (menu or panel hidden, window resized), not only on first render.
   const box = useRef<HTMLDivElement>(null);
   const flow = useRef<ReactFlowInstance | null>(null);
+  const [home, setHome] = useState<Viewport>({ x: 0, y: 0, zoom: 0.01 });
+  const [canPan, setCanPan] = useState(false);
+  const bounds = useMemo(() => {
+    const left = Math.min(...data.offices.map((o) => o.x));
+    return {
+      x: left, y: 0,
+      width: Math.max(...data.offices.map((o) => o.x + o.w)) - left + 1,
+      height: Math.max(...data.offices.map((o) => o.y + o.h)) + 25,
+    };
+  }, [data.offices]);
+  // The full grid, including headings and the FX return line, defines both home and the zoom-out limit.
+  const resetView = useCallback(() => {
+    if (!box.current || !flow.current) return;
+    const { width, height } = box.current.getBoundingClientRect();
+    if (!width || !height) return;
+    const viewport = getViewportForBounds(bounds, width, height, 0.01, MAX_ZOOM, FIT_PADDING);
+    setHome(viewport);
+    setCanPan(false);
+  }, [bounds]);
+  // Apply after React Flow receives the new minimum; otherwise a smaller container is clamped by the old limit.
+  useEffect(() => { void flow.current?.setViewport(home); }, [home]);
   useEffect(() => {
     if (!box.current) return;
-    const observer = new ResizeObserver(() => flow.current?.fitView(FIT));
+    const observer = new ResizeObserver(resetView);
     observer.observe(box.current);
     return () => observer.disconnect();
-  }, []);
+  }, [resetView]);
 
   const nodes = useMemo<Node[]>(() => {
     const right = Math.max(...data.offices.map((o) => o.x + o.w)), bottom = Math.max(...data.offices.map((o) => o.y + o.h));
@@ -128,17 +151,24 @@ export function Graph({ data, showLookups, animate, selection, onSelect, trace, 
   }, [data, showLookups, animate, selection, trace, markers, onSelect]);
 
   return (
-    <div ref={box} className={cn("h-full w-full", className)}>
+    <div ref={box} data-map-graph className={cn("h-full w-full", className)}>
       <ReactFlow
-        onInit={(instance) => (flow.current = instance)}
+        onInit={(instance) => { flow.current = instance; resetView(); }}
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
-        fitView
-        fitViewOptions={FIT}
-        minZoom={0.25}
-        maxZoom={2}
+        minZoom={home.zoom}
+        maxZoom={MAX_ZOOM}
+        panOnDrag={canPan}
+        onMove={(_, viewport) => setCanPan(viewport.zoom > home.zoom + 0.0001)}
+        onMoveEnd={(_, viewport) => {
+          // Wheel/pinch zoom can finish off-centre. At the floor always restore the centred home view.
+          if (viewport.zoom <= home.zoom + 0.0001 &&
+              (Math.abs(viewport.x - home.x) > 0.01 || Math.abs(viewport.y - home.y) > 0.01)) {
+            void flow.current?.setViewport(home);
+          }
+        }}
         nodesDraggable={false}
         nodesConnectable={false}
         onNodeClick={(_, node) => node.type === "table" && onSelect?.({ kind: "node", id: node.id })}
@@ -146,7 +176,9 @@ export function Graph({ data, showLookups, animate, selection, onSelect, trace, 
         onPaneClick={() => onSelect?.(null)}
       >
         <GridLayer offices={data.offices} stages={data.stages} />
-        <Controls showInteractive={false} position="top-right" />
+        <Controls showInteractive={false} showFitView={false} position="top-right">
+          <ControlButton onClick={resetView} title="Fit View" aria-label="Fit View"><Maximize /></ControlButton>
+        </Controls>
       </ReactFlow>
     </div>
   );

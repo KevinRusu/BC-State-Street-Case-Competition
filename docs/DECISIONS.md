@@ -640,3 +640,18 @@ Made while building notebook 02 and fixing review findings. Source: *build log*,
   time.
 - **Moves:** no register number, no detection, no severity number: the register checksum is unchanged
   (`d7e752f55f0a`) and the `02_severity*` files equal the former `03_*` files on the full data (STATUS, 8 Nov).
+
+### D-061 · 9 Nov · Keep the trace workspace in view and bound map zoom
+
+- **Why:** the full-width record banner pushed the map and evidence down while leaving unused space on the right.
+  Unbounded zoom-out also made the map too small to read.
+- **Layout:** on desktop the example picker and map fill the left column; the selected-record summary starts the
+  right column above the steps. The evidence pane scrolls independently, and clicking a map place scrolls that pane
+  without moving the map. Expanded technical details have their own bounded summary area. Narrow screens stack
+  the panels and retain page scrolling. Manual ID lookup remains available under "Find an ID" beside the picker.
+- **Zoom:** both maps derive their minimum zoom from the whole office/stage grid and the available container size.
+  Returning to this minimum recentres the map; Fit View and a container resize restore the same default view.
+  Panning is available while zoomed in. These are presentation changes; no rules, counts or treatment changed.
+- **Checks:** browser coverage exercises the zoom floor, off-centre wheel zoom, Fit View, resizing, every synthetic
+  example at desktop viewport sizes, and map-to-evidence navigation without page scrolling. Existing lookup,
+  finding-status, picker, mobile and startup checks remain in the suite.

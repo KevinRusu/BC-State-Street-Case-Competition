@@ -1,11 +1,14 @@
 # Status
 
-Last updated: 2026-11-08 (one deliverable notebook, `notebooks/deliverable.ipynb`; D-060)
+Last updated: 2026-11-09 (compact trace layout and bounded map zoom; D-061)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
 
 ## Where we are
+
+- **Compact trace layout (9 Nov):** on branch `codex/dashboard-compact-trace-layout`. The example picker and map share the left column; the selected-record summary sits above an independently scrolling evidence timeline on the right. Desktop height follows the viewport; narrow screens stack the panels. Manual lookup is under "Find an ID" beside the picker. Both maps stop zooming out at their centred full-grid view and refit after resizing. Detection and reconciliation logic are unchanged (D-061).
+  - **Validation:** full-data store rebuild using the existing analysis outputs; synthetic notebook/store contracts (including absent and foreign membership fallbacks); unit and production browser suites; lint, type and documentation checks passed. Every current-store example was also checked at laptop size. The Windows store harness needed its final npm commands run through npm's JavaScript entry point because the bundled Node launcher could not locate npm; those commands passed.
 
 - **One deliverable notebook (8 Nov):** `notebooks/deliverable.ipynb` (D-060) is the code deliverable of brief §7: the former `02_reconcile.ipynb` with `03_error_severity.ipynb` folded in as section 11 (the run record is section 12). It writes every `outputs/02_*` file, now including `02_severity.csv`, `02_fund_impact.csv`, `02_impact_detail.csv`, `02_account_membership.csv` and `02_severity.png` / `.pdf` (formerly `03_*`). Nothing moved: register checksum `d7e752f55f0a` as before, and the severity files equal the former `03_*` files on the full data. The other notebooks sit in `notebooks/additional/` (`01_explore_tables`, `02_quantity_mismatches`, `checkin1_evidence`); none of them is needed to run the deliverable or the dashboard. `tests/run_notebook.sh` runs the deliverable by default and `tests/fixture_test.sh` runs the severity section under every fixture config.
   - **Team:** `git pull` then reopen the notebook under its new name; `tests/run_notebook.sh` rebuilds `outputs/`. Numbers on slides and in the catalog are unchanged.
