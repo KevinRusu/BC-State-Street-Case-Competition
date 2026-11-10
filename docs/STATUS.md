@@ -1,23 +1,28 @@
 # Status
 
-Last updated: 2026-11-10 (quality checks built on branch `quality-checks`, D-067, and the review's fixes applied, D-068; Check-in 3 order and scope agreed, D-066)
+Last updated: 2026-11-10 (quality checks merged to `main` in PR #12, D-067 and D-068; scorecard started on branch `scorecard`; Check-in 3 order and scope agreed, D-066)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
 
 ## Where we are
 
-- **Quality checks (10 Nov):** built on branch `quality-checks`; no PR yet. Section 8b of the deliverable codes
+- **Scorecard (10 Nov):** started on branch `scorecard`; nothing built yet. Next: the brainstorm, in a new session,
+  with the full routine (brainstorm, written design, builder check, approval, plan, test-first build, review). Scope:
+  step 2 of "Next" below.
+
+- **Quality checks (10 Nov):** done and merged to `main`
+  ([PR #12](https://github.com/KevinRusu/BC-State-Street-Case-Competition/pull/12)). Section 8b of the deliverable codes
   coverage, fallback-only and freshness of the chosen quote (`PRC_QUOTE_ELIGIBLE`, D-041) and looks inside the vendor
   spread and scale flags (`PRC_VENDOR_DISPERSION`); section 9c codes `FX_RATE_VALID`, the rest of `TXN_FIELDS_VALID`
   (blank price, amount, lag), `TXN_DUPLICATE` and `TXN_CORRECTION_LINK`. The register gains new lines at its end (after "Published after cutoff"; see `outputs/02_defect_register.csv`) and
   `outputs/02_price_quality.csv` has one row per held security. Settings are in `config/reconciliation.toml`
   (`nav_cutoff_time`, `flat_run_dates`, `day_on_day_band`, `settlement_lag_limit_business_days`,
   `settlement_extension_note`, `float_decimals`). Choices: D-067; design and plan: `docs/superpowers/specs/` and
-  `docs/superpowers/plans/` (2026-11-10). The whole-branch code review (Phase B) is done; its six fixes are applied
-  and not yet committed (D-068): a BOOKED or REVERSED link to a missing ID now fails, `inf` and `nan` are unreadable,
+  `docs/superpowers/plans/` (2026-11-10); session summary in `docs/superpowers/summaries/`. The whole-branch code
+  review (Phase B) found six issues, all fixed (D-068): a BOOKED or REVERSED link to a missing ID now fails, `inf` and `nan` are unreadable,
   the odd vendor follows the flag class, a blank master currency is not evaluable, the lag lines have stable names,
-  and a DD/MM/YYYY FX fixture case. No count moves on the full data. Left: the user commits, then a PR to `main`.
+  and a DD/MM/YYYY FX fixture case. No count moves on the full data.
   - **Review fixes validation (D-068):** passed `tests/run_notebook.sh`, `tests/fixture_test.sh` (139 outcomes),
     `tests/robustness_test.sh` (three shuffles and the live threshold run), `scripts/build_store.py` then
     `tests/store_test.sh`, dashboard `npm run test:e2e`, `check_docs.py` and the Python unit tests. The full-data
@@ -149,9 +154,9 @@ and stress tests, roadmap, working executive view, complete slide draft.
 
 1. **Quality checks: done 10 Nov (D-067; see "Where we are").** Coverage and freshness (D-041 denominators), the look
    inside the vendor-spread and scale flags, and the four partly coded rules are coded; the thresholds are in the
-   config. Every check publishes pass, fail and not-evaluable counts for the scorecard. Still to do for the session:
-   whole-branch code review and the session summary beside the spec and plan.
-2. **Scorecard and indicators (Kevin).** Brief §5: scores at account, domain and platform level with formulas,
+   config. Every check publishes pass, fail and not-evaluable counts for the scorecard. Reviewed and fixed (D-068);
+   merged in PR #12.
+2. **Scorecard and indicators (Kevin). Next; branch `scorecard`, brainstorm not started.** Brief §5: scores at account, domain and platform level with formulas,
    weights, aggregation rules and a sensitivity check; evaluable coverage beside every score; at least six
    indicators, three leading, marked computed, simulated or proposed (at least three computed, one of them leading).
    Picks up App. B's week-over-week doubling, left by the timeliness session.
