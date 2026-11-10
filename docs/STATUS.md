@@ -7,6 +7,8 @@ Last updated: 2026-11-09 (coordinated map palette and map-controlled trace steps
 
 ## Where we are
 
+- **Dashboard review (9 Nov):** [PR #8](https://github.com/KevinRusu/BC-State-Street-Case-Competition/pull/8) is open for review from `codex/dashboard-compact-trace-layout` into `main`. It includes the compact trace workspace, bounded zoom, office alignment, map-controlled steps and coordinated styling; validation and store-rebuild instructions are in the PR description.
+
 - **Map palette (9 Nov):** deeper blue-grey office backgrounds, a muted blue collective office outline, a navy group label and a stronger separate dashed external-source border. Both views share the light/dark palette; context boxes are less faded for readability. This refines the initial bright-blue grouping border at the user's request (D-064).
 
 - **Office grouping and trace controls (9 Nov):** Accounts and Ledger NAV are vertically centred in their bands. Both map views show a blue "State Street Offices" outline and a stronger separate dashed boundary for independent sources. Traced boxes toggle their matching timeline steps, share state with the timeline headers and support keyboard activation; context-only boxes explain why they have no matching step (D-063).
