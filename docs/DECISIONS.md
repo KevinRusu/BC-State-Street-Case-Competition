@@ -760,3 +760,24 @@ Made while building notebook 02 and fixing review findings. Source: *build log*,
   gave every fixture trade a confirmed finding, and the dashboard's browser tests need one trade with no
   finding (FXT06) and one with only an unresolved finding (FXT11). The other records keep their late
   publication, so both outcomes stay tested.
+
+### D-066 · 10 Nov · No new checks after the quality-check session: depth over breadth
+
+- **Decision:** one more check session runs before Check-in 3: price data quality (`PRC_QUOTE_ELIGIBLE`: coverage
+  and freshness with the D-041 denominators, and a look inside the vendor-spread and scale flags) and the four
+  partly coded rules (`TXN_FIELDS_VALID`, `FX_RATE_VALID`, `TXN_DUPLICATE`, `TXN_CORRECTION_LINK`). After it we add
+  no new checks. The rules [RULES.md](RULES.md) states with no code (`ACC_NOT_OPEN_ON_TRADE_DATE`,
+  `ACC_REQUIRED_FIELDS`, `SEC_IDENTIFIER_VALID`, `TXN_SECURITY_NOT_MASTERED`, `NAV_SHARE_CLASS_MAPPING`,
+  `NAV_OPEN_ISSUES_BEFORE_RELEASE`, `CA_ALL_HOLDERS_ADJUSTED`) stay in RULES.md as proposed controls for Part One and
+  are not coded. The remaining code work, in order: scorecard and indicators; stress test (one injected defect and
+  one valid look-alike); executive view; then, after Check-in 3, the groups we have only counted, opened into the
+  three defect traces and two cleared look-alikes.
+- **Why:** brief §5 "depth beats breadth": a team that traces three defect classes and makes the case for why they
+  matter scores better than one that catalogs thirty. Once price quality is in, every area §5 names has a check;
+  what is still missing is required work that is not detection (scores with coverage, the stress test, traces, the
+  executive view) and the story that ties them together. Two of the uncoded rules also lack inputs (a materiality
+  threshold, a posting log).
+- **Instead of:** coding every rule RULES.md states (step 2 of the `src/` move in STATUS, now limited to the four
+  partly coded rules above); opening the counted groups before the scorecard (the scorecard is due at Check-in 3 and
+  reads the checks' pass rates and coverage; the traces are due at the final).
+- **Moves:** nothing; a scope choice.
