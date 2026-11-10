@@ -45,6 +45,19 @@ sort_by = ["account_id", "security_id", "transaction_id"]
 [nav]
 tolerance = 0.000001                 # nav_per_share is stored to 6 decimals; one unit of the 6th decimal
 
+[timeliness]
+# Latency limits in minutes, one per feed (source_system). Compared with the DAILY MEDIAN per feed, as brief App. B
+# states its booking-latency threshold ("median ... by feed; daily"); a median equal to the limit is not above it.
+# Set on 10 Nov before looking at this release's latencies (D-065). Team assumptions, not State Street SLAs.
+[timeliness.feed_latency_limit_minutes]        # received - event; no guide gives a number: team assumption
+OMS_FRONT = 60
+TRADE_CAPTURE = 60
+CUSTODY_FEED = 60
+[timeliness.processing_latency_limit_minutes]  # booked - received; brief App. B: "above four hours" (illustrative)
+OMS_FRONT = 240
+TRADE_CAPTURE = 240
+CUSTODY_FEED = 240
+
 [prices]
 spread_threshold = 0.005             # (max - min) / mean across vendors; 0.5% from brief Appendix A (illustrative)
 scale_ratio_low = 80                 # max / min in [80, 125] = within 0.1 of a factor 100 on a log10 scale:

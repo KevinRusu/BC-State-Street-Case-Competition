@@ -89,6 +89,54 @@ counts = {
     'ledger_nav': edit('ledger_nav', add('FXL3,FXFUND1,A,1000000.00,10/07/2026,100000,10.000000',
                                          'FXL4,FXFUND1,C,200000.00,not-a-date,20000,10.000000')),
 }
+# Timeliness (D-065): pipeline timestamps edited on existing IDs, one case per feed-day. FXT01, FXT03 and FXT04 move to
+# OMS_FRONT so the configured limits apply (FIXTURE_OMS has none).
+def set_fields(match, **values):
+    def change(rows, fields):
+        for row in rows:
+            if all(row[k] == v for k, v in match.items()):
+                row.update(values)
+        return rows
+    return change
+def second_copy(transaction_id, **values):   # only the second of two pipeline rows with this ID
+    def change(rows, fields):
+        hits = [row for row in rows if row['transaction_id'] == transaction_id]
+        hits[1].update(values)
+        return rows
+    return change
+for change in [
+    set_fields({'transaction_id': 'FXT01'}, source_system='OMS_FRONT', received_timestamp='2026-06-02 10:00:00',
+               booked_timestamp='2026-06-02 10:05:00', published_timestamp='2026-06-02 17:59:00'),  # feed 60 = limit; on time
+    set_fields({'transaction_id': 'FXT03'}, source_system='OMS_FRONT', received_timestamp='2026-06-03 10:01:00',
+               booked_timestamp='2026-06-03 10:10:00'),                                            # feed latency 61
+    set_fields({'transaction_id': 'FXT04'}, source_system='OMS_FRONT', booked_timestamp='2026-06-04 13:06:00'),  # processing 241
+    set_fields({'transaction_id': 'FXT05'}, event_timestamp='05/06/2026 09:00:00'),       # DD/MM/YYYY: parsed
+    set_fields({'transaction_id': 'FXT06'}, received_timestamp=''),                       # missing
+    set_fields({'transaction_id': 'FXT07'}, received_timestamp='2026-06-10T09:05:00'),    # unparseable
+    set_fields({'transaction_id': 'FXT08'}, booked_timestamp='not-a-time'),               # unparseable
+    set_fields({'transaction_id': 'FXT09'}, booked_timestamp='2026-07-09 18:00:00'),      # booked at the cutoff: on time
+    set_fields({'transaction_id': 'FXT10'}, cutoff_timestamp=''),                         # missing; day from the event
+    set_fields({'transaction_id': 'FXT13'}, booked_timestamp='2026-06-12 18:01:00'),      # booked after the cutoff
+    set_fields({'transaction_id': 'FXT23'}, published_timestamp='2026-06-12 09:08:00'),   # published before booked
+    second_copy('FXT02', published_timestamp='2026-06-10 17:00:00',                       # copies disagree: later wins;
+                booked_timestamp='2026-06-10 09:00:00'),                                  # this copy also books before receipt
+]:
+    edit('pipeline_events', change)
+# FXT31 twice: copy A takes 5 min to arrive and 55 to book, copy B the reverse. Each latency is the longest per copy
+# (55 and 55); taking the latest received of the two would make processing look like 5 minutes.
+counts['pipeline_events'] = edit('pipeline_events', add(
+    'FXT31,FIXTURE_OMS,2026-06-16 09:00:00,2026-06-16 09:05:00,2026-06-16 10:00:00,FXBATCH-2026-06-16,2026-06-16 17:00:00,2026-06-16 18:00:00',
+    'FXT31,FIXTURE_OMS,2026-06-16 09:00:00,2026-06-16 09:55:00,2026-06-16 10:00:00,FXBATCH-2026-06-16,2026-06-16 17:00:00,2026-06-16 18:00:00',
+    # FXT33 twice: one copy has no received time, the other has one -> missing, never the readable copy.
+    'FXT33,FIXTURE_OMS,2026-06-17 10:00:00,,2026-06-17 10:10:00,FXBATCH-2026-06-17,2026-06-17 17:00:00,2026-06-17 18:00:00',
+    'FXT33,FIXTURE_OMS,2026-06-17 10:00:00,2026-06-17 10:05:00,2026-06-17 10:10:00,FXBATCH-2026-06-17,2026-06-17 17:00:00,2026-06-17 18:00:00',
+    # FXT34 on OMS_FRONT: blank received and unreadable booked -> processing is missing (missing before unparseable),
+    # and its feed-day has no eligible record.
+    'FXT34,OMS_FRONT,2026-06-18 10:00:00,,not-a-time,FXBATCH-2026-06-18,2026-06-18 17:00:00,2026-06-18 18:00:00',
+    # FXT61 on OMS_FRONT: processing exactly 240 minutes = the limit -> not above it.
+    'FXT61,OMS_FRONT,2026-06-19 10:00:00,2026-06-19 10:05:00,2026-06-19 14:05:00,FXBATCH-2026-06-19,2026-06-19 17:00:00,2026-06-19 18:00:00',
+    # FXT90: a pipeline record with no trade, no readable event and no cutoff -> day 'unknown', not judged as a day.
+    'FXT90,OMS_FRONT,,2026-06-19 09:05:00,2026-06-19 09:10:00,FXBATCH-2026-06-19,2026-06-19 17:00:00,'))
 edit('manifest', lambda rows, fields: [{**row, 'rows': str(counts.get(row['table'], row['rows']))} for row in rows])
 # R3 fixture: the edge fixture plus a negative BUY that is reversed by a negative REVERSED row (on a key only the
 # trades hold). Under R3 the two rows cancel, so reading the sign as wrong must move the holding by 0.
@@ -274,6 +322,138 @@ expect('fixture book counts the copied SELL once -> profile says transaction_cou
        ('0', 'counts each copy once: 1'),
        (copies.loc['of the book positions holding a copy: transaction_count counts both copies', 'count'],
         copies.loc['of the book positions holding a copy: transaction_count counts both copies', 'note']))
+
+# Timeliness (section 9b, D-065): one row per measure x feed x day, plus feed and platform totals.
+COUNTS = ['population', 'eligible', 'pass', 'fail', 'not_evaluable_missing', 'not_evaluable_unparseable',
+          'not_evaluable_out_of_order']
+def timeliness(run):
+    return read(run, '02_timeliness.csv').set_index(['measure', 'source_system', 'day'])
+def fields(table, row, *names):
+    return tuple(table.loc[row, name] for name in names)
+tl = timeliness('default')
+expect('timeliness default: booking cutoff, the 3 booked before their event are out of order',
+       ('17', '14', '14', '0', '3'), fields(tl, ('booking_cutoff', 'all', 'all'), 'population', 'eligible', 'pass', 'fail',
+                                            'not_evaluable_out_of_order'))
+expect('timeliness default: published 19:00 after the 18:00 cutoff -> late; FXT06 and FXT11 at 17:00 on time', ('15', '2'),
+       fields(tl, ('publication_cutoff', 'all', 'all'), 'fail', 'pass'))
+expect('timeliness default: event after received -> 3 out of order', ('3', '17'),
+       fields(tl, ('timestamp_order', 'all', 'all'), 'fail', 'eligible'))
+expect('timeliness default: feed latency on 14, the 3 out of order not evaluable', ('14', '3', '5.0'),
+       fields(tl, ('feed_latency', 'all', 'all'), 'eligible', 'not_evaluable_out_of_order', 'median_minutes'))
+expect('timeliness default: processing latency on all 17', ('17', '5.0'),
+       fields(tl, ('processing_latency', 'all', 'all'), 'eligible', 'median_minutes'))
+latency_days = tl[tl.index.get_level_values('measure').isin(['feed_latency', 'processing_latency'])
+                  & (tl.index.get_level_values('day') != 'all')]
+expect('timeliness default: a feed with no configured limit -> "no limit for this feed" on every latency day row',
+       {'no limit for this feed'}, set(latency_days['median_above_limit']))
+te = timeliness('edge')
+expect('timeliness edge: feed-latency median 60 = limit -> not above it', ('60.0', '60.0', 'no'),
+       fields(te, ('feed_latency', 'OMS_FRONT', '2026-06-02'), 'median_minutes', 'limit_minutes', 'median_above_limit'))
+expect('timeliness edge: feed-latency median 61 -> above the limit', 'yes',
+       te.loc[('feed_latency', 'OMS_FRONT', '2026-06-03'), 'median_above_limit'])
+expect('timeliness edge: processing median 241 -> above the limit', ('241.0', 'yes'),
+       fields(te, ('processing_latency', 'OMS_FRONT', '2026-06-04'), 'median_minutes', 'median_above_limit'))
+expect('timeliness edge: event written DD/MM/YYYY -> parsed and measured', '1',
+       te.loc[('feed_latency', 'FIXTURE_OMS', '2026-06-05'), 'eligible'])
+expect('timeliness edge: blank received -> latency missing, booking cutoff still judged', ('1', '1'),
+       (te.loc[('feed_latency', 'FIXTURE_OMS', '2026-06-08'), 'not_evaluable_missing'],
+        te.loc[('booking_cutoff', 'FIXTURE_OMS', '2026-06-08'), 'pass']))
+expect('timeliness edge: unreadable booked -> unparseable for processing and booking cutoff', ('1', '1'),
+       (te.loc[('processing_latency', 'FIXTURE_OMS', '2026-06-09'), 'not_evaluable_unparseable'],
+        te.loc[('booking_cutoff', 'FIXTURE_OMS', '2026-06-09'), 'not_evaluable_unparseable']))
+expect('timeliness edge: received written with a T -> unparseable, never dropped', '1',
+       te.loc[('feed_latency', 'FIXTURE_OMS', '2026-06-10'), 'not_evaluable_unparseable'])
+expect('timeliness edge: booked exactly at the cutoff -> on time', ('1', '0'),
+       fields(te, ('booking_cutoff', 'FIXTURE_OMS', '2026-07-09'), 'pass', 'fail'))
+expect('timeliness edge: booked 18:01 -> late; the other record that day on time', ('1', '1'),
+       fields(te, ('booking_cutoff', 'FIXTURE_OMS', '2026-06-12'), 'pass', 'fail'))
+expect('timeliness edge: published before booked -> out of order for publication, not a pass', ('1', '1'),
+       fields(te, ('publication_cutoff', 'FIXTURE_OMS', '2026-06-12'), 'fail', 'not_evaluable_out_of_order'))
+expect('timeliness edge: published 17:59 -> on time', '1', te.loc[('publication_cutoff', 'OMS_FRONT', '2026-06-02'), 'pass'])
+expect('timeliness edge: copies published 17:00 and 19:00 -> counted once, late (the later time)', ('2', '0', '1', '1'),
+       fields(te, ('publication_cutoff', 'FIXTURE_OMS', '2026-06-10'), 'fail', 'pass', 'repeated_ids', 'copies_disagree'))
+expect('timeliness edge: blank cutoff -> day from the event, cutoff missing', ('2', '1', '3'),
+       fields(te, ('booking_cutoff', 'FIXTURE_OMS', '2026-06-11'), 'eligible', 'not_evaluable_missing',
+              'not_evaluable_out_of_order'))
+expect('timeliness edge: trades with no pipeline record -> on their feed-day, missing', ('2', '2'),
+       fields(te, ('booking_cutoff', 'FIXTURE_OMS', '2026-06-15'), 'population', 'not_evaluable_missing'))
+expect('timeliness edge: one copy of a repeated ID books before receipt -> order fails, booking cutoff and processing not judged',
+       ('1', '1', '1', '1'), (te.loc[('timestamp_order', 'FIXTURE_OMS', '2026-06-10'), 'fail'],
+                              te.loc[('booking_cutoff', 'FIXTURE_OMS', '2026-06-10'), 'pass'],
+                              te.loc[('booking_cutoff', 'FIXTURE_OMS', '2026-06-10'), 'not_evaluable_out_of_order'],
+                              te.loc[('processing_latency', 'FIXTURE_OMS', '2026-06-10'), 'not_evaluable_out_of_order']))
+expect('timeliness edge: copies 5/55 and 55/5 minutes -> each latency is the longest per copy, never the flattering mix',
+       ('55.0', '55.0'), (te.loc[('feed_latency', 'FIXTURE_OMS', '2026-06-16'), 'median_minutes'],
+                          te.loc[('processing_latency', 'FIXTURE_OMS', '2026-06-16'), 'median_minutes']))
+expect('timeliness edge: one copy without received, the other with it -> missing', '1',
+       te.loc[('feed_latency', 'FIXTURE_OMS', '2026-06-17'), 'not_evaluable_missing'])
+expect('timeliness edge: blank received and unreadable booked -> processing missing, not unparseable; booking cutoff unparseable',
+       ('1', '0', '1'), (te.loc[('processing_latency', 'OMS_FRONT', '2026-06-18'), 'not_evaluable_missing'],
+                         te.loc[('processing_latency', 'OMS_FRONT', '2026-06-18'), 'not_evaluable_unparseable'],
+                         te.loc[('booking_cutoff', 'OMS_FRONT', '2026-06-18'), 'not_evaluable_unparseable']))
+expect('timeliness edge: a feed-day with a limit but no eligible record -> "no eligible record"', 'no eligible record',
+       te.loc[('processing_latency', 'OMS_FRONT', '2026-06-18'), 'median_above_limit'])
+expect('timeliness edge: processing median exactly 240 = limit -> not above it', ('240.0', 'no'),
+       fields(te, ('processing_latency', 'OMS_FRONT', '2026-06-19'), 'median_minutes', 'median_above_limit'))
+expect('timeliness edge: no readable date -> day "unknown", never judged against a daily limit', 'no day',
+       te.loc[('processing_latency', 'OMS_FRONT', 'unknown'), 'median_above_limit'])
+expect('timeliness edge: blank cutoff -> publication cutoff missing too', '1',
+       te.loc[('publication_cutoff', 'FIXTURE_OMS', '2026-06-11'), 'not_evaluable_missing'])
+expect('timeliness edge: no pipeline record -> missing on every measure (FXT30 and FXT40)', ['2'] * 5,
+       [te.loc[(m, 'FIXTURE_OMS', '2026-06-15'), 'not_evaluable_missing'] for m in
+        ['feed_latency', 'processing_latency', 'booking_cutoff', 'publication_cutoff', 'timestamp_order']])
+expect('timeliness edge: published before booked -> order fails', '1',
+       te.loc[('timestamp_order', 'FIXTURE_OMS', '2026-06-12'), 'fail'])
+for run in ['default', 'edge']:
+    frame = read(run, '02_timeliness.csv')
+    num = {c: pd.to_numeric(frame[c], errors='coerce').fillna(0).astype(int) for c in COUNTS}
+    adds_up = (num['eligible'] + num['not_evaluable_missing'] + num['not_evaluable_unparseable']
+               + num['not_evaluable_out_of_order'] == num['population'])
+    judged = ~frame['measure'].isin(['feed_latency', 'processing_latency'])
+    passes = (num['pass'] + num['fail'] == num['eligible']) | ~judged
+    expect(f'timeliness {run}: eligible + not evaluable = population on every row', True, bool(adds_up.all()))
+    expect(f'timeliness {run}: pass + fail = eligible on cutoff and order rows', True, bool(passes.all()))
+    counts = frame.assign(**num)
+    days = counts[(counts['source_system'] != 'all') & (counts['day'] != 'all')].groupby(['measure', 'source_system'])[COUNTS].sum()
+    feeds = counts[(counts['source_system'] != 'all') & (counts['day'] == 'all')].set_index(['measure', 'source_system'])[COUNTS]
+    platform = counts[counts['source_system'] == 'all'].set_index('measure')[COUNTS]
+    expect(f'timeliness {run}: each feed total = the sum of its days', True, days.sort_index().equals(feeds.sort_index()))
+    expect(f'timeliness {run}: platform = the sum of the feeds', True,
+           feeds.groupby('measure').sum().sort_index().equals(platform.sort_index()))
+
+# Timeliness register lines (section 10): appended after every existing line, members written.
+TIMELINESS_LINES = ['Pipeline timestamp missing', 'Pipeline timestamp unparseable', 'Pipeline timestamps out of order',
+                    "Feed latency: daily median above the feed's limit",
+                    "Processing latency: daily median above the feed's limit", 'Booked after cutoff', 'Published after cutoff']
+members = read('edge', '02_finding_members.csv').groupby('finding')['record_id'].apply(set)
+member = lambda name: members.get(name, set())
+expect('timeliness register edge: missing holds blank received, blank cutoff and no pipeline record, not unparseable',
+       (True, False), ({'FXT06', 'FXT10', 'FXT30', 'FXT33', 'FXT34', 'FXT90'} <= member('Pipeline timestamp missing'),
+                       'FXT08' in member('Pipeline timestamp missing')))
+expect('timeliness register edge: unparseable = the T-written received and the unreadable booked times', {'FXT07', 'FXT08', 'FXT34'},
+       member('Pipeline timestamp unparseable'))
+expect('timeliness register edge: out of order = event after received, published before booked, and one copy booked before receipt',
+       {'FXT02', 'FXT12', 'FXT21', 'FXT22', 'FXT23'}, member('Pipeline timestamps out of order'))
+expect('timeliness register edge: booked after cutoff = the 18:01 booking only', {'FXT13'}, member('Booked after cutoff'))
+expect('timeliness register edge: published after cutoff holds the later copy and the 19:00 publish, not 17:59 or out of order',
+       (True, False, False), ({'FXT02', 'FXT13'} <= member('Published after cutoff'),
+                              'FXT01' in member('Published after cutoff'), 'FXT23' in member('Published after cutoff')))
+expect('timeliness register edge: feed-latency median above limit = one feed-day', {'OMS_FRONT 2026-06-03'},
+       member("Feed latency: daily median above the feed's limit"))
+expect('timeliness register edge: processing median above limit = one feed-day', {'OMS_FRONT 2026-06-04'},
+       member("Processing latency: daily median above the feed's limit"))
+for run in ['default', 'edge']:
+    register = read(run, '02_defect_register.csv')
+    expect(f'timeliness register {run}: the seven lines come last, in order', TIMELINESS_LINES,
+           register['finding'].tolist()[-7:])
+    lines = register.set_index('finding')
+    expect(f'timeliness register {run}: latency lines unresolved, the rest confirmed',
+           ['confirmed'] * 3 + ['unresolved'] * 2 + ['confirmed'] * 2, [lines.loc[n, 'status'] for n in TIMELINESS_LINES])
+lines = read('default', '02_defect_register.csv').set_index('finding')
+expect('timeliness register default: nothing unparseable; no limit for FIXTURE_OMS -> no feed-day evaluable',
+       ('0', '0', '0', '0', '0'),
+       (lines.loc['Pipeline timestamp unparseable', 'affected'],
+        *[lines.loc[n, c] for n in TIMELINESS_LINES[3:5] for c in ('affected', 'eligible')]))
 
 width = max(len(r[0]) for r in results)
 for what, expected, observed, ok in results:

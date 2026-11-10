@@ -1,11 +1,27 @@
 # Status
 
-Last updated: 2026-11-09 (Check-in 2 marked done and frozen; coordinated map palette and map-controlled trace steps; D-063, D-064)
+Last updated: 2026-11-10 (timeliness coded on branch `timeliness-checks`, D-065)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
 
 ## Where we are
+
+- **Timeliness (10 Nov):** on branch `timeliness-checks`, not yet committed or merged. Section 9b of the deliverable
+  codes `TXN_TIMESTAMPS_IN_ORDER` and `TXN_AFTER_CUTOFF` (brief §5 Timeliness bullet): feed latency, processing
+  latency, booking and publication cutoff, and timestamp order, by feed and day, with missing, unparseable and
+  out-of-order timestamps apart, in `outputs/02_timeliness.csv`; latency limits per feed in `[timeliness]` of the
+  config, judged on the daily median as brief App. B states (D-065). The register gains seven lines at its end;
+  every existing line is unchanged (new checksum: FINDINGS.md). Design and plan: `docs/superpowers/specs/` and
+  `docs/superpowers/plans/` (2026-11-10). Left for the scorecard session: App. B's week-over-week doubling.
+  - **Validation:** the register checksum moved (new value in FINDINGS.md) only because the seven lines were added:
+    every existing line is byte-identical and still first; every other output is unchanged except the row ledger
+    (one line for section 9b) and the run record.
+    An independent DuckDB recount on the raw file matches the notebook. Passed: `tests/fixture_test.sh` (new
+    timeliness and register cases), `tests/robustness_test.sh` (three shuffles; one feed's limit changed live moves
+    only its own column), `tests/store_test.sh`, dashboard `npm test` and `npm run test:e2e`, `check_docs.py` and
+    the Python unit tests. Two default-fixture records were made timely so the browser tests keep a clean and an
+    unresolved-only trade (D-065).
 
 - **Dashboard review (9 Nov):** [PR #8](https://github.com/KevinRusu/BC-State-Street-Case-Competition/pull/8) is open for review from `codex/dashboard-compact-trace-layout` into `main`. It includes the compact trace workspace, bounded zoom, office alignment, map-controlled steps and coordinated styling; validation and store-rebuild instructions are in the PR description.
 
@@ -119,12 +135,12 @@ slide count). The register is unchanged on the full data; the Check-in decks wer
   can be checked: (1) move what exists, and prove every output is unchanged; (2) add the rules RULES.md states but no
   code runs yet, one at a time, as entries in a rule table (rule id, testable and fail conditions, config key for the
   threshold). Not coded today: `ACC_NOT_OPEN_ON_TRADE_DATE`, `ACC_REQUIRED_FIELDS`, `SEC_IDENTIFIER_VALID`,
-  `TXN_SECURITY_NOT_MASTERED`, `TXN_TIMESTAMPS_IN_ORDER`, `TXN_AFTER_CUTOFF`, `NAV_SHARE_CLASS_MAPPING`,
+  `TXN_SECURITY_NOT_MASTERED`, `NAV_SHARE_CLASS_MAPPING`,
   `NAV_OPEN_ISSUES_BEFORE_RELEASE` (needs materiality), `CA_ALL_HOLDERS_ADJUSTED` (needs a posting log). Partly coded:
   `TXN_DUPLICATE` (same economics, new ID), `TXN_FIELDS_VALID` (T+2 in business days, amount tolerance, blank
   price), `TXN_CORRECTION_LINK` (same account and security), `FX_RATE_VALID` (uniqueness, rate > 0, day-on-day band),
   `PRC_QUOTE_ELIGIBLE` (coverage and freshness, D-041). Thresholds these need are not in the config yet (T+2 limit,
-  feed latency, FX band, NAV materiality).
+  FX band, NAV materiality). Coded since: `TXN_TIMESTAMPS_IN_ORDER`, `TXN_AFTER_CUTOFF` (10 Nov, D-065).
 - Check-in 3 list (brief §8): full-data reconciliation, quality checks, scores with impact and coverage,
   sensitivity and stress tests, roadmap, working executive view, complete slide draft.
 - Final (brief §5, §7): three defect traces and two cleared look-alikes; timeliness by feed and day; scores at

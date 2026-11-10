@@ -17,8 +17,10 @@ assert 'shuffle_seed = 0' in base, 'config has no [robustness] shuffle_seed = 0 
 for seed in sys.argv[1].split():
     open(f'tests/runs/config_shuffled_{seed}.toml', 'w').write(
         base.replace('shuffle_seed = 0', f'shuffle_seed = {seed}'))
-assert 'spread_threshold = 0.005' in base
-open('tests/runs/config_threshold.toml', 'w').write(base.replace('spread_threshold = 0.005', 'spread_threshold = 0.01'))
+assert 'spread_threshold = 0.005' in base and base.count('OMS_FRONT = 240') == 1
+# Two live changes in one run: a price threshold, and one feed's processing-latency limit (D-065)
+open('tests/runs/config_threshold.toml', 'w').write(base.replace('spread_threshold = 0.005', 'spread_threshold = 0.01')
+                                                    .replace('OMS_FRONT = 240', 'OMS_FRONT = 480'))
 PY
 uv run --quiet python - "$SEEDS" <<'PY'
 # Seed check: the same load and shuffle call as the notebook (DuckDB, all_varchar, fillna(''), sample(frac=1)).
@@ -104,6 +106,22 @@ assert vc.get('spread above threshold', 0) <= va.get('spread above threshold', 0
 assert va.sum() == vc.sum(), 'held securities changed with a threshold'
 ra = pd.read_csv(f'{W}/run_a/02_waterfall.csv'); rc = pd.read_csv(f'{W}/run_c/02_waterfall.csv')
 assert ra.equals(rc), 'the reconciliation moved when only a price threshold changed'
+# Timeliness: loosening OMS_FRONT's processing limit (240 -> 480 min) may only move that feed's processing limit and
+# its "median above limit" flags, and never from "no" to "yes"; every count and median stays the same.
+ta = pd.read_csv(f'{W}/run_a/02_timeliness.csv', dtype=str, keep_default_na=False)
+tc = pd.read_csv(f'{W}/run_c/02_timeliness.csv', dtype=str, keep_default_na=False)
+own = (ta['measure'] == 'processing_latency') & (ta['source_system'] == 'OMS_FRONT')
+moving = ['limit_minutes', 'median_above_limit']
+own_days = own & (ta['day'] != 'all')
+assert set(ta.loc[own_days, 'limit_minutes']) == {'240.0'} and set(tc.loc[own_days, 'limit_minutes']) == {'480.0'}, \
+    'the OMS_FRONT processing limit in the config did not reach 02_timeliness.csv'
+assert ta.drop(columns=moving).equals(tc.drop(columns=moving)), 'a timeliness count or median moved with a limit'
+assert ta[~own][moving].equals(tc[~own][moving]), 'another feed or measure moved with the OMS_FRONT processing limit'
+assert not ((ta.loc[own, 'median_above_limit'] == 'no') & (tc.loc[own, 'median_above_limit'] == 'yes')).any(), \
+    'a looser limit flagged a new feed-day'
+yes_a, yes_c = int((ta.loc[own, 'median_above_limit'] == 'yes').sum()), int((tc.loc[own, 'median_above_limit'] == 'yes').sum())
+print(f'threshold rehearsal: processing limit OMS_FRONT 240 -> 480 min: "yes" feed-days {yes_a} -> {yes_c}')
+assert yes_c <= yes_a
 assert not problems, f'outputs changed under shuffling: {problems}'
 print(f'robustness test passed: rows shuffled with seeds {", ".join(seeds)} give the same outputs; '
       'a threshold change moves only its own check')

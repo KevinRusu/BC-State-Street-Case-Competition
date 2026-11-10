@@ -693,3 +693,70 @@ Made while building notebook 02 and fixing review findings. Source: *build log*,
   labels remain legible. Finding colours and the blue control numbers keep their existing meanings.
 - **Validation:** review both map views in light and dark themes, verify the rendered colours rather than only
   the stylesheet, and retain the functional and geometry checks from D-063.
+
+### D-065 · 10 Nov · Timeliness: five measures by feed and day, App. B median limits, own-field denominators
+
+- **Decision:** section 9b of `notebooks/deliverable.ipynb` codes `TXN_TIMESTAMPS_IN_ORDER` and `TXN_AFTER_CUTOFF`
+  ([RULES.md](RULES.md) §3) and writes `outputs/02_timeliness.csv`: one row per measure × feed (`source_system`) ×
+  day, plus each feed's total and the platform. Design: `docs/superpowers/specs/2026-11-10-timeliness-design.md`.
+  - **Measures.** Feed latency = received − event; processing latency = booked − received (brief App. B "booking
+    latency"); booking cutoff = booked ≤ cutoff (the headline, App. A "cutoff adherence"); publication cutoff =
+    published ≤ cutoff, shown beside it and never merged (the data dictionary: "compare booking and publication
+    separately"); timestamp order = event ≤ received ≤ booked ≤ published (Working Guide §3). Feed latency is **our
+    interpretation**: no guide names its pair; the data dictionary calls event the source-event time and received the
+    platform receipt time.
+  - **Limits.** `[timeliness] feed_latency_limit_minutes` and `processing_latency_limit_minutes` in
+    `config/reconciliation.toml`, one key per feed, all three equal at the start (feed 60, processing 240 minutes).
+    They are compared with the **daily median per feed**, as App. B states its threshold ("median … by feed; daily …
+    above four hours"); records are measured, not failed one by one. A median equal to the limit is not above it.
+    Both limits are team assumptions set before looking at this release's latencies; 240 is App. B's illustrative
+    four hours. App. B's "or a doubling week over week" is left to the scorecard session (indicator work).
+  - **Late is late.** A record booked or published after its cutoff fails that measure (carried to the next cycle, as
+    SEC Rule 22c-1 treats a late order), even though it was booked or published in the end. Exactly at the cutoff is
+    on time (≤).
+  - **Denominators, per measure from its own fields.** A record is not evaluable for a measure only when that
+    measure's own timestamps are missing (blank, or no pipeline record), unparseable, or out of order; one reason per
+    record, in that order. A negative interval is out of order, never zero latency (Dataset Guide §3). A cutoff
+    measure is out of order only when its own step comes before an earlier step (booked before event or received;
+    published before any earlier step), so a record whose only problem is event > received keeps both cutoff results
+    and RULES.md "Missing data" holds (never counted as on time). The order measure fails on any backward pair among
+    readable timestamps and passes only when all four are readable and in order. Eligible + not evaluable =
+    population, asserted on every row (D-027).
+  - **Repeated records.** One record per transaction_id, as the rebuild counts a trade once (D-044). Where pipeline
+    copies differ, the cutoff checks use the latest booked and published time and the earliest cutoff; the latencies
+    and the timestamp order are judged copy by copy (the longest interval counts, and a backward pair in any copy
+    counts, so an in-order copy cannot hide an out-of-order one). A blank or unreadable value in any copy makes that
+    field missing or unparseable. A repeated ID never gets the copy that looks better. Repeated IDs and
+    copies that disagree on a cutoff outcome are counted beside (`repeated_ids`, `copies_disagree`). App. A writes
+    "rows", but it asks teams to choose their own dimensions: we count transaction_ids.
+  - **Population, feed and day.** Every non-blank transaction_id in `transactions` or `pipeline_events`; a trade with
+    no pipeline record is missing on every measure. Feed = the pipeline's `source_system`, else the transaction's.
+    Day = the cutoff date, else the event date. A feed with no configured limit gets "no limit for this feed" and its
+    feed-days are not evaluable on the latency lines, never a pass. A record with no readable date lands on day
+    "unknown", which gets "no day" (it is not a day, so no daily median is judged).
+  - **Register.** Seven lines appended **after every existing line**, so existing lines keep their order and the
+    dashboard headline (which takes a record's lowest line, D-058) does not change for records that already had one:
+    missing, unparseable and out-of-order timestamps (confirmed); booked and published after cutoff (confirmed,
+    against the data's own cutoff); feed and processing latency medians above the limit (unresolved, counted in
+    feed-days, id kind `feed/day`, not traceable to one record, because the limit is our assumption, not an SLA).
+- **Why:** brief §5 Timeliness asks for feed latency, processing latency and cutoff adherence by feed and day, with
+  missing, unparseable and out-of-order timestamps reported separately, every denominator published, and unavailable
+  timestamps never treated as timely. Check-in 3 asks for quality checks with coverage.
+- **Instead of:** a per-record pass/fail against the latency limit (App. B states a median); one combined "on time"
+  (hides which step was late); a strict rule that any out-of-order pair voids both cutoffs (drops records for an
+  unrelated pair); the earliest copy of a repeated record (flatters the result); limits taken from this release's own
+  percentiles (tunes the test to the data).
+- **Moves:** every existing register line and every other `02_*` output is unchanged on the full data; the register
+  gains seven lines (new checksum in FINDINGS.md), `02_finding_members.csv` gains their members, and
+  `02_row_ledger.csv` gains one line for section 9b. Runtime: the section groups only repeated IDs (a groupby over
+  every ID cost about 30 s per table on the release, about a minute for the two tables).
+- **Order needs all four timestamps to pass (refines the spec's "at least two readable").** A record with a
+  missing or unreadable step and no backward pair among the rest is not evaluable on the order measure, never a
+  pass: passing it would count an unavailable timestamp as in order, which brief §5 and RULES.md "Missing data"
+  rule out. A backward pair among the readable ones still fails it.
+- **Test fixture:** in `tests/fixtures/small/pipeline_events.csv` (manifest checksum updated), FXT06 and FXT11 are
+  now timely: published 17:00, and FXT11 received 10:05, booked 10:10. Their old times (published 19:00 after an
+  18:00 cutoff; FXT11 received before its event) were arbitrary values from before timeliness was coded. They
+  gave every fixture trade a confirmed finding, and the dashboard's browser tests need one trade with no
+  finding (FXT06) and one with only an unresolved finding (FXT11). The other records keep their late
+  publication, so both outcomes stay tested.
