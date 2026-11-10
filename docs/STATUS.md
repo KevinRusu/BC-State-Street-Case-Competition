@@ -1,11 +1,16 @@
 # Status
 
-Last updated: 2026-11-09 (trace node spacing and office alignment; D-062)
+Last updated: 2026-11-09 (coordinated map palette and map-controlled trace steps; D-063, D-064)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
 
 ## Where we are
+
+- **Map palette (9 Nov):** deeper blue-grey office backgrounds, a muted blue collective office outline, a navy group label and a stronger separate dashed external-source border. Both views share the light/dark palette; context boxes are less faded for readability. This refines the initial bright-blue grouping border at the user's request (D-064).
+
+- **Office grouping and trace controls (9 Nov):** Accounts and Ledger NAV are vertically centred in their bands. Both map views show a blue "State Street Offices" outline and a stronger separate dashed boundary for independent sources. Traced boxes toggle their matching timeline steps, share state with the timeline headers and support keyboard activation; context-only boxes explain why they have no matching step (D-063).
+  - **Validation:** rebuilt the full-data store using the existing analysis outputs and restarted the local app. Unit/store checks, the synthetic notebook/store-contract harness, the production browser suite, lint, type and documentation checks passed. Both views were visually reviewed in light/dark mode and their actual rendered palette checked; real-record map buttons were exercised locally.
 
 - **Trace node spacing (9 Nov):** Transactions is anchored by its vertical centre at the front/middle office boundary, so the box stays balanced when trace labels change its height. Pipeline events and Corporate actions have larger gaps and remain within an expanded middle-office band; the lower bands move down together. The graph metadata still comes from the store builder (D-062).
   - **Validation:** rebuilt the local store and restarted the dashboard; all current-store examples passed the spacing, equal-overlap and desktop-fit checks. Unit/store and production browser suites, store contracts, lint, type and documentation checks passed. The store harness uses the existing Windows npm entry-point workaround described below.

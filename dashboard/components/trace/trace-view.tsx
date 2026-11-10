@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState, useTransition } from "react";
 import { ChevronDown, Loader2, Search, SearchX } from "lucide-react";
 import { Dot, Pill, RegisterStatus } from "@/components/common";
-import { Graph, type TraceHighlight } from "@/components/flow/graph";
+import { Graph, type TraceHighlight, type TraceStepControl } from "@/components/flow/graph";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -89,6 +89,9 @@ function StoryPicker({ demos, query, plain }: { demos: DemoTrace[]; query: strin
 
 export function TraceView({ map, demos, query, trace }: Props) {
   const steps = useRef<HTMLDivElement>(null);
+  const [stepState, setStepState] = useState<{ query: string; open: Record<string, boolean> }>({ query, open: {} });
+  // Reset overrides before rendering another record, while leaving the picker and ID lookup mounted.
+  if (stepState.query !== query) setStepState({ query, open: {} });
   const highlight = useMemo<TraceHighlight | undefined>(() => {
     if (!trace?.found) return undefined;
     const group = (key: (h: Hop) => string | null) => {
@@ -104,6 +107,15 @@ export function TraceView({ map, demos, query, trace }: Props) {
       findings: locateFindings(trace.hops, trace.marks),
     };
   }, [trace]);
+  const isStepOpen = (hop: Hop) => stepState.open[hop.id] ?? Boolean(highlight?.findings.hops[hop.id]?.length);
+  const traceSteps: Record<string, TraceStepControl> = {};
+  if (trace?.found) {
+    for (const hop of trace.hops) {
+      const control = traceSteps[hop.table] ??= { expanded: false, controls: "" };
+      control.expanded ||= isStepOpen(hop);
+      control.controls += `${control.controls ? " " : ""}trace-step-${hop.id}-details`;
+    }
+  }
 
   return (
     <div data-trace-layout className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 lg:grid lg:grid-cols-[minmax(0,1.35fr)_minmax(340px,1fr)] lg:overflow-hidden">
@@ -111,7 +123,7 @@ export function TraceView({ map, demos, query, trace }: Props) {
         <div>
           <h1 className="text-lg font-semibold">Trace a record</h1>
           <p className="text-sm text-muted-foreground">
-            Follow a record from capture to NAV. Select a place on the map to jump to its evidence.
+            Follow a record from capture to NAV. Click a traced box to open or close its steps.
           </p>
         </div>
         <Collapsible>
@@ -132,19 +144,29 @@ export function TraceView({ map, demos, query, trace }: Props) {
             showLookups={false}
             animate={false}
             trace={highlight}
+            traceSteps={traceSteps}
             onSelect={(selection) => {
               if (!selection) return;
               const candidates = trace?.found ? trace.hops.filter((h) => selection.kind === "node"
                 ? h.table === selection.id : h.edge === selection.id) : [];
               const hop = candidates.find((h) => highlight?.findings.hops[h.id]?.length) ?? candidates[0];
-              const target = hop && document.getElementById(`trace-step-${hop.id}`);
-              if (!target || !steps.current) return;
-              if (window.matchMedia("(min-width: 1024px)").matches) {
-                steps.current.scrollTo({
-                  top: target.getBoundingClientRect().top - steps.current.getBoundingClientRect().top + steps.current.scrollTop,
-                  behavior: "smooth",
-                });
-              } else target.scrollIntoView({ behavior: "smooth", block: "start" });
+              if (selection.kind === "node" && candidates.length) {
+                const open = !candidates.some(isStepOpen);
+                setStepState((previous) => ({ query, open: {
+                  ...previous.open, ...Object.fromEntries(candidates.map((h) => [h.id, open])),
+                } }));
+              }
+              // Wait for expanded/collapsed content to lay out before scrolling the evidence pane.
+              requestAnimationFrame(() => {
+                const target = hop && document.getElementById(`trace-step-${hop.id}`);
+                if (!target || !steps.current) return;
+                if (window.matchMedia("(min-width: 1024px)").matches) {
+                  steps.current.scrollTo({
+                    top: target.getBoundingClientRect().top - steps.current.getBoundingClientRect().top + steps.current.scrollTop,
+                    behavior: "smooth",
+                  });
+                } else target.scrollIntoView({ behavior: "smooth", block: "start" });
+              });
             }}
           />
         </Card>
@@ -183,6 +205,8 @@ export function TraceView({ map, demos, query, trace }: Props) {
                     last={index === trace.hops.length - 1}
                     query={trace.query}
                     plain={map.plain}
+                    open={isStepOpen(hop)}
+                    onOpenChange={(open) => setStepState((previous) => ({ query, open: { ...previous.open, [hop.id]: open } }))}
                   />
                 ))}
               </ol>

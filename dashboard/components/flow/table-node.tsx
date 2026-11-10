@@ -16,6 +16,8 @@ export type TableNodeData = {
   dimmed: boolean;
   traceStatus?: HopStatus;
   traceFindings?: RegisterMark[];
+  traceMode?: boolean;
+  traceControl?: { expanded: boolean; controls: string; onToggle: () => void };
 };
 export type TableNodeType = Node<TableNodeData, "table">;
 
@@ -25,7 +27,7 @@ const SLOTS = [["", 50], ["-a", 30], ["-b", 70]] as const;
 
 /** A table on the map: name, where its data comes from, and how many register findings count on it. */
 export function TableNode({ data }: NodeProps<TableNodeType>) {
-  const { node, counts, selected, dimmed, traceStatus, traceFindings = [] } = data;
+  const { node, counts, selected, dimmed, traceStatus, traceFindings = [], traceMode, traceControl } = data;
   const finding = findingSummary(traceFindings);
   const tone = traceStatus ? traceTone(traceStatus, traceFindings) : undefined;
   const linkWarning = traceStatus === "missing" || (traceStatus === "fan_out" && finding?.tone === "ok");
@@ -35,10 +37,22 @@ export function TableNode({ data }: NodeProps<TableNodeType>) {
       data-trace-tone={tone}
       className={cn(
         "relative flex flex-col items-start gap-1.5 rounded-[10px] bg-card px-3 pt-3.5 pb-2.5 text-card-foreground shadow-[0_1px_3px_rgba(16,24,40,0.14)] transition-all",
-        dimmed && "opacity-30",
+        dimmed && "opacity-65",
       )}
       style={{ width: NODE_WIDTH, ...(ring ? { boxShadow: `0 0 0 ${traceStatus ? 3 : 2.5}px ${ring}` } : {}) }}
     >
+      {traceMode && (
+        <button
+          type="button"
+          aria-label={`${node.label} steps`}
+          aria-expanded={traceControl?.expanded}
+          aria-controls={traceControl?.controls}
+          disabled={!traceControl}
+          title={traceControl ? `${traceControl.expanded ? "Close" : "Open"} ${node.label} steps` : "Not part of this record's trace"}
+          className="nodrag nopan absolute inset-0 z-10 rounded-[10px] enabled:cursor-pointer enabled:hover:bg-brand/5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand disabled:cursor-default"
+          onClick={(event) => { event.stopPropagation(); traceControl?.onToggle(); }}
+        />
+      )}
       {SIDES.flatMap((side) =>
         SLOTS.map(([slot, at]) => {
           const along = side === Position.Top || side === Position.Bottom ? { left: `${at}%` } : { top: `${at}%` };

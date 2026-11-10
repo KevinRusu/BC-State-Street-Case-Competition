@@ -16,6 +16,13 @@ async function expectOfficeLayout(page: Page) {
     const middle = (await office("middle").boundingBox())!;
     return Math.abs(transaction.y + transaction.height / 2 - (front.y + front.height + middle.y) / 2);
   }).toBeLessThan(0.75);
+  for (const [id, layer] of [["accounts", "front"], ["ledger_nav", "back"]]) {
+    await expect.poll(async () => {
+      const node = (await table(id).boundingBox())!;
+      const band = (await office(layer).boundingBox())!;
+      return Math.abs(node.y + node.height / 2 - band.y - band.height / 2);
+    }, id).toBeLessThan(0.75);
+  }
   const transaction = (await table("transactions").boundingBox())!;
   const pipeline = (await table("pipeline_events").boundingBox())!;
   const corporate = (await table("corporate_actions").boundingBox())!;

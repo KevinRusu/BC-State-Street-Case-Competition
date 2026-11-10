@@ -667,3 +667,29 @@ Made while building notebook 02 and fixing review findings. Source: *build log*,
   independent-source positions move down together. Office ownership, controls and findings do not change.
 - **Check:** browser assertions measure the rendered gaps, the shared box's centre and office containment on the
   main map and across the fixture stories. This covers both shorter ordinary boxes and taller trace boxes.
+
+### D-063 · 9 Nov · Centre office boxes, distinguish external sources and toggle trace evidence from the map
+
+- **Placement:** Accounts and Ledger NAV use centre anchors at the vertical midpoint of their office bands, in
+  both map views and at every trace-label height. The existing shared-office anchor for Transactions remains.
+- **Grouping:** a labelled outline in State Street blue (`#001AFF`) encloses the three office bands. Independent
+  sources stay outside it with a thicker dashed border and more contrast in both themes. Both views use the shared
+  grid component, so these boundaries stay consistent.
+- **Interaction:** traced map boxes and timeline headers share expansion state. A box toggles all its matching
+  steps together (any open means close the group; otherwise open it), then scrolls the evidence into view. The
+  buttons support keyboard activation and expose their expansion state and controlled panels. Context-only boxes
+  without a matching step are disabled and labelled as outside the trace. Selecting another record restores the
+  usual default: steps with findings open, other steps closed. Raw-row details stay behind their existing toggle.
+- **Scope:** no joins, controls, counts or data treatment change.
+
+### D-064 · 9 Nov · A quieter office palette, with readable context
+
+- **Refines D-063:** after reviewing the bright-blue outline, the user prioritised readability and a coordinated
+  State Street-inspired scheme and explicitly allowed the border colour to change. The office grouping and the
+  external-source boundary remain; the office outline now uses a muted blue rather than the vivid brand blue.
+- **Decision:** use slightly deeper blue-grey office fills, a darker navy office-group label and a slate dashed
+  external-source border in light mode, with coordinated navy bands and lighter labels in dark mode. These colours
+  live in `dashboard/app/globals.css` and both views read the same tokens. Context boxes are less faded so their
+  labels remain legible. Finding colours and the blue control numbers keep their existing meanings.
+- **Validation:** review both map views in light and dark themes, verify the rendered colours rather than only
+  the stylesheet, and retain the functional and geometry checks from D-063.

@@ -97,7 +97,7 @@ GRAPH = {
         dict(id='nav', label='NAV & ledger', note='', x=770, w=220),
     ],
     'nodes': [
-        dict(id='accounts', label='Accounts', office='front', stage='address_books', check='Account check', x=130, y=112,
+        dict(id='accounts', label='Accounts', office='front', stage='address_books', check='Account check', x=130, y=138, origin_y=0.5,
              grain='1 row = 1 account', rules=['ACC_REQUIRED_FIELDS'],
              note='The back office uses its fund and share class for the NAV (brief §3: front and back).',
              comes_from=[dict(label='client onboarding', evidence='reasoning',
@@ -122,7 +122,7 @@ GRAPH = {
         # count, so their findings show on the map with lookups off.
         dict(id='positions', label='Positions (our book)', office='middle', stage='positions', check='Position check',
              x=570, y=290, grain='1 row = account x security x date', rules=['POS_REBUILD_MATCHES', 'POS_KEYS_MASTERED']),
-        dict(id='ledger_nav', label='Ledger NAV', office='back', stage='nav', check='NAV check', x=790, y=514,
+        dict(id='ledger_nav', label='Ledger NAV', office='back', stage='nav', check='NAV check', x=790, y=536, origin_y=0.5,
              grain='1 row = fund x share class x date', rules=['NAV_ARITHMETIC', 'NAV_SHARE_CLASS_MAPPING']),
         dict(id='comparison_positions', label='Custodian positions', office='independent', stage='positions',
              check='Position check', x=390, y=614, grain='1 row = account x security x date', rules=[],

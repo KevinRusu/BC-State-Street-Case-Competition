@@ -114,6 +114,14 @@ Transactions is centred across the front/middle office boundary, including when 
 Pipeline events and Corporate actions have clear vertical gaps and stay fully inside the middle-office band.
 The store's graph definition carries the positions and vertical anchors (D-062); rebuild the store after changing them.
 
+Accounts and Ledger NAV are centred within their office bands. Both views group the offices inside a labelled
+muted blue outline and distinguish independent sources with a stronger dashed boundary (D-063, D-064).
+Office fills and the outline use a coordinated blue-grey palette in both themes; context boxes remain readable
+while the finding colours keep their usual meanings. The palette tokens live in `app/globals.css`.
+In a record trace, click a traced map box to open or close its matching steps; multiple steps at one box toggle as
+a group. Map buttons and timeline headers share expansion state, including keyboard activation. Context-only boxes
+have no matching step and are disabled. Changing records restores the normal finding-based default expansions.
+
 ## Test
 
 After `uv sync` in the repo root, run these commands inside `dashboard/`:
@@ -135,7 +143,9 @@ Browser tests cover map details and lookups, panel/theme/menu controls, confirme
 the headline's tone), the no-finding caveat, every "Trace an example" link, search and unknown IDs, the story picker,
 search/timeline reset, the logo in light and dark mode, the startup screen (plays once, skips on a key, survives
 blocked storage), the logo and folded ID lookup on a narrow viewport, the map zoom floor and recentring after
-resizing, every fixture story's desktop layout, node spacing and office alignment, and map-to-evidence scrolling. Their production
+resizing, every fixture story's desktop layout, node spacing and office alignment, map-to-step toggles (including
+groups, keyboard activation and expansion reset), map-to-evidence scrolling, and the office/source boundaries in
+both themes. Their production
 server listens on `127.0.0.1:3100` and uses `.next-tests`, so it can run beside `npm run dev`. Results, failure
 screenshots and traces stay in `tests/runs/dashboard_browser/`. A busy test port causes a failure rather than
 reusing an unrelated server. Set `DASHBOARD_TEST_PORT` to use another port.
