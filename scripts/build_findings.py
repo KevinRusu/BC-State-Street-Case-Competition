@@ -5,7 +5,10 @@ Step by step:
 2. Write a banner: generated, do not edit; the register's checksum (scripts/check_docs.py compares it with
    the current register to catch a stale FINDINGS.md); the run's config, seed, snapshot date and runtime.
 3. One table per evidence status (confirmed, unresolved, cleared), in the register's own order.
-4. Fill the fact cards in docs/DEFECT_CATALOG.md. A card sits between `<!-- card: name | name -->` and
+4. A "Scorecard" section from outputs/02_scorecard.csv (platform and domain rows), 02_kpis.csv and 02_indicators.csv
+   (each value with its unit and threshold); a missing file is named in the section instead. Three fixed notes say
+   where the views count differently (they hold no number).
+5. Fill the fact cards in docs/DEFECT_CATALOG.md. A card sits between `<!-- card: name | name -->` and
    `<!-- /card -->`, naming one or more register findings; everything between the markers is rewritten from the
    register (with its checksum, which scripts/check_docs.py also compares). The prose around the cards is not touched.
 
@@ -17,6 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 REGISTER = ROOT / 'outputs' / '02_defect_register.csv'
 RUN_INFO = ROOT / 'outputs' / '02_run_info.csv'
+OUTPUTS = ROOT / 'outputs'
 OUT = ROOT / 'docs' / 'FINDINGS.md'
 CATALOG = ROOT / 'docs' / 'DEFECT_CATALOG.md'
 CARD = re.compile(r'<!-- card: (.+?) -->\n.*?<!-- /card -->', re.S)
@@ -32,6 +36,65 @@ def checksum(path):
 def cell(value):
     value = value.replace('|', '\\|').replace('\n', ' ')
     return f'{int(value):,}' if value.isdigit() else value
+
+
+SCORECARD_FILES = ('02_scorecard.csv', '02_kpis.csv', '02_indicators.csv')
+
+
+def scorecard_checksum(folder=OUTPUTS):
+    """One fingerprint of the files the Scorecard section reads ('' when none exists); check_docs.py compares it."""
+    digest, found = hashlib.sha256(), False
+    for name in SCORECARD_FILES:
+        path = folder / name
+        if path.is_file():
+            found = True
+            digest.update(name.encode() + b'\0' + path.read_bytes().replace(b'\r\n', b'\n'))
+    return digest.hexdigest()[:12] if found else ''
+
+
+def read_output(folder, name):
+    path = folder / name
+    return list(csv.DictReader(path.open(newline='', encoding='utf-8'))) if path.is_file() else None
+
+
+def scorecard_lines(folder=OUTPUTS):
+    """The generated Scorecard section: platform and domain scores, the KPIs, the indicator headline values."""
+    lines = ['', '## Scorecard', '',
+             f'*From `outputs/02_scorecard.csv`, `02_kpis.csv` and `02_indicators.csv`. Rule and test rows, accounts, '
+             'sensitivity and the look-back stay in the CSVs. Scores and coverage are on a 0-100 scale.*',
+             '', f'- Scorecard checksum: `{scorecard_checksum(folder) or "none"}`']
+    scorecard, kpis, indicators = (read_output(folder, n) for n in ('02_scorecard.csv', '02_kpis.csv',
+                                                                   '02_indicators.csv'))
+    for name, rows in (('02_scorecard.csv', scorecard), ('02_kpis.csv', kpis), ('02_indicators.csv', indicators)):
+        if rows is None:
+            lines += ['', f'`{name}` not found: rerun `notebooks/deliverable.ipynb`.']
+    if scorecard is not None:
+        lines += ['', '| Level | Domain | Score | Coverage | Confirmed-only score |', '|---|---|---|---|---|']
+        lines += ['| ' + ' | '.join([r['level'].capitalize(), cell(r['domain']), r['score'], r['coverage'],
+                                     r['confirmed_only_score']]) + ' |'
+                  for r in scorecard if r['level'] in ('platform', 'domain')]
+    if kpis is not None:
+        lines += ['', '| KPI | Name | Value | Target | Met | Status |', '|---|---|---|---|---|---|']
+        for r in kpis:
+            value = f"{r['value']} {r['unit']}".strip() if r['value'] else 'not computed'
+            lines.append('| ' + ' | '.join([r['n'], cell(r['kpi']), value, cell(r['target']), r['met'],
+                                             r['status']]) + ' |')
+    if indicators is not None:
+        lines += ['', '| Indicator | Name | Status | Value | Threshold | Breaches | First breach |',
+                  '|---|---|---|---|---|---|---|']
+        lines += ['| ' + ' | '.join([r['id'], cell(r['indicator']), r['status'],
+                                     f"{r['value']} {r.get('unit', '')}".strip() if r['value'] else '',
+                                     cell(r.get('threshold', '')), r['breaches'], r['first_breach']]) + ' |'
+                  for r in indicators]
+    lines += ['', 'Where the views count differently:', '',
+              '- KPI 1 reports trades on an unknown account separately (not evaluable), while the Accounts domain counts '
+              'them as fails of `ACC.exists`.',
+              '- I4 and KPI 5 count a flagged vendor quote that another vendor backs as not agreed (a strict reading), '
+              'while `PRC.vendors` counts a backed quote as cleared.',
+              '- The Corporate actions domain score, its confirmed-only score and I3 measure different things: a confirmed '
+              'or unresolved finding on an action fails it in the domain score; only a confirmed finding fails it in the '
+              'confirmed-only score; only quarantine fails it in I3.']
+    return lines
 
 
 def card(names, by_name, register_sum):
@@ -95,6 +158,7 @@ def main():
         lines += ['', f'## {status.capitalize()} ({len(group)})', '',
                   '| ' + ' | '.join(COLUMNS) + ' |', '|' + '---|' * len(COLUMNS)]
         lines += ['| ' + ' | '.join(cell(r[c]) for c in COLUMNS) + ' |' for r in group]
+    lines += scorecard_lines()
     OUT.write_text('\n'.join(lines) + '\n')
     print(f'wrote {OUT.relative_to(ROOT)}: {len(rows)} findings')
     fill_catalog(rows, checksum(REGISTER))

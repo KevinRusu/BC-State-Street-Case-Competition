@@ -266,6 +266,55 @@ counts = {
 }
 edit('manifest', lambda rows, fields: [{**row, 'rows': str(counts.get(row['table'], row['rows']))} for row in rows])
 PY
+# Score fixture: a copy of tests/fixtures/small for the scorecard (scorecard spec §6): the account, security and
+# trade cases behind the two KPI 1 rules (FXS01-FXS09), positions on unmastered securities, a quarantined action, and
+# pipeline booking times that double in the week of 2026-06-08. No pipeline rows are added for FXS01-FXS09.
+uv run --quiet python - <<'PY'
+import csv, datetime, shutil
+src, dst = 'tests/fixtures/small', 'tests/runs/fixture_score'
+shutil.rmtree(dst, ignore_errors=True)
+shutil.copytree(src, dst)
+def edit(table, change):
+    path = f'{dst}/{table}.csv'
+    with open(path, newline='') as stream:
+        reader = csv.DictReader(stream)
+        fields, rows = reader.fieldnames, list(reader)
+    rows = change(rows, fields)
+    with open(path, 'w', newline='') as stream:
+        writer = csv.DictWriter(stream, fieldnames=fields, lineterminator='\n')
+        writer.writeheader()
+        writer.writerows(rows)
+    return len(rows)
+def add(*lines):
+    return lambda rows, fields: rows + [dict(zip(fields, line.split(','))) for line in lines]
+def book_in_twelve(rows, fields):   # events 2026-06-08 .. 2026-06-12: booked = received + 12 minutes
+    for row in rows:
+        if '2026-06-08' <= row['event_timestamp'][:10] <= '2026-06-12':
+            received = datetime.datetime.strptime(row['received_timestamp'], '%Y-%m-%d %H:%M:%S')
+            row['booked_timestamp'] = (received + datetime.timedelta(minutes=12)).strftime('%Y-%m-%d %H:%M:%S')
+    return rows
+def score_trade(tid, account, security, cusip='FXCUSIP04', currency='USD'):
+    return (f'{tid},{account},{security},{cusip},BUY,2026-06-15,2026-06-17,10,5.00,{currency},50.00,BOOKED,,'
+            'FIXTURE_OMS,2026-06-15 09:00:00,')
+counts = {
+    'accounts': edit('accounts', add(*[f'FXACC{n},Fixture Account {n},FXFUND1,A,INSTITUTIONAL,USD,US,EQUITY_CORE,'
+                                       f'FIXTURE_CUSTODIAN,{opened},{closed},{status}' for n, opened, closed, status in [
+        (4, '2020-01-02', '2026-06-30', 'CLOSED'), (5, '2026-06-20', '', 'OPEN'), (6, '2020-01-02', '2026-06-10', 'CLOSED'),
+        (7, '2020-01-02', '2026-12-31', 'OPEN'), (8, '2020-01-02', '', 'OPEN')]])),
+    'securities': edit('securities', add('FXSEC4,FXCUSIP04,FX0000000004,FXD,Fixture Equity D,EQUITY,USD,XFIX,US,,,')),
+    'transactions': edit('transactions', add(
+        score_trade('FXS01', 'FXACC4', 'FXSEC4'), score_trade('FXS02', 'FXACC5', 'FXSEC4'),
+        score_trade('FXS03', 'FXACC6', 'FXSEC4'), score_trade('FXS04', 'FXACC7', 'FXSEC4'),
+        score_trade('FXS05', 'FXACC9', 'FXSEC4'), score_trade('FXS06', 'FXACC1', 'FXSEC9', cusip='FXCUSIP09'),
+        score_trade('FXS07', 'FXACC1', 'FXSEC4', cusip='FXCUSIPXX'), score_trade('FXS08', 'FXACC1', 'FXSEC4', currency='EUR'),
+        score_trade('FXS09', 'FXACC1', '', cusip=''))),
+    'positions': edit('positions', add('FXSP8,FXACC2,FXSEC8,10,1,2026-07-10,BOOK_OF_RECORD',
+                                       'FXSP9,FXACC1,FXSEC9,10,1,2026-07-10,BOOK_OF_RECORD')),
+    'corporate_actions': edit('corporate_actions', add('FXCA3,FXSEC3,MERGER,2026-06-15,2026-06-16,1,,')),
+    'pipeline_events': edit('pipeline_events', book_in_twelve),
+}
+edit('manifest', lambda rows, fields: [{**row, 'rows': str(counts.get(row['table'], row['rows']))} for row in rows])
+PY
 uv run --quiet python - <<'PY'
 base = open('config/reconciliation.toml').read()
 for old, new in [('reversed_main = "R1"', 'reversed_main = "R3"'), ('reversed_side = "R3"', 'reversed_side = "R1"')]:
@@ -286,8 +335,9 @@ RECONCILIATION_DATA="$W/fixture_r3/manifest.csv" run r3 "$W/config_fixture_r3.to
 RECONCILIATION_DATA="$W/fixture_r3/manifest.csv" run r3default ""
 RECONCILIATION_DATA="$W/fixture_quality/manifest.csv" run quality ""
 RECONCILIATION_DATA="$W/fixture_quality/manifest.csv" run quality_lag3 "$W/config_fixture_lag3.toml"
+RECONCILIATION_DATA="$W/fixture_score/manifest.csv" run score ""
 uv run --quiet python - <<'PY'
-import glob, os, pandas as pd
+import glob, os, numpy as np, pandas as pd
 W = 'tests/runs'
 read = lambda run, name: pd.read_csv(f'{W}/run_fixture_{run}/{name}', dtype=str, keep_default_na=False)
 results = []
@@ -725,6 +775,179 @@ expect('quality: economic duplicate text counts the groups sharing one event min
        '1 of 1 groups share one event minute and one feed' in quality_how[DUP])
 expect('quality: price text counts blank on the failing row only, the disagreeing copy apart', True,
        '1 blank, 1 unreadable (1 more on copies that disagree, not evaluable)' in quality_how[TRADE[0]])
+
+# The two KPI 1 rules (section 9c): register lines K1-K8, the last eight lines of every register.
+KPI1_LINES = ['Trade on a security_id missing from securities', 'Trade cusip differs from the security master',
+              'Trade currency differs from the security master', 'Trade on an account_id missing from accounts',
+              "Trade before the account's open_date", "Trade after the account's close_date",
+              'Trade on an account closed later, open on the trade date',
+              'Trade on an account whose status contradicts its close_date']
+for run in ['default', 'quality', 'score']:
+    names = read(run, '02_defect_register.csv')['finding'].tolist()
+    expect(f'kpi1 {run}: the eight lines come last, in order', KPI1_LINES, names[-8:])
+POP = line_counts('default', 'Blank trade quantity')[3]
+expect('kpi1 default: every row mastered, open, matching; the row with no trade date not evaluable on the open test',
+       [('0', POP, '0', POP)] * 4 + [('0', str(int(POP) - 1), '1', POP)] * 3 + [('0', POP, '0', POP)],
+       [line_counts('default', n) for n in KPI1_LINES])
+score_members = read('score', '02_finding_members.csv').groupby('finding')['record_id'].apply(set)
+expect('kpi1 score: members', [{'FXS06', 'FXS09'}, {'FXS07'}, {'FXS08'}, {'FXS05'}, {'FXS02'}, {'FXS03'}, {'FXS01'}, {'FXS04'}],
+       [score_members.get(n, set()) for n in KPI1_LINES])
+expect('kpi1 score: cusip and currency not evaluable on the unmastered and blank security (2 each)',
+       [('1', '25', '2', '27'), ('1', '25', '2', '27')], [line_counts('score', n) for n in KPI1_LINES[1:3]])
+expect('kpi1 score: open-date tests leave out FXT07, FXS04 (status) and FXS05 (unknown account)',
+       [('1', '24', '3', '27')] * 3, [line_counts('score', n) for n in KPI1_LINES[4:7]])
+
+# The outcome table (section 12): one row per unit and test whose outcome is not a plain pass.
+oc = read('score', '02_score_outcomes.csv')
+expect('outcomes score: FXS04 not evaluable on ACC.open, FXS01 cleared',
+       {('FXS04', 'not evaluable'), ('FXS01', 'cleared')},
+       set(map(tuple, oc[(oc['test'] == 'ACC.open') & oc['record_id'].isin(['FXS04', 'FXS01'])][['record_id', 'outcome']].values)))
+expect('outcomes score: FXSP9 fails PRC.coverage and SEC.positions on account FXACC1',
+       {('PRC.coverage', 'FXACC1', 'fail'), ('SEC.positions', 'FXACC1', 'fail')},
+       set(map(tuple, oc[oc['record_id'] == 'FXSP9'][['test', 'account_id', 'outcome']].values)))
+for run in ['default', 'quality', 'score']:
+    oc = read(run, '02_score_outcomes.csv')
+    expect(f'outcomes {run}: no plain pass row', False, ((oc['outcome'] == 'pass') & (oc['confirmed_only_outcome'] == 'pass')).any())
+
+# The scorecard (section 12): test, rule, domain and platform scores.
+sc = read('score', '02_scorecard.csv')
+row = lambda level, **k: sc[(sc['level'] == level) & np.logical_and.reduce([sc[c] == v for c, v in k.items()])].iloc[0]
+expect('score: ACC.open test counts (27 rows: FXS01 cleared; FXS02, FXS03 fail; FXT07, FXS04, FXS05 not evaluable)',
+       ('27', '24', '22', '2', '0', '1', '3'),
+       tuple(row('test', test='ACC.open')[c] for c in ['population', 'evaluable', 'passed', 'failed_confirmed',
+                                                       'failed_unresolved', 'cleared', 'not_evaluable']))
+expect('score: PRC.vendors looks at every held security (5), not only the flagged ones; FXSEC8 and FXSEC9 (no quote) '
+       'are not evaluable through the vendor summary lines', ('5', '3', '2'),
+       tuple(row('test', test='PRC.vendors')[c] for c in ['population', 'evaluable', 'not_evaluable']))
+expect('score: platform coverage below 100 and every domain listed once', (True, 7),
+       (float(row('platform')['coverage']) < 100, int((sc['level'] == 'domain').sum())))
+for run in ['default', 'score']:
+    s = read(run, '02_scorecard.csv')
+    dom = s[s['level'] == 'domain']
+    expect(f'scorecard {run}: confirmed-only >= main wherever both exist', True,
+           bool((dom['confirmed_only_score'].replace('', np.nan).astype(float).fillna(0)
+                 >= dom['score'].replace('', np.nan).astype(float).fillna(0)).all()))
+
+# Account scores (section 12): the same rules restricted to each account; NAV beside, never inside the score.
+acc = read('score', '02_scorecard_accounts.csv').set_index('account_id')
+expect('accounts: FXACC9 (only in trades) scored, not in the master, Accounts 0.00', ('no', '0.00'),
+       (acc.loc['FXACC9', 'in_account_master'], acc.loc['FXACC9', 'Accounts score']))
+expect('accounts: FXACC4 closed later -> Accounts 100.00', '100.00', acc.loc['FXACC4', 'Accounts score'])
+expect('accounts: FXACC7 status contradicts -> Accounts score 100.00 on coverage 50.00', ('100.00', '50.00'),
+       (acc.loc['FXACC7', 'Accounts score'], acc.loc['FXACC7', 'Accounts coverage']))
+expect('accounts: FXACC1 Securities = mean((7/9 + 6/7 + 6/7) / 3, 2/3), rounded down', '74.86',
+       acc.loc['FXACC1', 'Securities score'])
+expect('accounts: FXACC8 in the master with no records -> blank score and coverage, no rank', ('yes', '', '', ''),
+       tuple(acc.loc['FXACC8', c] for c in ['in_account_master', 'score', 'coverage', 'rank']))
+expect('accounts: NAV beside, never a score column', (False, True),
+       ('NAV score' in acc.columns, 'fund_nav_result' in acc.columns))
+
+# Sensitivity (section 12c): three variants against the main score.
+for run in ['default', 'score']:
+    se = read(run, '02_scorecard_sensitivity.csv')
+    expect(f'sensitivity {run}: 3 variants x (1 platform + 7 domains + 1 accounts) = 27 rows', (27, 9, 9, 9, 3, 21, 3),
+           (len(se), *[int((se['variant'] == v).sum()) for v in ['nav_proximity', 'weakest_link', 'confirmed_only']],
+            int((se['level'] == 'platform').sum()), int((se['level'] == 'domain').sum()), int((se['level'] == 'accounts').sum())))
+    plat = se[se['level'] == 'platform'].set_index('variant')
+    num = lambda v: float(v) if v != '' else np.nan
+    expect(f'sensitivity {run}: weakest-link platform <= main, confirmed-only >= main', (True, True),
+           (num(plat.loc['weakest_link', 'score']) <= num(plat.loc['weakest_link', 'main_score']),
+            num(plat.loc['confirmed_only', 'score']) >= num(plat.loc['confirmed_only', 'main_score'])))
+    nav = se[(se['variant'] == 'nav_proximity') & (se['level'] == 'domain')]
+    expect(f'sensitivity {run}: nav_proximity leaves every domain score at main', True, bool((nav['score'] == nav['main_score']).all()))
+    expect(f'sensitivity {run}: change = variant - main on the written values', True,
+           bool(all(abs(num(r['score']) - num(r['main_score']) - num(r['change'])) < 0.0051
+                    for _, r in se[se['level'].isin(['platform', 'domain'])].iterrows() if r['score'] != '' and r['main_score'] != '')))
+sa = read('score', '02_scorecard_sensitivity.csv')
+sa = sa[sa['level'] == 'accounts'].set_index('variant')
+expect('sensitivity score: accounts rows carry worst_n, worst_n_kept, ties_at_cutoff (right after it) and a correlation',
+       (True, True, True),
+       (bool((sa['worst_n'] != '').all() and (sa['worst_n_kept'] != '').all() and (sa['ties_at_cutoff'] != '').all()),
+        bool((sa['rank_correlation'] != '').all()), list(sa.columns)[list(sa.columns).index('worst_n_kept') + 1] == 'ties_at_cutoff'))
+expect('sensitivity score: accounts file has both variant columns filled for every scored account', True,
+       bool(((acc['score'] == '') == (acc['score_nav_proximity'] == '')).all() and ((acc['score'] == '') == (acc['score_weakest_link'] == '')).all()
+            and (acc.loc[acc['score'] != '', 'score_weakest_link'].astype(float) <= acc.loc[acc['score'] != '', 'score'].astype(float)).all()))
+
+# Indicators (section 12d): the catalog and its series; pipeline booking doubles in the week of 06-08.
+ser = read('score', '02_indicator_series.csv')
+wk = ser[(ser['id'] == 'I2') & (ser['period'] == 'week')].set_index('start')
+expect('I2 score: week of 06-08 doubles (5 -> 12 min), week of 07-06 not evaluable', ('yes', 'not evaluable'),
+       (wk.loc['2026-06-08', 'breach'], wk.loc['2026-07-06', 'breach']))
+expect('I2 score: week of 06-08 is its median over the previous week, 12 / 5; first and last weeks partial',
+       ('12', '5', '2.4', 'yes', 'no', 'yes'),
+       (*[wk.loc['2026-06-08', c] for c in ['numerator', 'denominator', 'value']],
+        wk.loc['2026-06-01', 'partial'], wk.loc['2026-06-08', 'partial'], wk.loc['2026-07-06', 'partial']))
+i1 = ser[(ser['id'] == 'I1') & (ser['start'] == '2026-06-15')].iloc[0]
+expect('I1 score: on 06-15, 2 of 9 trades on an unmastered or blank security', ('2', '9', 'yes'),
+       (i1['numerator'], i1['denominator'], i1['breach']))
+i1u = read('default', '02_indicator_series.csv')
+i1u = i1u[(i1u['id'] == 'I1') & (i1u['start'] == 'unknown')].iloc[0]
+expect('I1 default: the row with no readable trade date (FXT07) is not evaluable, never judged', ('0', '0', '1', 'not evaluable'),
+       tuple(i1u[c] for c in ['numerator', 'denominator', 'not_evaluable', 'breach']))
+ind = read('score', '02_indicators.csv').set_index('id')
+expect('indicators: 8 rows, 6 computed, I7 and I8 proposed with inputs named', (8, 6, True),
+       (len(ind), int((ind['status'] == 'computed').sum()), bool((ind.loc[['I7', 'I8'], 'inputs_needed'] != '').all())))
+expect('indicators: every row names the unit of its value, in the column after value; I2 in minutes, I5 in keys',
+       (True, 'unit', 'minutes', 'keys'),
+       (bool((ind['unit'] != '').all()), list(ind.columns)[list(ind.columns).index('value') + 1], ind.loc['I2', 'unit'],
+        ind.loc['I5', 'unit']))
+i4 = ser[(ser['id'] == 'I4')].set_index('start')
+expect('I4 score: snapshot 3 of 5 held securities fresh and agreed (FXSEC8, FXSEC9 unpriced); 07-09: FXSEC2 passes, '
+       'FXSEC1 single vendor, FXSEC3/8/9 unpriced', (('3', '5', '0', '60.00', 'yes'), ('1', '4', '1', 'yes')),
+       (tuple(i4.loc['2026-07-10', c] for c in ['numerator', 'denominator', 'not_evaluable', 'value', 'breach']),
+        tuple(i4.loc['2026-07-09', c] for c in ['numerator', 'denominator', 'not_evaluable', 'breach'])))
+expect('I3 score: the FXCA3 merger with no target leaves 06-16 below 100%', ('1', '2', '50.00', 'yes'),
+       tuple(ser[(ser['id'] == 'I3') & (ser['start'] == '2026-06-16')].iloc[0][c] for c in ['numerator', 'denominator', 'value', 'breach']))
+for run, breaks in [('default', '1'), ('score', '3')]:   # FXP5 differs; the score run adds FXSP8, FXSP9 (book only)
+    i = read(run, '02_indicators.csv').set_index('id')
+    expect(f'indicators {run}: I5 breaks = differing + one-sided ({breaks}), FXP3 not evaluable; I6 both ledger rows add up',
+           (breaks, '1', '100.00', '0'), tuple(i.loc[n, c] for n, c in [('I5', 'value'), ('I5', 'not_evaluable'),
+                                                                        ('I6', 'value'), ('I6', 'breaches')]))
+expect('indicators shuffled: identical to default', True,
+       all(read('shuffled', f).equals(read('default', f)) for f in ['02_indicators.csv', '02_indicator_series.csv']))
+
+# Look-back (section 12e): each leading indicator against the lagging problem it should precede, by shared key.
+lb = read('score', '02_indicator_lookback.csv').set_index('leading')
+expect('lookback: one row per pair I1-I4', ['I1', 'I2', 'I3', 'I4'], list(lb.index))
+expect('lookback I1: FXSEC9 traded 06-15, held unmastered at the snapshot (25 days); FXSEC8 a miss',
+       ('2', '1', '1', '25', 'lead shown'),
+       tuple(lb.loc['I1', c] for c in ['lagging_keys', 'flagged_earlier', 'misses', 'earliest_lead_days', 'verdict']))
+expect('lookback I2: nothing booked after cutoff in the fixture', 'no lagging problem', lb.loc['I2', 'verdict'])
+expect('lookback: every pair shares a key, so no verdict is timing only (that is for a pair with no shared key)',
+       (True, False), (set(lb['verdict']) <= {'lead shown', 'no lead: all missed', 'no lagging problem'},
+                       bool((lb['key_kind'] == '').any())))
+expect('lookback I3: the FXCA3 merger on FXSEC3, effective 06-16, precedes the FXSEC3 break (FXACC3/FXSEC3, custodian '
+       'odd one out) at the snapshot by 24 days', ('24', 'lead shown'),
+       (lb.loc['I3', 'earliest_lead_days'], lb.loc['I3', 'verdict']))
+expect('lookback I3: one lagging key (FXSEC3), flagged by FXCA3 24 days earlier; the other break keys are not on a '
+       'quarantined or flagged action\'s security', ('1', '1', '0', '1.0000', '24'),
+       tuple(lb.loc['I3', c] for c in ['lagging_keys', 'flagged_earlier', 'misses', 'share_flagged_earlier', 'earliest_lead_days']))
+expect('lookback I4: FXSEC8 and FXSEC9 unpriced on 07-09, a day before the snapshot', ('2', '2', '1'),
+       tuple(lb.loc['I4', c] for c in ['lagging_keys', 'flagged_earlier', 'earliest_lead_days']))
+expect('lookback: share is a fraction with four decimals; I1 flags 1 of 2 keys earlier', '0.5000', lb.loc['I1', 'share_flagged_earlier'])
+expect('lookback shuffled: identical to default', True, read('shuffled', '02_indicator_lookback.csv').equals(read('default', '02_indicator_lookback.csv')))
+
+# KPIs (section 12f): the seven Check-in 1 KPIs with values, beside the scorecard.
+k = read('score', '02_kpis.csv').set_index('n')
+expect('kpis: 7 rows; 1-6 computed, 7 proposed', (7, ['computed'] * 6 + ['proposed']), (len(k), k['status'].tolist()))
+expect('kpi 1 score: FXS01 (closed later) passes; FXS02, FXS03, FXS06, FXS09 fail; FXT07, FXS04, FXS05 not evaluable',
+       ('20', '24', '3'), (k.loc['1', 'numerator'], k.loc['1', 'denominator'], k.loc['1', 'not_evaluable']))
+expect('kpi 1 score: 20 of 24 is 83.33, below the target of 100%, not met', ('83.33', '100%', 'no'),
+       (k.loc['1', 'value'], k.loc['1', 'target'], k.loc['1', 'met']))
+ki = read('score', '02_indicators.csv').set_index('id')
+expect('kpi 5 = I4 and kpi 6 = I6 on the same numbers', True,
+       all(tuple(k.loc[a, c] for c in ['numerator', 'denominator', 'not_evaluable']) ==
+           tuple(ki.loc[b, c] for c in ['numerator', 'denominator', 'not_evaluable']) for a, b in [('5', 'I4'), ('6', 'I6')]))
+expect('kpi 5 score: 3 of 5 is 60.00, not met; kpi 6: both ledger rows add up, met', (('60.00', 'no'), ('100.00', 'yes')),
+       ((k.loc['5', 'value'], k.loc['5', 'met']), (k.loc['6', 'value'], k.loc['6', 'met'])))
+expect('kpi 4 score: 5 of 6 comparable keys match (FXP5 differs; FXP3 not evaluable), not met; kpi 3: the 2 repeated rows of 27 '
+       'round up', (('83.33', '1', 'no'), ('7.41', '2', '27')),
+       ((k.loc['4', 'value'], k.loc['4', 'not_evaluable'], k.loc['4', 'met']), tuple(k.loc['3', c] for c in ['value', 'numerator', 'denominator'])))
+expect('kpi 3: duplicate rows over every transaction row, target at most 0.01%, met by direction', (True, '0.01', True),
+       (int(k.loc['3', 'denominator']) > int(k.loc['3', 'numerator']), 'at most 0.01%'[len('at most '):-1], k.loc['3', 'met'] in ('yes', 'no')))
+expect('kpi 7 proposed: no value, no met, the missing input named', ('', '', True),
+       (k.loc['7', 'value'], k.loc['7', 'met'], 'NAV_OPEN_ISSUES_BEFORE_RELEASE' in k.loc['7', 'source']))
+expect('kpis shuffled: identical to default', True, read('shuffled', '02_kpis.csv').equals(read('default', '02_kpis.csv')))
 
 width = max(len(r[0]) for r in results)
 for what, expected, observed, ok in results:

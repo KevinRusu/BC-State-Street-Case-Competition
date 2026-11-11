@@ -13,6 +13,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
+import build_findings as report
 from findings import STATUSES, aggregate, build_findings, deduplicate_findings
 
 
@@ -147,6 +148,70 @@ class EndToEndFixtureTests(unittest.TestCase):
         check=next(c for c in metadata["checks"] if c["id"]=="questionable_terms")
         self.assertFalse(check["available"])
         self.assertIsNone(check["flag_count"])
+
+
+class ScorecardSectionTests(unittest.TestCase):
+    """docs/FINDINGS.md's generated Scorecard section: read from the scorecard outputs, never typed."""
+
+    def write(self, root, name, header, rows):
+        with (root / name).open("w", encoding="utf-8", newline="") as stream:
+            writer = csv.writer(stream, lineterminator="\n")
+            writer.writerow(header)
+            writer.writerows(rows)
+
+    def test_missing_outputs_are_said_so(self):
+        with tempfile.TemporaryDirectory() as folder:
+            text = "\n".join(report.scorecard_lines(Path(folder)))
+        self.assertIn("## Scorecard", text)
+        self.assertIn("not found", text)
+
+    def test_section_shows_scores_kpis_and_indicators(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self.write(root, "02_scorecard.csv", ["level", "domain", "rule", "test", "score", "coverage", "confirmed_only_score"],
+                       [["platform", "", "", "", "78.79", "99.83", "95.34"],
+                        ["domain", "Trades", "", "", "90.10", "100.00", "88.00"],
+                        ["rule", "Trades", "TXN_DUPLICATE", "", "50.00", "100.00", "50.00"]])
+            self.write(root, "02_kpis.csv", ["n", "kpi", "unit", "target", "value", "met", "status"],
+                       [["1", "Trades with a valid account", "%", "100%", "99.41", "no", "computed"],
+                        ["6", "A proposed KPI", "%", "at least 95%", "", "", "proposed"]])
+            self.write(root, "02_indicators.csv", ["id", "indicator", "status", "threshold", "value", "unit", "breaches",
+                                                   "first_breach"],
+                       [["I1", "Unmastered security rate", "computed", "any occurrence", "0.08", "% of trade rows", "30",
+                         "2026-06-01"],
+                        ["I2", "Booking latency", "computed", "above the feed's limit | or a doubling", "12", "minutes", "0", ""],
+                        ["I8", "A proposed indicator", "proposed", "open past 2 days", "", "business days", "", ""]])
+            text = "\n".join(report.scorecard_lines(root))
+        self.assertIn("| Platform |  | 78.79 | 99.83 | 95.34 |", text)
+        self.assertIn("| Domain | Trades | 90.10 | 100.00 | 88.00 |", text)
+        self.assertNotIn("TXN_DUPLICATE", text)  # rules and tests stay in the CSV
+        self.assertIn("| 1 | Trades with a valid account | 99.41 % | 100% | no | computed |", text)
+        self.assertIn("| 6 | A proposed KPI | not computed | at least 95% |  | proposed |", text)
+        # An indicator's value carries its unit, with its threshold beside it (a | in the text is escaped).
+        self.assertIn("| I1 | Unmastered security rate | computed | 0.08 % of trade rows | any occurrence | 30 | 2026-06-01 |", text)
+        self.assertIn("| I2 | Booking latency | computed | 12 minutes | above the feed's limit \\| or a doubling | 0 |  |", text)
+        self.assertIn("| I8 | A proposed indicator | proposed |  | open past 2 days |  |  |", text)
+
+    def test_section_says_what_differs_between_views(self):
+        with tempfile.TemporaryDirectory() as folder:
+            text = "\n".join(report.scorecard_lines(Path(folder)))
+        # KPI 1 against ACC.exists (unknown accounts), I4 / KPI 5 against PRC.vendors (backed quotes), and the three
+        # corporate-action numbers: generated sentences, no number in them.
+        self.assertIn("KPI 1 reports trades on an unknown account separately (not evaluable), while the Accounts domain "
+                      "counts them as fails of `ACC.exists`", text)
+        self.assertIn("I4 and KPI 5 count a flagged vendor quote that another vendor backs as not agreed (a strict "
+                      "reading), while `PRC.vendors` counts a backed quote as cleared", text)
+        self.assertIn("The Corporate actions domain score, its confirmed-only score and I3 measure different things", text)
+        self.assertIn("a confirmed or unresolved finding on an action fails it in the domain score; only a confirmed "
+                      "finding fails it in the confirmed-only score; only quarantine fails it in I3", text)
+
+    def test_a_partial_set_names_the_missing_file(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self.write(root, "02_kpis.csv", ["n", "kpi", "unit", "target", "value", "met", "status"], [])
+            text = "\n".join(report.scorecard_lines(root))
+        self.assertIn("`02_scorecard.csv` not found", text)
+        self.assertIn("`02_indicators.csv` not found", text)
 
 
 if __name__=="__main__":

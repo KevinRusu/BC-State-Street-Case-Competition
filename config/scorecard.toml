@@ -1,0 +1,708 @@
+# Scorecard settings for notebooks/deliverable.ipynb, section 12 (spec docs/superpowers/specs/2026-11-10-scorecard-design.md).
+# Change a value here and rerun the notebook; no weight, role or mapping below is repeated in the code.
+# Another file can be used for a run with the SCORECARD_CONFIG environment variable (relative to the repo root).
+
+# Domain weights for the main score: equal (spec §5.2). A rule over a few records and one over every trade row count
+# the same.
+[weights.domains]
+Accounts = 1
+Securities = 1
+Trades = 1
+"Corporate actions" = 1
+Positions = 1
+Prices = 1
+NAV = 1
+
+# Sensitivity variant 1 (spec §5.5): domains closer to the NAV weigh more. These values are a team assumption, set on
+# 10 Nov before looking at any score.
+[weights.nav_proximity]
+Accounts = 1
+Securities = 1
+Trades = 1
+"Corporate actions" = 1
+Positions = 2
+Prices = 2
+NAV = 3
+
+# Optional weight of a rule inside its domain (spec §5.2); a rule not listed here weighs 1.
+[weights.rules]
+
+[sensitivity]
+worst_n = 50                         # accounts: how many of the N worst stay in the worst N under each variant (§5.5)
+
+# Domain -> owner, as scripts/framework.json ("checks") names them (spec §5.1); the notebook asserts they are equal.
+[owners]
+Accounts = "Account onboarding lead"
+Securities = "Security master lead"
+Trades = "Trade operations lead"
+"Corporate actions" = "Corporate actions lead"
+Positions = "Reconciliation lead"
+Prices = "Pricing lead"
+NAV = "Fund accounting lead"
+
+# Tests (spec §5.2): each counts one unit kind over one population. `rule` is compared with the register's rule after
+# dropping a trailing " (added)". Unit kinds: transaction row, transaction_id, position row, key, security, feed-day,
+# action, ledger row, rate row, price row. `weight` is the test's weight inside its rule (equal to start).
+[tests."ACC.exists"]
+domain = "Accounts"
+rule = "ACC_NOT_OPEN_ON_TRADE_DATE"
+unit = "transaction row"
+weight = 1
+
+[tests."ACC.open"]
+domain = "Accounts"
+rule = "ACC_NOT_OPEN_ON_TRADE_DATE"
+unit = "transaction row"
+weight = 1
+
+[tests."ACC.positions"]
+domain = "Accounts"
+rule = "POS_KEYS_MASTERED"
+unit = "position row"
+weight = 1
+
+[tests."SEC.exists"]
+domain = "Securities"
+rule = "TXN_SECURITY_NOT_MASTERED"
+unit = "transaction row"
+weight = 1
+
+[tests."SEC.cusip"]
+domain = "Securities"
+rule = "TXN_SECURITY_NOT_MASTERED"
+unit = "transaction row"
+weight = 1
+
+[tests."SEC.currency"]
+domain = "Securities"
+rule = "TXN_SECURITY_NOT_MASTERED"
+unit = "transaction row"
+weight = 1
+
+[tests."SEC.positions"]
+domain = "Securities"
+rule = "POS_KEYS_MASTERED"
+unit = "position row"
+weight = 1
+
+[tests."TRD.copies"]
+domain = "Trades"
+rule = "TXN_DUPLICATE"
+unit = "transaction row"
+weight = 1
+
+[tests."TRD.economic"]
+domain = "Trades"
+rule = "TXN_DUPLICATE"
+unit = "transaction_id"
+weight = 1
+
+[tests."TRD.fields"]
+domain = "Trades"
+rule = "TXN_FIELDS_VALID"
+unit = "transaction row"
+weight = 1
+
+[tests."TRD.links"]
+domain = "Trades"
+rule = "TXN_CORRECTION_LINK"
+unit = "transaction row"
+weight = 1
+
+[tests."TRD.reversals"]
+domain = "Trades"
+rule = "TXN_ONE_REVERSAL_PER_ORIGINAL"
+unit = "transaction row"
+weight = 1
+
+[tests."TRD.timestamps"]
+domain = "Trades"
+rule = "TXN_TIMESTAMPS_IN_ORDER"
+unit = "transaction_id"
+weight = 1
+
+[tests."TRD.latency"]
+domain = "Trades"
+rule = "TXN_TIMESTAMPS_IN_ORDER"
+unit = "feed-day"
+weight = 1
+
+[tests."TRD.cutoff"]
+domain = "Trades"
+rule = "TXN_AFTER_CUTOFF"
+unit = "transaction_id"
+weight = 1
+
+[tests."CA.terms"]
+domain = "Corporate actions"
+rule = "CA_TERMS_COMPLETE"
+unit = "action"
+weight = 1
+
+[tests."POS.rebuild"]
+domain = "Positions"
+rule = "POS_REBUILD_MATCHES"
+unit = "key"
+weight = 1
+
+[tests."POS.custodian"]
+domain = "Positions"
+rule = "POS_CUSTODIAN_BREAK"
+unit = "key"
+weight = 1
+
+[tests."PRC.coverage"]
+domain = "Prices"
+rule = "PRC_QUOTE_ELIGIBLE"
+unit = "position row"
+weight = 1
+
+[tests."PRC.freshness"]
+domain = "Prices"
+rule = "PRC_QUOTE_ELIGIBLE"
+unit = "security"
+weight = 1
+
+[tests."PRC.vendors"]
+domain = "Prices"
+rule = "PRC_VENDOR_DISPERSION"
+unit = "security"
+weight = 1
+
+[tests."PRC.fx_rates"]
+domain = "Prices"
+rule = "FX_RATE_VALID"
+unit = "rate row"
+weight = 1
+
+[tests."PRC.fx_coverage"]
+domain = "Prices"
+rule = "FX_RATE_COVERAGE"
+unit = "price row"
+weight = 1
+
+[tests."NAV.arithmetic"]
+domain = "NAV"
+rule = "NAV_ARITHMETIC"
+unit = "ledger row"
+weight = 1
+
+# Register line -> test and role (spec §5.3). Every register line must match exactly one entry: by exact `finding`, or
+# else by the longest matching `prefix` (for the break-class lines, whose names depend on the data). An unmatched line,
+# or two entries matching one line equally well, stops the run. Roles:
+#   fail           its units fail the test (in the confirmed-only score only if the line is confirmed);
+#   cleared        its units pass;
+#   not evaluable  its units leave the test's evaluable count (lower coverage, never the score);
+#   beside         reported next to the test, no effect on it;
+#   summary        a total whose breakdown lines are also mapped; not scored, so the breakdown decides. It names its
+#                  breakdown lines (spec §5.3): `covers` = lines whose units all belong to this summary, `shares` = lines
+#                  that may also hold units of another summary. The run checks the summary's units against the union of
+#                  the breakdown lines' units (marked or not evaluable): relation "equals" = every summary unit is in a
+#                  breakdown line and every `covers` unit is in the summary; "subset" = every summary unit is in one.
+# On fail and cleared lines the register's evidence status decides: a line whose status is cleared counts as
+# cleared, any other status as fail (spec §8).
+
+# --- Accounts (spec §5.10; K4-K8)
+[[lines]]
+finding = "Trade on an account_id missing from accounts"
+test = "ACC.exists"
+role = "fail"
+
+[[lines]]
+finding = "Trade before the account's open_date"
+test = "ACC.open"
+role = "fail"
+
+[[lines]]
+finding = "Trade after the account's close_date"
+test = "ACC.open"
+role = "fail"
+
+[[lines]]
+finding = "Trade on an account closed later, open on the trade date"
+test = "ACC.open"
+role = "cleared"
+
+[[lines]]
+finding = "Trade on an account whose status contradicts its close_date"
+test = "ACC.open"
+role = "not evaluable"               # the dates cannot be trusted while status and close_date disagree
+
+[[lines]]
+finding = "Position on an account_id missing from accounts"
+test = "ACC.positions"
+role = "fail"
+
+# --- Securities (spec §5.10; K1-K3)
+[[lines]]
+finding = "Trade on a security_id missing from securities"
+test = "SEC.exists"
+role = "fail"
+
+[[lines]]
+finding = "Trade cusip differs from the security master"
+test = "SEC.cusip"
+role = "fail"
+
+[[lines]]
+finding = "Trade currency differs from the security master"
+test = "SEC.currency"
+role = "fail"
+
+[[lines]]
+finding = "Position on a security_id missing from securities"
+test = "SEC.positions"
+role = "fail"
+
+# --- Trades
+[[lines]]
+finding = "Repeated transaction_id: exact full-row copy"
+test = "TRD.copies"
+role = "fail"
+
+[[lines]]
+finding = "Repeated transaction_id: copies differ only by date format"
+test = "TRD.copies"
+role = "fail"
+
+[[lines]]
+finding = "Repeated transaction_id: copies conflict on a fact"
+test = "TRD.copies"
+role = "fail"
+
+[[lines]]
+finding = "Repeated transaction_id in the pipeline"
+test = "TRD.copies"
+role = "beside"                      # the same copies seen in pipeline_events (D-044)
+
+[[lines]]
+finding = "Same economics under a different transaction_id"
+test = "TRD.economic"
+role = "fail"
+
+[[lines]]
+finding = "Blank settlement_date"
+test = "TRD.fields"
+role = "fail"
+
+[[lines]]
+finding = "settlement_date before trade_date"
+test = "TRD.fields"
+role = "fail"
+
+[[lines]]
+finding = "Negative trade quantity"
+test = "TRD.fields"
+role = "fail"
+
+[[lines]]
+finding = "Blank trade quantity"
+test = "TRD.fields"
+role = "fail"
+
+[[lines]]
+finding = "Rebook changes the quantity but keeps the cancelled gross_amount"
+test = "TRD.fields"
+role = "fail"
+
+[[lines]]
+finding = "Blank or unreadable trade price"
+test = "TRD.fields"
+role = "fail"
+
+[[lines]]
+finding = "gross_amount does not equal quantity x price"
+test = "TRD.fields"
+role = "fail"
+
+[[lines]]
+finding = "Settlement later than the lag limit with no agreed extension"
+test = "TRD.fields"
+role = "fail"
+
+[[lines]]
+finding = "Settlement later than the lag limit with an agreed extension"
+test = "TRD.fields"
+role = "cleared"
+
+[[lines]]
+finding = "trade_date written as DD/MM/YYYY"
+test = "TRD.fields"
+role = "beside"                      # readable; logged as a conformity issue
+
+[[lines]]
+finding = "CANCELLED row linked to an ID that does not exist"
+test = "TRD.links"
+role = "fail"
+
+[[lines]]
+finding = "Correction link points to itself, to a missing ID, or to another account or security"
+test = "TRD.links"
+role = "fail"
+
+[[lines]]
+finding = "More than one REVERSED row per original"
+test = "TRD.reversals"
+role = "fail"
+
+[[lines]]
+finding = "Pipeline timestamp missing"
+test = "TRD.timestamps"
+role = "fail"
+
+[[lines]]
+finding = "Pipeline timestamp unparseable"
+test = "TRD.timestamps"
+role = "fail"
+
+[[lines]]
+finding = "Pipeline timestamps out of order"
+test = "TRD.timestamps"
+role = "fail"
+
+[[lines]]
+finding = "Feed latency: daily median above the feed's limit"
+test = "TRD.latency"
+role = "fail"
+
+[[lines]]
+finding = "Processing latency: daily median above the feed's limit"
+test = "TRD.latency"
+role = "fail"
+
+[[lines]]
+finding = "Booked after cutoff"
+test = "TRD.cutoff"
+role = "fail"
+
+[[lines]]
+finding = "Published after cutoff"
+test = "TRD.cutoff"
+role = "fail"
+
+# --- Corporate actions
+[[lines]]
+finding = "Corporate-action target security missing from securities"
+test = "CA.terms"
+role = "fail"
+
+[[lines]]
+finding = "MERGER without a target_security_id"
+test = "CA.terms"
+role = "fail"
+
+[[lines]]
+finding = "REDEMPTION with no convention for extinguished units"
+test = "CA.terms"
+role = "fail"
+
+[[lines]]
+finding = "ratio or cash_rate filled for an event type that does not use it"
+test = "CA.terms"
+role = "fail"
+
+[[lines]]
+finding = "ex_date after effective_date"
+test = "CA.terms"
+role = "fail"
+
+# --- Positions: the break-class lines (names depend on the data, so they match by prefix) and the other key lines
+[[lines]]
+prefix = "Book and custodian"
+test = "POS.rebuild"
+role = "fail"
+
+[[lines]]
+prefix = "Book differs"
+test = "POS.rebuild"
+role = "fail"
+
+[[lines]]
+prefix = "Book, custodian and trades"
+test = "POS.rebuild"
+role = "fail"
+
+[[lines]]
+prefix = "Sources disagree"
+test = "POS.rebuild"
+role = "fail"
+
+[[lines]]
+finding = "Position with no contributing trade"
+test = "POS.rebuild"
+role = "fail"
+
+[[lines]]
+finding = "Book leaves out the units of trades with a blank quantity"
+test = "POS.rebuild"
+role = "fail"
+
+[[lines]]
+finding = "Closed position not reported (trades net to zero, absent from book and custodian)"
+test = "POS.rebuild"
+role = "cleared"
+
+[[lines]]
+finding = "Rebuilt quantity differs from the book (Guide's BOOKED-only benchmark)"
+test = "POS.rebuild"
+role = "beside"                      # another rebuild (the Guide's benchmark); overlaps the break lines by design
+
+[[lines]]
+prefix = "Custodian differs from both"
+test = "POS.custodian"
+role = "fail"
+
+[[lines]]
+finding = "Position in the book with no custodian record"
+test = "POS.custodian"
+role = "not evaluable"               # one-sided: RULES.md "Missing data" reports it separately
+
+# --- Prices
+[[lines]]
+finding = "Holding with no eligible quote on the snapshot date"
+test = "PRC.coverage"
+role = "fail"
+
+[[lines]]
+finding = "Held security with no price at all"
+test = "PRC.coverage"
+role = "summary"                     # a subset of "Holding with no eligible quote" (no quote on any date)
+covers = ["Holding with no eligible quote on the snapshot date"]
+relation = "subset"                  # a security never priced has no eligible snapshot quote; the coverage line also
+                                     # holds securities quoted on other dates only, so it is larger
+
+[[lines]]
+finding = "Holding priced only by a fallback vendor on the snapshot date"
+test = "PRC.coverage"
+role = "beside"
+
+[[lines]]
+finding = "Preferred vendor has no valid price on a date"
+test = "PRC.coverage"
+role = "beside"                      # the fallback vendor is the rule's designed correction
+
+[[lines]]
+finding = "Chosen quote stamped after the NAV cutoff"
+test = "PRC.freshness"
+role = "fail"
+
+[[lines]]
+finding = "Vendor quotes on the snapshot date: spread above threshold"
+test = "PRC.vendors"
+role = "summary"                     # broken down by the spread flag lines below
+covers = ["Spread flag: the chosen quote is the odd one out", "Spread flag: the chosen quote is backed by another vendor"]
+shares = ["Spread or scale flag: no two vendors agree"]   # also holds scale-flagged securities
+relation = "equals"
+
+[[lines]]
+finding = "Vendor quotes on the snapshot date: scale flag (ratio near 100)"
+test = "PRC.vendors"
+role = "summary"                     # broken down by the scale flag lines below
+covers = ["Scale flag: the chosen quote is the odd one out", "Scale flag: the chosen quote is backed by another vendor"]
+shares = ["Spread or scale flag: no two vendors agree"]   # also holds spread-flagged securities
+relation = "equals"
+
+[[lines]]
+finding = "Scale flag: the chosen quote is the odd one out"
+test = "PRC.vendors"
+role = "fail"
+
+[[lines]]
+finding = "Scale flag: the chosen quote is backed by another vendor"
+test = "PRC.vendors"
+role = "cleared"
+
+[[lines]]
+finding = "Spread flag: the chosen quote is the odd one out"
+test = "PRC.vendors"
+role = "fail"
+
+[[lines]]
+finding = "Spread flag: the chosen quote is backed by another vendor"
+test = "PRC.vendors"
+role = "cleared"
+
+[[lines]]
+finding = "Spread or scale flag: no two vendors agree"
+test = "PRC.vendors"
+role = "fail"
+
+[[lines]]
+finding = "FX rate repeated for a currency and date"
+test = "PRC.fx_rates"
+role = "fail"
+
+[[lines]]
+finding = "FX rate not positive or unreadable"
+test = "PRC.fx_rates"
+role = "fail"
+
+[[lines]]
+finding = "FX rate moves more than the band from the previous business day"
+test = "PRC.fx_rates"
+role = "fail"
+
+[[lines]]
+finding = "USD rate to USD is not 1"
+test = "PRC.fx_rates"
+role = "fail"
+
+[[lines]]
+finding = "Price with no FX rate for its currency on the price date"
+test = "PRC.fx_coverage"
+role = "fail"
+
+# --- NAV
+[[lines]]
+finding = "NAV arithmetic does not hold (net_assets / shares_outstanding vs nav_per_share)"
+test = "NAV.arithmetic"
+role = "fail"
+
+# Indicators (spec §5.6; brief §5 and App. B): the catalog written to outputs/02_indicators.csv, in this order. `status`
+# is computed or proposed; a proposed indicator names its missing inputs in `inputs_needed`. `gaming` names one way an
+# operations team could make the number look better without fixing anything, and what in the numbers would show it.
+# `threshold_value` is the number each series row is judged against (the text says how). `unit` is the unit of the headline
+# `value` in 02_indicators.csv (I2's week rows in the series are ratios; the threshold text says so).
+[indicators.I1]
+name = "Unmastered security rate"
+type = "Leading"
+status = "computed"
+calculation = "100 x trade rows whose security_id is blank or missing from securities / trade rows judged, per trade date (the security-existence test of TXN_SECURITY_NOT_MASTERED, section 9c). Copies of one transaction_id with different results are not evaluable."
+unit = "% of trade rows"
+refresh = "daily"
+threshold = "any occurrence (brief App. B): a trade date with one such trade is a breach"
+threshold_value = 0.0
+owner = "Security master lead"
+decision = "Set up the missing security, or hold the trade, before it settles into a position"
+predicts = "Positions that cannot be priced, and a NAV gap at the next valuation (brief App. B)"
+gaming = "Creating a placeholder security with no cusip or currency brings the rate to 0 without real master data; the not-evaluable counts of the cusip and currency checks and the held securities with no eligible quote rise."
+inputs_needed = ""
+
+[indicators.I2]
+name = "Booking latency"
+type = "Leading"
+status = "computed"
+calculation = "Median of booked - received minutes per feed and day, over the records that can be judged (02_timeliness.csv, processing_latency rows). Week over week: per feed, a calendar week's median over its records (never a median of daily medians) divided by the previous week's."
+unit = "minutes"
+refresh = "daily; weekly for the week-over-week change"
+threshold = "a daily median above the feed's limit in config/reconciliation.toml [timeliness.processing_latency_limit_minutes] (brief App. B: above four hours), or a week's median at least doubling_factor times the previous week's (brief App. B: a doubling week over week)"
+doubling_factor = 2.0                # the feed limits are not repeated here: they stay in config/reconciliation.toml
+owner = "Trade operations lead"
+decision = "Escalate the feed (staff it, fix it or reroute it) before its records start missing the valuation cutoff"
+predicts = "Records missing the valuation cutoff, producing a stale NAV (brief App. B)"
+gaming = "Booking the backlog in one burst just before cutoff keeps the median low; the p95 and maximum minutes in 02_timeliness.csv and the count booked after cutoff rise."
+inputs_needed = ""
+
+[indicators.I3]
+name = "Corporate action readiness"
+type = "Leading"
+status = "computed"
+calculation = "100 x actions supported / actions assessed, per effective date (section 9 verdicts, 02_ca_readiness.csv). Supported: the terms its type needs are present and its securities are mastered. Eligibility is not proof the action was applied. An action whose effective date does not read is not evaluable."
+unit = "% of actions"
+refresh = "by effective date"
+threshold = "below 100% once the effective date is reached (brief App. B), judged at the snapshot"
+threshold_value = 100.0
+owner = "Corporate actions lead"
+decision = "Complete the terms or set up the security before the effective date; hold the position adjustment until then"
+predicts = "Position adjustments that may be blocked, seen as breaks on the source and target securities; confirming the adjustment needs an event ledger (brief App. B)"
+gaming = "Typing a placeholder ratio or cash rate (e.g. 1) makes an action supported without real terms; position breaks on its source and target securities after the effective date would show it."
+inputs_needed = ""
+
+[indicators.I4]
+name = "Fresh, agreed price coverage"
+type = "Leading"
+status = "computed"
+calculation = "100 x securities held on the snapshot whose chosen quote on the price date is eligible and fresh and whose vendors agree (no scale or spread flag) / those securities judged, for every readable price date (section 8b's PRC_QUOTE_ELIGIBLE rule and section 8's PRC_VENDOR_DISPERSION test, per date). Not evaluable, unless another part fails: a single vendor or two quote currencies on the date (nothing to compare), and section 8b's not-evaluable cases."
+unit = "% of held securities"
+refresh = "daily"
+threshold = "below KPI 5's target, at least 99% (scripts/framework.json)"
+threshold_value = 99.0               # equals KPI 5's target "at least 99%" in scripts/framework.json
+owner = "Pricing lead"
+decision = "Challenge the vendors, or price from another source, before the NAV is struck"
+predicts = "Holdings valued on a missing, stale or disputed price at the next NAV"
+gaming = "Taking quotes from one vendor only turns flagged securities into single-vendor ones, which are not evaluable rather than failing; the not_evaluable count rises and the denominator shrinks."
+inputs_needed = ""
+
+[indicators.I5]
+name = "Position break count"
+type = "Lagging"
+status = "computed"
+calculation = "Keys (account, security, as-of date) in positions or comparison_positions whose quantities differ beyond the tolerance, or that sit on one side only, at the snapshot (section 3). One-sided keys are reported apart; the match rate, matched / (matched + differing), is beside it. Keys in both with an unreadable quantity are not evaluable."
+unit = "keys"
+refresh = "at snapshot"
+threshold = "any break: no materiality has been agreed (open question 5 in docs/STATUS.md)"
+threshold_value = 0.0
+owner = "Reconciliation lead"
+decision = "Staff the break queue and investigate each key before the NAV is struck"
+predicts = "Confirms a disagreement between book and custodian that needs investigating; it does not alone prove a defect (brief App. B)"
+gaming = "Copying the custodian's quantity into the book clears the break without finding its cause; the quantity rebuilt from trades (section 4) still differs from both."
+inputs_needed = ""
+
+[indicators.I6]
+name = "NAV rows that add up"
+type = "Lagging"
+status = "computed"
+calculation = "100 x ledger rows where net_assets / shares_outstanding equals nav_per_share within [nav] tolerance / rows evaluable (section 7, 02_nav_check.csv). A row with a blank or unreadable input, shares_outstanding <= 0 or an unreadable as_of_date is not evaluable."
+unit = "% of ledger rows"
+refresh = "at snapshot"
+threshold = "100% (KPI 6)"
+threshold_value = 100.0
+owner = "Fund accounting lead"
+decision = "Hold publication of any NAV that fails"
+predicts = "Confirms an arithmetic error in a struck NAV row before it reaches investors"
+gaming = "Blanking shares_outstanding on a failing row makes it not evaluable instead of failing; the not_evaluable count rises."
+inputs_needed = ""
+
+[indicators.I7]
+name = "NAV restatement rate"
+type = "Lagging"
+status = "proposed"
+calculation = "corrected struck NAVs / struck NAVs, per month (brief App. B)"
+unit = "% of struck NAVs"
+refresh = "monthly"
+threshold = "any restatement (brief App. B)"
+owner = "Fund accounting lead"
+decision = "Review the controls between the defect and the NAV after every restatement"
+predicts = "Confirms a defect reached the investor, the most expensive discovery point (brief App. B)"
+gaming = "Absorbing an error into a later period's NAV instead of restating keeps the rate at 0; the correction log against the published NAV versions would show it."
+inputs_needed = "A versioned NAV history (every struck NAV and each later version) and a correction log with reasons; neither is in the extract."
+
+[indicators.I8]
+name = "Defect age to closure"
+type = "Lagging"
+status = "proposed"
+calculation = "business days from a defect's detection to its closure, per defect, by owner"
+unit = "business days"
+refresh = "daily"
+threshold = "open past 2 business days (scripts/framework.json operating_model: escalated to management)"
+owner = "Chief Data Officer"
+decision = "Escalate the owner's queue to management, and reassign or fund the fix"
+predicts = "Confirms whether found defects are fixed before they reach a NAV"
+gaming = "Closing a ticket and opening a new one for the same defect resets its age; the issue log would show repeat tickets on the same record ID."
+inputs_needed = "An issue log with one ticket per defect: record ID, owner, opened and closed times, and the reason for closure."
+
+# The seven Check-in 1 KPIs (spec §5.9). Target and direction per KPI, read from scripts/framework.json's `target` text
+# (each number below must appear in that text; checked in the notebook). KPI 7 is proposed and has no target entry.
+[kpis.1]
+target = 100.0
+direction = "at least"
+
+[kpis.2]
+target = 99.0
+direction = "at least"
+
+[kpis.3]
+target = 0.01
+direction = "at most"
+
+[kpis.4]
+target = 99.9
+direction = "at least"
+
+[kpis.5]
+target = 99.0
+direction = "at least"
+
+[kpis.6]
+target = 100.0
+direction = "at least"

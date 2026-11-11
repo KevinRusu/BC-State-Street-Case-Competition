@@ -474,5 +474,5 @@
    "text": "Checks sit at the earliest stage and stop bad data before it moves; tested with injected errors"
   }
  ],
- "rollup": "The 7 KPIs also combine into one overall data quality score for the whole platform, always shown next to its coverage (the share of records we could actually test)."
+ "rollup": "The platform data quality score rolls up from the rules and domains of the scorecard, always shown next to its coverage (the share of records we could actually test). The 7 KPIs are the office view beside it, each with its own value and target."
 }

@@ -1,15 +1,33 @@
 # Status
 
-Last updated: 2026-11-10 (quality checks merged to `main` in PR #12, D-067 and D-068; scorecard started on branch `scorecard`; Check-in 3 order and scope agreed, D-066)
+Last updated: 2026-11-10 (scorecard and indicators built on branch `scorecard`, D-069; whole-branch review pending; quality checks merged in PR #12)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
 
 ## Where we are
 
-- **Scorecard (10 Nov):** started on branch `scorecard`; nothing built yet. Next: the brainstorm, in a new session,
-  with the full routine (brainstorm, written design, builder check, approval, plan, test-first build, review). Scope:
-  step 2 of "Next" below.
+- **Scorecard and indicators (10 Nov):** built on branch `scorecard` (uncommitted; the user commits), D-069. Section 12
+  of `notebooks/deliverable.ipynb` scores every rule, domain (the seven checks), account and the platform with coverage
+  and a confirmed-only bound, runs the sensitivity check (NAV-proximity weights, weakest link, confirmed-only), and
+  computes eight indicators (six computed, two proposed) with daily and weekly series, a retrospective look-back and the
+  seven Check-in 1 KPIs with values (KPI 7 proposed). Section 9c codes the two rules behind KPI 1
+  (`TXN_SECURITY_NOT_MASTERED`, `ACC_NOT_OPEN_ON_TRADE_DATE`; eight register lines at the end). Settings:
+  `config/scorecard.toml`. Outputs: `outputs/02_score_outcomes.csv`, `02_scorecard*.csv`, `02_indicator*.csv`,
+  `02_kpis.csv`; the store has them as tables; numbers in the generated scorecard section of FINDINGS.md. Design, plan
+  and every building decision: `docs/superpowers/specs/2026-11-10-scorecard-design.md` (§8) and
+  `docs/superpowers/plans/2026-11-10-scorecard.md`.
+  - **Validation:** every existing register line byte-identical and first; every pre-existing `02_*` output identical
+    except the members file (new lines' members), the row ledger and the run record. Passed: `tests/run_notebook.sh`,
+    `tests/fixture_test.sh` (new score fixture), `tests/robustness_test.sh` (three shuffles, the threshold run and a
+    new live domain-weight run), `tests/store_test.sh`, dashboard `npm test` and `npm run test:e2e`, the Python unit
+    tests and `check_docs.py`. An independent DuckDB recount on the raw files matches the new KPI 1 lines and KPI 1's
+    numerator. Peak memory is unchanged; the full run takes longer (doc debt below).
+  - **For the slides (team):** the Corporate actions domain scores zero, because every action carries a finding and
+    unresolved findings count as fails; its confirmed-only score shows how much of that is open questions. The
+    corporate-action look-back is near complete by construction and is not evidence of predictive reach. Read the
+    numbers from FINDINGS.md.
+  - **Next:** the whole-branch review, then the user commits and opens the PR. Then step 3 (stress test).
 
 - **Quality checks (10 Nov):** done and merged to `main`
   ([PR #12](https://github.com/KevinRusu/BC-State-Street-Case-Competition/pull/12)). Section 8b of the deliverable codes
@@ -156,7 +174,7 @@ and stress tests, roadmap, working executive view, complete slide draft.
    inside the vendor-spread and scale flags, and the four partly coded rules are coded; the thresholds are in the
    config. Every check publishes pass, fail and not-evaluable counts for the scorecard. Reviewed and fixed (D-068);
    merged in PR #12.
-2. **Scorecard and indicators (Kevin). Next; branch `scorecard`, brainstorm not started.** Brief §5: scores at account, domain and platform level with formulas,
+2. **Scorecard and indicators (Kevin): built 10 Nov on branch `scorecard` (D-069; see "Where we are"); whole-branch review pending.** Brief §5: scores at account, domain and platform level with formulas,
    weights, aggregation rules and a sensitivity check; evaluable coverage beside every score; at least six
    indicators, three leading, marked computed, simulated or proposed (at least three computed, one of them leading).
    Picks up App. B's week-over-week doubling, left by the timeliness session.
@@ -260,6 +278,9 @@ What worked, what did not, and what a Windows teammate should know:
 
 Docs known to disagree with a higher source. Fix, then remove the line.
 
+- `CLAUDE.md` "Commands" gives `tests/run_notebook.sh` ~1.5 min and `tests/robustness_test.sh` ~5 min / ~4 GB. With
+  section 12 (D-069) the full run takes about 3.3 min and the robustness test about 24 min, with a notebook peak near
+  9 GB (the peak was already there before D-069). Update the figures, or speed up the per-date price indicator.
 - `docs/figures/01_control_map.png` (`scripts/fig_control_map.py`) still shows the Check-in 1 bands; the dashboard map
   uses the office × stage grid (D-055). Redraw it for the final deck if the team wants one picture.
 - `notebooks/additional/01_explore_tables.ipynb` mentions numbers "from PROJECT_SUMMARY section 5". That is history (the file

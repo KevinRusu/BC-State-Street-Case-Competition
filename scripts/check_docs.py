@@ -7,8 +7,8 @@ Step by step:
    generated (they may be absent in a fresh clone) and PLANNED files we have said we will create.
 3. Every rule ID those docs name (TXN_…, POS_…, NAV_… and the other prefixes) must be a rule in docs/RULES.md.
 4. Compare the register checksum in docs/FINDINGS.md, and in every fact card of docs/DEFECT_CATALOG.md, with
-   outputs/02_defect_register.csv
-   (skipped when outputs/ has not been built on this machine).
+   outputs/02_defect_register.csv, and the Scorecard checksum in FINDINGS with outputs/02_scorecard.csv, 02_kpis.csv
+   and 02_indicators.csv (skipped when outputs/ has not been built on this machine).
 5. Every finding in outputs/02_defect_register.csv has a plain sentence in scripts/plain_language.json (skipped when
    outputs/ has not been built). Wording that matches no finding in that register or in any register under tests/runs/
    is only a note.
@@ -22,7 +22,7 @@ Run from the repo root: uv run python scripts/check_docs.py
 import csv, json, re, sys
 from pathlib import Path
 
-from build_findings import checksum
+from build_findings import checksum, scorecard_checksum
 
 ROOT = Path(__file__).resolve().parent.parent
 LOCAL = ('outputs/', 'tests/runs/', 'reference/official/', 'AI_Logs/', 'data/')
@@ -98,6 +98,18 @@ def check_rule_ids():
             for rule in unknown_rule_ids(doc.read_text(encoding='utf-8'), known)]
 
 
+def scorecard_problems(text, folder=None):
+    """FINDINGS' Scorecard checksum against the current scorecard outputs (quiet when none are built here)."""
+    current = scorecard_checksum(folder or ROOT / 'outputs')
+    if not current:
+        return []
+    m = re.search(r'Scorecard checksum: `([0-9a-f]+)`', text)
+    if not m or m.group(1) != current:
+        return ['docs/FINDINGS.md Scorecard section is older than outputs/02_scorecard.csv, 02_kpis.csv or '
+                '02_indicators.csv: run scripts/build_findings.py']
+    return []
+
+
 def check_findings():
     register = ROOT / 'outputs' / '02_defect_register.csv'
     findings = ROOT / 'docs' / 'FINDINGS.md'
@@ -111,6 +123,7 @@ def check_findings():
     m = re.search(r'Register checksum: `([0-9a-f]+)`', findings.read_text(encoding='utf-8'))
     if not m or m.group(1) != current:
         problems.append('docs/FINDINGS.md is older than outputs/02_defect_register.csv: run scripts/build_findings.py')
+    problems += scorecard_problems(findings.read_text(encoding='utf-8'))
     catalog = ROOT / 'docs' / 'DEFECT_CATALOG.md'
     if catalog.exists():
         stale = set(re.findall(r'register \(checksum `([0-9a-f]+)`\)', catalog.read_text(encoding='utf-8'))) - {current}

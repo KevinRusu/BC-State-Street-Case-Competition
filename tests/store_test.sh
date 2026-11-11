@@ -91,6 +91,32 @@ assert one("SELECT count(*) FROM demo_traces WHERE coalesce(stage, '') = ''")[0]
 padded = duckdb.connect()
 padded.sql("CREATE TABLE t AS SELECT * FROM (VALUES ('  '), ('OMS '), ('OMS'), (NULL)) v(c)")
 assert build_store.distinct_values(padded, 't', 'c') == ['OMS'], 'blank and padded source labels'
+# The scorecard tables (D-069): each exists with its CSV's row count and column names; counts and scores are numbers.
+import csv
+from build_store import SCORECARD_TABLES
+for table, (file_name, numeric) in SCORECARD_TABLES.items():
+    with open(os.path.join(os.environ['RECONCILIATION_OUTPUTS'], file_name), newline='', encoding='utf-8') as stream:
+        rows = list(csv.reader(stream))
+    header = rows[0]
+    got = [r[0] for r in con.sql(f'DESCRIBE "{table}"').fetchall()]
+    assert got == header, f'{table}: columns {got} differ from {file_name}'
+    assert one(f'SELECT count(*) FROM "{table}"')[0] == len(rows) - 1, f'{table}: row count differs from {file_name}'
+    types = dict((r[0], r[1]) for r in con.sql(f'DESCRIBE "{table}"').fetchall())
+    assert all(types[c] == 'DOUBLE' for c in numeric), f'{table}: a count or score column is not DOUBLE'
+    assert all(types[c] == 'VARCHAR' for c in header if c not in numeric), f'{table}: a text column is not VARCHAR'
+assert one("SELECT count(*) FROM scorecard WHERE level = 'platform'")[0] == 1
+assert one("SELECT count(*) FROM kpis")[0] == 7
+# Fixed columns: an indicator's unit is text right after its value; the sensitivity tie count is a number right after
+# worst_n_kept, filled on the accounts rows only.
+described = lambda t: [(r[0], r[1]) for r in con.sql(f'DESCRIBE "{t}"').fetchall()]
+names = [c for c, _ in described('indicators')]
+assert names[names.index('value') + 1] == 'unit' and dict(described('indicators'))['unit'] == 'VARCHAR'
+assert one("SELECT count(*) FROM indicators WHERE coalesce(unit, '') = ''")[0] == 0, 'an indicator without a unit'
+names = [c for c, _ in described('scorecard_sensitivity')]
+assert names[names.index('worst_n_kept') + 1] == 'ties_at_cutoff'
+assert dict(described('scorecard_sensitivity'))['ties_at_cutoff'] == 'DOUBLE'
+assert one("SELECT count(*) FROM scorecard_sensitivity WHERE (level = 'accounts') <> (ties_at_cutoff IS NOT NULL)")[0] == 0
+print('scorecard tables OK')
 print('store checks OK')
 PY
 # Without a register the store still builds: the map simply has no counts.

@@ -16,7 +16,13 @@ Step by step:
    outputs/02_trace.csv, then the first example of each register line). Add the plain wording from
    scripts/plain_language.json: a `plain` sentence on every register line (its raw `finding` when nobody has worded
    it yet; the build warns), map node and edge, and the status phrases, lead-ins and stage labels (`plain_text`).
-5. Write to a temporary file, then swap it in, so a running dashboard never sees a half-built store.
+5. Copy the scorecard outputs when present (SCORECARD_TABLES below: 02_score_outcomes.csv, 02_scorecard.csv,
+   02_scorecard_accounts.csv, 02_scorecard_sensitivity.csv, 02_indicators.csv, 02_indicator_series.csv,
+   02_indicator_lookback.csv, 02_kpis.csv). Counts and scores become DOUBLE, everything else stays text (so
+   `start = unknown` on a series row stays text, and so does an indicator's `unit`, e.g. "minutes"). A missing file gives an empty table and a printed note. On
+   `02_indicator_series` rows with period = week, `numerator` and `denominator` hold two medians (minutes), not
+   counts; the store keeps them as numbers and the table's `period` column tells the two apart.
+6. Write to a temporary file, then swap it in, so a running dashboard never sees a half-built store.
 
 Paths follow the deliverable notebook: RECONCILIATION_DATA (manifest), RECONCILIATION_CONFIG, RECONCILIATION_OUTPUTS
 (register in, store out). STORE_PATH overrides where the store goes. A missing register is allowed (the map then has no
@@ -606,6 +612,47 @@ def write_rows(con, table, rows, columns=None):
                         [[r.get(c) for c in columns] for r in rows])
 
 
+# Scorecard outputs (D-069): table -> (CSV file, columns stored as DOUBLE; every other column stays text).
+# On 02_indicator_series, period = week rows reuse numerator / denominator for two medians (minutes), not counts.
+_DOMAINS = ['Accounts', 'Securities', 'Trades', 'Corporate actions', 'Positions', 'Prices']
+SCORECARD_TABLES = {
+    'score_outcomes': ('02_score_outcomes.csv', []),
+    'scorecard': ('02_scorecard.csv', ['weight', 'score', 'coverage', 'confirmed_only_score', 'population',
+                                       'evaluable', 'passed', 'failed_confirmed', 'failed_unresolved', 'cleared',
+                                       'not_evaluable']),
+    'scorecard_accounts': ('02_scorecard_accounts.csv',
+                           ['rank', 'score', 'coverage', 'confirmed_only_score', 'score_nav_proximity',
+                            'score_weakest_link'] + [f'{d} {k}' for d in _DOMAINS for k in ('score', 'coverage')]),
+    'scorecard_sensitivity': ('02_scorecard_sensitivity.csv',
+                              ['score', 'main_score', 'change', 'worst_n', 'worst_n_kept', 'ties_at_cutoff',
+                               'rank_correlation']),
+    'indicators': ('02_indicators.csv', ['value', 'numerator', 'denominator', 'not_evaluable', 'breaches']),   # unit: text
+    'indicator_series': ('02_indicator_series.csv', ['numerator', 'denominator', 'not_evaluable', 'value',
+                                                     'threshold']),
+    'indicator_lookback': ('02_indicator_lookback.csv',
+                           ['lagging_keys', 'flagged_earlier', 'misses', 'share_flagged_earlier',
+                            'earliest_lead_days', 'median_lead_days']),
+    'kpis': ('02_kpis.csv', ['value', 'numerator', 'denominator', 'not_evaluable']),
+}
+
+
+def load_scorecard_table(con, table, file_name, numeric):
+    """Copy one scorecard CSV into the store (text, with the numeric columns as DOUBLE). Missing = empty table."""
+    path = OUTPUTS / file_name
+    if not path.is_file():
+        print(f'  no {file_name}: table {table} left empty (rerun notebooks/deliverable.ipynb)')
+        con.sql(f"CREATE TABLE {q(table)} (note VARCHAR)")
+        return 0
+    with path.open(newline='', encoding='utf-8') as stream:
+        header = next(csv.reader(stream))
+    missing = [c for c in numeric if c not in header]
+    assert not missing, f'{file_name} lacks the columns {missing}'
+    select = ', '.join(f'CAST({q(c)} AS DOUBLE) AS {q(c)}' if c in numeric else q(c) for c in header)
+    con.execute(f"CREATE TABLE {q(table)} AS SELECT {select} FROM read_csv(?, all_varchar=true, header=true)",
+                [str(path)])
+    return con.sql(f"SELECT count(*) FROM {q(table)}").fetchone()[0]
+
+
 def main():
     with MANIFEST_PATH.open(newline='', encoding='utf-8') as stream:
         manifest = {row['table']: row for row in csv.DictReader(stream)}
@@ -684,6 +731,8 @@ def main():
     write_rows(con, 'demo_traces', demo_traces(register),
                columns=['position', 'record_id', 'label', 'status', 'source', 'stage'])
     write_rows(con, 'plain_text', plain_rows(plain), columns=['kind', 'key', 'position', 'text'])
+    for table, (file_name, numeric) in SCORECARD_TABLES.items():
+        print(f'  {table}: {load_scorecard_table(con, table, file_name, numeric)} rows')
     unplaced = sorted({r['rule_id'] for r in register} - {r for r, _, _ in placed})
     if unplaced:
         print(f'  register rules not on the map: {unplaced}')

@@ -23,6 +23,11 @@ assert base.count('day_on_day_band = 0.05') == 1, 'config has no day_on_day_band
 open('tests/runs/config_threshold.toml', 'w').write(base.replace('spread_threshold = 0.005', 'spread_threshold = 0.01')
                                                     .replace('day_on_day_band = 0.05', 'day_on_day_band = 0.10')
                                                     .replace('OMS_FRONT = 240', 'OMS_FRONT = 480'))
+# A live weight change (spec §6): Prices weighs 2 instead of 1 in the main score. `[weights.nav_proximity]` also has a
+# "Prices = 2" line, so the line to change is the one that reads "Prices = 1", and there is exactly one.
+scorecard = open('config/scorecard.toml').read()
+assert scorecard.count('Prices = 1\n') == 1, 'config/scorecard.toml has no single "Prices = 1" line'
+open('tests/runs/scorecard_prices2.toml', 'w').write(scorecard.replace('Prices = 1\n', 'Prices = 2\n'))
 PY
 uv run --quiet python - "$SEEDS" <<'PY'
 # Seed check: the same load and shuffle call as the notebook (DuckDB, all_varchar, fillna(''), sample(frac=1)).
@@ -46,20 +51,21 @@ for seed in sys.argv[1].split():
 print(f'seed check: {len(sensitive)} originals have two reversals with different quantities; reversed by seed: {flips}')
 assert max(flips.values(), default=0) > 0, 'no seed reverses an order-sensitive pair of reversals; pick other seeds'
 PY
-run() {  # $1 = label, $2 = config path or empty
+run() {  # $1 = label, $2 = reconciliation config path or empty, $3 = scorecard config path or empty
   rm -rf "$W/run_$1"; mkdir -p "$W/run_$1"
-  RECONCILIATION_CONFIG="$2" tests/run_notebook.sh | tail -1
+  RECONCILIATION_CONFIG="$2" SCORECARD_CONFIG="${3:-config/scorecard.toml}" tests/run_notebook.sh | tail -1
   cp outputs/02_*.csv "$W/run_$1/"
 }
 run a ""
 for seed in $SEEDS; do run "s$seed" "$W/config_shuffled_$seed.toml"; done
 run c "$W/config_threshold.toml"
+run w "" "$W/scorecard_prices2.toml"
 status=0
 uv run --quiet python - "$SEEDS" <<'PY' || status=$?
 import glob, os, sys, numpy as np, pandas as pd
 W = 'tests/runs'
 seeds = sys.argv[1].split()
-info = {k: pd.read_csv(f'{W}/run_{k}/02_run_info.csv').set_index('item')['value'] for k in ['a', 'c'] + [f's{s}' for s in seeds]}
+info = {k: pd.read_csv(f'{W}/run_{k}/02_run_info.csv').set_index('item')['value'] for k in ['a', 'c', 'w'] + [f's{s}' for s in seeds]}
 assert str(info['a']['shuffle_seed']) == '0', 'the default run shuffled'
 for seed in seeds:
     assert str(info[f's{seed}']['shuffle_seed']) == seed, f'the run for seed {seed} did not shuffle with it'
@@ -154,6 +160,65 @@ assert list(pa.columns) == list(pc.columns) and (pa['security_id'] == pc['securi
 assert pa.drop(columns=price_moving).equals(pc.drop(columns=price_moving)), \
     '02_price_quality.csv moved in a column the spread threshold does not explain'
 print(f'threshold rehearsal: other register lines ({len(keep)}) and 02_price_quality.csv columns outside {price_moving} identical')
+# Live weight change (Prices 1 -> 2 in [weights.domains]): only platform rows, account scores and the sensitivity
+# file may move (plus the changed weight's own echo in 02_scorecard.csv); every outcome, test, rule, domain, indicator and KPI output is byte-identical.
+WEIGHT_MOVES = ('02_scorecard.csv', '02_scorecard_accounts.csv', '02_scorecard_sensitivity.csv', '02_run_info.csv', '02_row_ledger.csv')
+assert str(info['w']['shuffle_seed']) == '0', 'the weight run shuffled'
+names_a = sorted(os.path.basename(p) for p in glob.glob(f'{W}/run_a/02_*.csv'))
+assert names_a == sorted(os.path.basename(p) for p in glob.glob(f'{W}/run_w/02_*.csv')), 'the weight run wrote other files'
+assert {'02_score_outcomes.csv', '02_indicators.csv', '02_kpis.csv'} <= set(names_a), 'new outputs missing from the run'
+for name in names_a:
+    if name not in WEIGHT_MOVES:
+        assert open(f'{W}/run_a/{name}', 'rb').read() == open(f'{W}/run_w/{name}', 'rb').read(), \
+            f'{name} moved when only a domain weight changed'
+def load(run, name):
+    return pd.read_csv(f'{W}/run_{run}/{name}', dtype=str, keep_default_na=False)
+# 02_scorecard.csv: the platform row's score, coverage and confirmed-only score move, and the changed domain's own
+# `weight` column echoes the new input (Prices 1 -> 2); every other cell is identical (a domain's score, coverage and
+# counts do not depend on domain weights).
+sa, sw = load('a', '02_scorecard.csv'), load('w', '02_scorecard.csv')
+assert list(sa.columns) == list(sw.columns) and (sa['level'] == sw['level']).all(), '02_scorecard.csv changed shape'
+plat = sa['level'] == 'platform'
+prices = (sa['level'] == 'domain') & (sa['domain'] == 'Prices')
+assert plat.sum() == 1 and prices.sum() == 1
+assert (sa.loc[prices, 'weight'].values == ['1']).all() and (sw.loc[prices, 'weight'].values == ['2']).all(), \
+    'the Prices domain weight did not reach 02_scorecard.csv'
+assert sa[~plat & ~prices].equals(sw[~plat & ~prices]), '02_scorecard.csv: a row moved that the Prices weight does not explain'
+assert sa.loc[prices].drop(columns=['weight']).equals(sw.loc[prices].drop(columns=['weight'])), \
+    'the Prices domain row moved outside its weight column'
+assert (sa.loc[plat, 'score'].values != sw.loc[plat, 'score'].values).all(), 'the weight change did not move the platform score'
+assert sa.loc[plat].drop(columns=['score', 'coverage', 'confirmed_only_score']).equals(
+    sw.loc[plat].drop(columns=['score', 'coverage', 'confirmed_only_score'])), 'the platform row moved outside its score columns'
+# 02_scorecard_accounts.csv: identity, every per-domain column, the two variants that do not use the main domain
+# weights (nav_proximity has its own, weakest_link has none) and fund_nav_result are identical. Only the main score,
+# its coverage, the confirmed-only score (all rolled up with the main domain weights) and the rank may move.
+aa, aw = load('a', '02_scorecard_accounts.csv'), load('w', '02_scorecard_accounts.csv')
+assert list(aa.columns) == list(aw.columns), '02_scorecard_accounts.csv changed columns'
+assert sorted(aa['account_id']) == sorted(aw['account_id']), '02_scorecard_accounts.csv changed accounts'
+aa, aw = aa.set_index('account_id').sort_index(), aw.set_index('account_id').sort_index()
+MAIN_WEIGHTED = ['rank', 'score', 'coverage', 'confirmed_only_score']
+fixed = [c for c in aa.columns if c not in MAIN_WEIGHTED]
+assert any(c.endswith(' score') for c in fixed) and 'fund_nav_result' in fixed and 'score_nav_proximity' in fixed
+assert aa[fixed].equals(aw[fixed]), 'accounts: a column moved that the Prices weight does not explain: ' + \
+    str([c for c in fixed if not aa[c].equals(aw[c])])
+assert (aa['score'] != aw['score']).any(), 'the weight change moved no account score'
+# 02_scorecard_sensitivity.csv: nav_proximity and weakest_link scores never use the main domain weights, so they are
+# identical in every row; domain rows are identical in every column; the platform main_score moves, and with it the
+# change column and the confirmed_only variant's platform score.
+va, vw = load('a', '02_scorecard_sensitivity.csv'), load('w', '02_scorecard_sensitivity.csv')
+assert list(va.columns) == list(vw.columns) and (va[['variant', 'level', 'name']] == vw[['variant', 'level', 'name']]).all().all(), \
+    '02_scorecard_sensitivity.csv changed shape'
+own = va['variant'].isin(['nav_proximity', 'weakest_link'])
+assert (va.loc[own, 'score'] == vw.loc[own, 'score']).all(), 'a variant score moved that does not use the main domain weights'
+dom = va['level'] == 'domain'
+assert va[dom].equals(vw[dom]), 'a sensitivity domain row moved with a domain weight'
+vp = va['level'] == 'platform'
+assert (va.loc[vp, 'main_score'].values != vw.loc[vp, 'main_score'].values).all(), 'the platform main_score did not move'
+assert va.loc[vp & (va['variant'] == 'confirmed_only'), 'score'].values[0] != vw.loc[vp & (va['variant'] == 'confirmed_only'), 'score'].values[0], \
+    'the confirmed-only platform score did not move with the domain weight'
+print(f'weight rehearsal: Prices 1 -> 2: platform score {sa.loc[plat, "score"].values[0]} -> {sw.loc[plat, "score"].values[0]}; '
+      f'{len(names_a) - len(WEIGHT_MOVES)} other outputs byte-identical; account scores moved for '
+      f'{int((aa["score"] != aw["score"]).sum())} of {len(aa)} accounts')
 assert not problems, f'outputs changed under shuffling: {problems}'
 print(f'robustness test passed: rows shuffled with seeds {", ".join(seeds)} give the same outputs; '
       'a threshold change moves only its own check')
