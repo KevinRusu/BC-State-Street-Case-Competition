@@ -83,5 +83,31 @@ class ScorecardFreshness(unittest.TestCase):
             self.assertEqual(len(check_docs.scorecard_problems('no line', self.folder(tmp, '1'))), 1)
 
 
+class StressFreshness(unittest.TestCase):
+    """FINDINGS' Stress test section carries a checksum of the 03_stress_* files; a change to them makes it stale."""
+
+    def folder(self, tmp, rate, finished='2026-11-11T10:00:00Z'):
+        root = Path(tmp)
+        (root / '03_stress_rates.csv').write_text(f'role,cases\ndefect,{rate}\n', encoding='utf-8')
+        (root / '03_stress_run.csv').write_text(f'item,value\nseed,1\nfinished at,{finished}\n', encoding='utf-8')
+        return root
+
+    def test_fresh_section_passes_even_if_only_the_finish_time_differs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            text = f'- Stress checksum: `{build_findings.stress_checksum(self.folder(tmp, "29"))}`\n'
+            root = self.folder(tmp, "29", finished='2027-01-01T00:00:00Z')
+            self.assertEqual(check_docs.stress_problems(text, root), [])
+
+    def test_changed_results_are_stale(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            text = f'- Stress checksum: `{build_findings.stress_checksum(self.folder(tmp, "29"))}`\n'
+            self.assertEqual(len(check_docs.stress_problems(text, self.folder(tmp, "28"))), 1)
+
+    def test_missing_checksum_line_is_stale_but_absent_files_are_quiet(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(check_docs.stress_problems('no line', Path(tmp)), [])
+            self.assertEqual(len(check_docs.stress_problems('no line', self.folder(tmp, '1'))), 1)
+
+
 if __name__ == '__main__':
     unittest.main()

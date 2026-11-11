@@ -1,13 +1,34 @@
 # Status
 
-Last updated: 2026-11-10 (scorecard and indicators built on branch `scorecard`, D-069; whole-branch review pending; quality checks merged in PR #12)
+Last updated: 2026-11-11 (stress test built, run and reviewed on branch `stress-test`, D-070; not yet committed or merged)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
 
 ## Where we are
 
-- **Scorecard and indicators (10 Nov):** built on branch `scorecard` (uncommitted; the user commits), D-069. Section 12
+- **Stress test (11 Nov):** built on branch `stress-test` (D-070), not yet merged. `tests/stress_test.sh` runs the
+  deliverable on the release and on a copy under `tests/runs/` with 100x snapshot prices injected into a seeded random
+  sample of held equities (defects, look-alikes, priority flips; labels in `tests/stress/cases.toml`, frozen by
+  checksum before the first injected run), and scores each case against the planted truth. Code: `scripts/stress.py`.
+  Outputs: `outputs/03_stress_*.csv`; numbers in the generated "Stress test" section of FINDINGS.md. Design, plan and
+  building decisions: `docs/superpowers/specs/2026-11-11-stress-test-design.md` (§8) and
+  `docs/superpowers/plans/2026-11-11-stress-test.md`.
+  - **Validation:** the full run exits 0 with no false positive and no unattributable change; every injected cell was
+    checked against the release (only the planned price and priority cells differ). Negative check (scale band moved to
+    exclude 100): every defect and flip scores partial on the spread line, every look-alike stays cleared, none caught,
+    exit 0. `outputs/02_*` byte-identical before and after. The small fixture stops at the draw (no held equity
+    qualifies as a defect), as the design allows. Python unit tests and `check_docs.py` pass.
+  - **For the slides (team):** read the rates as detection on the sample drawn (held equities whose vendor check
+    passes), not a general rate. The look-alike's backup quote is still wrong: it is "valid for NAV". The impact of a
+    single 100x quote can exceed a fund's net assets; the deliverable's severity row is an upper bound (it values
+    look-alikes too).
+  - **Reviewed:** every task reviewed; the whole-branch review found one Important issue (no provenance, stale outputs
+    after a failed run) and minor ones, all fixed and re-reviewed (spec §8). Each run now records its config, labels
+    checksum and seed in `outputs/03_stress_run.csv`, and `check_docs.py` flags a stale stress section.
+  - **Next:** the user commits (labels file first) and merges; then step 4 (executive view).
+
+- **Scorecard and indicators (10 Nov):** reviewed and merged to `main` ([PR #13](https://github.com/KevinRusu/BC-State-Street-Case-Competition/pull/13)), D-069. Section 12
   of `notebooks/deliverable.ipynb` scores every rule, domain (the seven checks), account and the platform with coverage
   and a confirmed-only bound, runs the sensitivity check (NAV-proximity weights, weakest link, confirmed-only), and
   computes eight indicators (six computed, two proposed) with daily and weekly series, a retrospective look-back and the
@@ -27,7 +48,7 @@ Last updated: 2026-11-10 (scorecard and indicators built on branch `scorecard`, 
     unresolved findings count as fails; its confirmed-only score shows how much of that is open questions. The
     corporate-action look-back is near complete by construction and is not evidence of predictive reach. Read the
     numbers from FINDINGS.md.
-  - **Next:** the whole-branch review, then the user commits and opens the PR. Then step 3 (stress test).
+  - **Reviewed:** a whole-branch review found one Critical and four Important issues (fixed, then re-reviewed). Next: step 3 (stress test).
 
 - **Quality checks (10 Nov):** done and merged to `main`
   ([PR #12](https://github.com/KevinRusu/BC-State-Street-Case-Competition/pull/12)). Section 8b of the deliverable codes
@@ -174,11 +195,11 @@ and stress tests, roadmap, working executive view, complete slide draft.
    inside the vendor-spread and scale flags, and the four partly coded rules are coded; the thresholds are in the
    config. Every check publishes pass, fail and not-evaluable counts for the scorecard. Reviewed and fixed (D-068);
    merged in PR #12.
-2. **Scorecard and indicators (Kevin): built 10 Nov on branch `scorecard` (D-069; see "Where we are"); whole-branch review pending.** Brief §5: scores at account, domain and platform level with formulas,
+2. **Scorecard and indicators (Kevin): done 10 Nov, reviewed and merged in PR #13 (D-069; see "Where we are").** Brief §5: scores at account, domain and platform level with formulas,
    weights, aggregation rules and a sensitivity check; evaluable coverage beside every score; at least six
    indicators, three leading, marked computed, simulated or proposed (at least three computed, one of them leading).
    Picks up App. B's week-over-week doubling, left by the timeliness session.
-3. **Stress test (Kevin).** On a copy of the data, inject one new defect and one valid look-alike; record the changed
+3. **Stress test (Kevin): built 11 Nov on branch `stress-test` (D-070; see "Where we are").** On a copy of the data, inject one new defect and one valid look-alike; record the changed
    fields and expected outcomes; report before and after, false positives and misses (brief §5). The row-shuffle
    half is done (`tests/robustness_test.sh`).
 4. **Executive view (Kevin).** Confirm the dashboard has one functional executive view with drill-down to
@@ -278,9 +299,6 @@ What worked, what did not, and what a Windows teammate should know:
 
 Docs known to disagree with a higher source. Fix, then remove the line.
 
-- `CLAUDE.md` "Commands" gives `tests/run_notebook.sh` ~1.5 min and `tests/robustness_test.sh` ~5 min / ~4 GB. With
-  section 12 (D-069) the full run takes about 3.3 min and the robustness test about 24 min, with a notebook peak near
-  9 GB (the peak was already there before D-069). Update the figures, or speed up the per-date price indicator.
 - `docs/figures/01_control_map.png` (`scripts/fig_control_map.py`) still shows the Check-in 1 bands; the dashboard map
   uses the office × stage grid (D-055). Redraw it for the final deck if the team wants one picture.
 - `notebooks/additional/01_explore_tables.ipynb` mentions numbers "from PROJECT_SUMMARY section 5". That is history (the file

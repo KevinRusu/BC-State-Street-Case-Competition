@@ -8,7 +8,7 @@ Step by step:
 3. Every rule ID those docs name (TXN_…, POS_…, NAV_… and the other prefixes) must be a rule in docs/RULES.md.
 4. Compare the register checksum in docs/FINDINGS.md, and in every fact card of docs/DEFECT_CATALOG.md, with
    outputs/02_defect_register.csv, and the Scorecard checksum in FINDINGS with outputs/02_scorecard.csv, 02_kpis.csv
-   and 02_indicators.csv (skipped when outputs/ has not been built on this machine).
+   and 02_indicators.csv, and the Stress test checksum with outputs/03_stress_*.csv (skipped when outputs/ has not been built on this machine).
 5. Every finding in outputs/02_defect_register.csv has a plain sentence in scripts/plain_language.json (skipped when
    outputs/ has not been built). Wording that matches no finding in that register or in any register under tests/runs/
    is only a note.
@@ -22,7 +22,7 @@ Run from the repo root: uv run python scripts/check_docs.py
 import csv, json, re, sys
 from pathlib import Path
 
-from build_findings import checksum, scorecard_checksum
+from build_findings import checksum, scorecard_checksum, stress_checksum
 
 ROOT = Path(__file__).resolve().parent.parent
 LOCAL = ('outputs/', 'tests/runs/', 'reference/official/', 'AI_Logs/', 'data/')
@@ -110,6 +110,18 @@ def scorecard_problems(text, folder=None):
     return []
 
 
+def stress_problems(text, folder=None):
+    """FINDINGS' Stress test checksum against the current 03_stress_* outputs (quiet when none are built here)."""
+    current = stress_checksum(folder or ROOT / 'outputs')
+    if not current:
+        return []
+    m = re.search(r'Stress checksum: `([0-9a-f]+)`', text)
+    if not m or m.group(1) != current:
+        return ['docs/FINDINGS.md Stress test section is older than outputs/03_stress_*.csv: run '
+                'scripts/build_findings.py']
+    return []
+
+
 def check_findings():
     register = ROOT / 'outputs' / '02_defect_register.csv'
     findings = ROOT / 'docs' / 'FINDINGS.md'
@@ -124,6 +136,7 @@ def check_findings():
     if not m or m.group(1) != current:
         problems.append('docs/FINDINGS.md is older than outputs/02_defect_register.csv: run scripts/build_findings.py')
     problems += scorecard_problems(findings.read_text(encoding='utf-8'))
+    problems += stress_problems(findings.read_text(encoding='utf-8'))
     catalog = ROOT / 'docs' / 'DEFECT_CATALOG.md'
     if catalog.exists():
         stale = set(re.findall(r'register \(checksum `([0-9a-f]+)`\)', catalog.read_text(encoding='utf-8'))) - {current}
