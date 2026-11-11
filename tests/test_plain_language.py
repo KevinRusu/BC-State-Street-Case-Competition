@@ -1,11 +1,13 @@
 """scripts/plain_language.json: the plain wording the dashboard shows, carried into the store by scripts/build_store.py.
 
-Every map node and edge, status and lead-in must be worded; an unworded finding falls back to its register text; the
-release register (outputs/, when built here) must be fully worded (scripts/check_docs.py).
+Every map node and edge, status and lead-in must be worded, and every rule the scorecard scores (config/scorecard.toml)
+named; an unworded finding falls back to its register text; the release register (outputs/, when built here) must be
+fully worded (scripts/check_docs.py).
 
 Run: uv run python -m unittest tests/test_plain_language.py -v
 """
 import sys
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -13,6 +15,12 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / 'scripts'))
 import build_store  # noqa: E402
 import check_docs  # noqa: E402
+
+
+def scorecard_rules():
+    """The rule IDs the scorecard scores: the `rule` of every test in config/scorecard.toml."""
+    with (ROOT / 'config' / 'scorecard.toml').open('rb') as stream:
+        return {test['rule'] for test in tomllib.load(stream)['tests'].values()}
 
 
 class PlainLanguage(unittest.TestCase):
@@ -30,6 +38,24 @@ class PlainLanguage(unittest.TestCase):
         plain['edges']['no_such_edge'] = 'x'
         with self.assertRaises(AssertionError):
             build_store.check_plain(plain)
+
+    def test_every_scored_rule_has_a_plain_name(self):
+        plain = build_store.load_plain()
+        self.assertEqual(set(plain['rules']), scorecard_rules())
+        build_store.check_plain(plain, scored_rules=scorecard_rules())  # no AssertionError
+        self.assertEqual({r['key'] for r in build_store.plain_rows(plain) if r['kind'] == 'rule'}, scorecard_rules())
+
+    def test_a_missing_rule_name_fails_the_check(self):
+        plain = build_store.load_plain()
+        del plain['rules']['NAV_ARITHMETIC']
+        with self.assertRaises(AssertionError):
+            build_store.check_plain(plain, scored_rules=scorecard_rules())
+
+    def test_a_name_for_an_unscored_rule_fails_the_check(self):
+        plain = build_store.load_plain()
+        plain['rules']['NO_SUCH_RULE'] = 'x'
+        with self.assertRaises(AssertionError):
+            build_store.check_plain(plain, scored_rules=scorecard_rules())
 
     def test_an_unworded_finding_falls_back_to_its_register_text(self):
         plain = build_store.load_plain()

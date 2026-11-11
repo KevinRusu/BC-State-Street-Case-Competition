@@ -1,11 +1,45 @@
 # Status
 
-Last updated: 2026-11-11 (stress test merged to `main` in PR #14, D-070; next: executive view)
+Last updated: 2026-11-11 (executive view built and reviewed on branch `executive-view`, D-071; not yet committed or merged)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
 
 ## Where we are
+
+- **Executive view (11 Nov):** built and reviewed on branch `executive-view` (D-071); **Kevin commits and merges**.
+  The dashboard has a new page, "Executive view" (`/executive`, first in the sidebar), for the Chief Data Officer's
+  three questions (brief §2): where the platform is degrading (domain scores, indicators, KPIs by office, worst
+  accounts), what to fix first (one switch: rules by lowest score, or impact scenarios by largest dollars; nothing is
+  merged or summed) and whether the numbers can be trusted (stress test, sensitivity check). Drill-down works on three
+  paths, each ending on the Trace page: a rule, an account (list or lookup) and an impact scenario. The deliverable
+  notebook gained one additive output, `outputs/02_account_outcomes.csv` (each account's records, own and inherited,
+  tied to the account scores by a CHECK), and the store copies it with the dollar-impact and stress-test files and a
+  plain name per scored rule. No new check, score or formula (D-066). Design, plan and every building decision:
+  `docs/superpowers/specs/2026-11-11-executive-view-design.md` (§8) and
+  `docs/superpowers/plans/2026-11-11-executive-view.md`; how to read the page: `dashboard/README.md`.
+  - **Validation:** every pre-existing `outputs/02_*` file is byte-identical before and after (the run record aside),
+    also after the robustness test; the register and scorecard checksums in FINDINGS.md did not move. Passed:
+    `tests/run_notebook.sh`, `tests/fixture_test.sh` (new cases for the new file), `tests/robustness_test.sh`,
+    `tests/stress_test.sh` (rates unchanged, no false positive, no unattributable change; the new file shows up only
+    as a consequence on the injected securities), `scripts/build_store.py` then `tests/store_test.sh` (new store
+    contracts), dashboard `npm test` and `npm run test:e2e`, the Python unit tests and `check_docs.py`. On the full
+    store the pages were compared with the output files by script: platform, domain and rule scores, the record
+    counts behind the largest rule, the lowest-ranked account and the largest scenario, fractional unit changes, and
+    the trace links all agree.
+  - **Reviewed:** the notebook, store, view-logic and read tasks each had a review; the five page tasks had one
+    combined review; then a whole-branch review. Everything found was fixed (spec §8 lists it). One thing to know:
+    example figures copied from real outputs had slipped from the plan into a test file and code comments; they were
+    replaced by made-up values. The last, short re-review of the final fixes ran twice, on Sonnet while the Opus
+    usage limit was reached and on Opus once it was lifted; both confirmed every fix.
+  - **For the team:** review the plain rule names in `scripts/plain_language.json` (block `rules`); they are our
+    wording and show on the page. The page needs `tests/stress_test.sh` to have been run for its stress part, and
+    `scripts/build_store.py` after any notebook run.
+  - **For the slides (team):** the "largest impact scenario" tile is one scenario, not a total; scenarios overlap and
+    are never added up. Read the numbers from FINDINGS.md or the page, not from memory.
+  - **Left for later (not blocking):** small review notes kept in spec §8 (a second breadcrumb landmark, shared
+    helpers repeated across the four pages, more browser tests for filters and paging); the combined urgency ranking
+    (needs its own decision, D-050 stands); the three office wireframes (the final).
 
 - **Stress test (11 Nov):** built, reviewed and merged to `main` in PR #14 (D-070). `tests/stress_test.sh` runs the
   deliverable on the release and on a copy under `tests/runs/` with 100x snapshot prices injected into a seeded random
@@ -26,7 +60,7 @@ Last updated: 2026-11-11 (stress test merged to `main` in PR #14, D-070; next: e
   - **Reviewed:** every task reviewed; the whole-branch review found one Important issue (no provenance, stale outputs
     after a failed run) and minor ones, all fixed and re-reviewed (spec §8). Each run now records its config, labels
     checksum and seed in `outputs/03_stress_run.csv`, and `check_docs.py` flags a stale stress section.
-  - **Next:** step 4 (executive view).
+  - **Next:** step 4 (executive view): done, see above.
 
 - **Scorecard and indicators (10 Nov):** reviewed and merged to `main` ([PR #13](https://github.com/KevinRusu/BC-State-Street-Case-Competition/pull/13)), D-069. Section 12
   of `notebooks/deliverable.ipynb` scores every rule, domain (the seven checks), account and the platform with coverage
@@ -202,8 +236,9 @@ and stress tests, roadmap, working executive view, complete slide draft.
 3. **Stress test (Kevin): done 11 Nov, merged in PR #14 (D-070; see "Where we are").** On a copy of the data, inject one new defect and one valid look-alike; record the changed
    fields and expected outcomes; report before and after, false positives and misses (brief §5). The row-shuffle
    half is done (`tests/robustness_test.sh`).
-4. **Executive view (Kevin).** Confirm the dashboard has one functional executive view with drill-down to
-   record-level evidence (brief §5 Dashboard), probably showing the scorecard; add it if not.
+4. **Executive view (Kevin): done 11 Nov on branch `executive-view` (D-071; see "Where we are").** One functional
+   executive view with drill-down to record-level evidence (brief §5 Dashboard), from the scorecard, indicators,
+   KPIs, dollar impact and stress test. Waiting for Kevin's commit and merge.
 
 - **Team:** review the catalog draft (six entries; one teammate per entry checks the prose and fills *Reviewed by*
   in `docs/DEFECT_CATALOG.md`, still open from before Check-in 2); the roadmap; the complete slide draft.

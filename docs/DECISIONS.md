@@ -969,3 +969,76 @@ in §8); plan: `docs/superpowers/plans/2026-11-11-stress-test.md`.
 - **Instead of:** three hand-picked clean securities (unrealistic, no rates); a genuine reverse-split control; changing
   the deliverable's severity section to value scale flags (a possible later job); a dashboard page now (step 4).
 - **Moves:** nothing in `outputs/02_*`, the deliverable notebook or the config (checksums identical before and after).
+
+### D-071 · 11 Nov · Executive view: one page for the Chief Data Officer's three questions, with drill-down to the records, and one new notebook output behind the account page
+
+Design: `docs/superpowers/specs/2026-11-11-executive-view-design.md` (user decisions in §5, choices taken during the
+build in §8); plan: `docs/superpowers/plans/2026-11-11-executive-view.md`.
+
+- **Decision:** the dashboard gains an "Executive view" at `/executive` (brief §5 Dashboard: "one functional executive
+  view with a working drill-down to record-level evidence"). It presents what the deliverable and the stress test
+  already compute and adds no check, score or formula (D-066):
+  - **Top to bottom, the three questions brief §2 gives the Chief Data Officer, plus one:** headline tiles (platform
+    score with coverage and confirmed-only score; the largest priced impact scenario; leading indicators breaching);
+    "Where is the platform degrading?" (domain scores, the eight indicators, the seven KPIs by office, the worst
+    accounts); "What should we fix first?"; "Can we trust these numbers?" (stress test and sensitivity check).
+  - **"Fix first" is one switch with two lists, never one merged rank:** the scored rules by lowest quality score, or
+    the impact scenarios by largest dollars, with a separate group for scenarios that have records but nothing valued
+    ("Not priced: unknown, not zero") and one for scenarios with no records.
+  - **Three drill-down paths, each ending on the existing Trace page:** a rule opens its tests and every listed unit;
+    an account (from the worst-accounts list or a lookup) opens its scores by domain and every record behind them; an
+    impact scenario opens its account and security keys with their dollar figure.
+  - **One additive notebook output:** section 12b of `notebooks/deliverable.ipynb` writes
+    `outputs/02_account_outcomes.csv`, one row per unit that reaches an account and is not a plain pass, own and
+    inherited through holdings alike, and a CHECK ties its counts per account and test to the account scores.
+  - **The store copies six more files** (`severity`, `impact_detail`, `account_outcomes`, `stress_rates`,
+    `stress_impact`, `stress_run`) and a plain name for every scored rule (`scripts/plain_language.json`, block
+    `rules`).
+- **Why (the user's decisions, spec §5):**
+  - A page that reads top to bottom tells the story (Check-in 1 feedback) better than a one-screen grid or tabs.
+  - The user wanted both orders, by lowest score and by largest dollars. Dollars exist per impact scenario, not per
+    rule, and scenarios overlap, so a merged order would need a new scenario-to-rule mapping and a rule for
+    overlapping scenarios. A switch keeps both orders and invents nothing.
+  - A page per rule (not a side panel) has room for the records and its own address for the presentation.
+  - Accounts get a page of their own because brief App. C asks whether two accounts with the same score have the same
+    problems; the per-domain scores answer it.
+  - The account page would otherwise show a Prices or Corporate actions score with no records behind it: those units
+    were counted inside the notebook and never written. The user chose to write them now rather than say so on the
+    page.
+- **Interpretations a reader of the page needs:**
+  - **D-050's "no combined score" stands.** The switch orders two existing lists; the "largest impact scenario" tile
+    is one scenario, not a total; scenarios are never added up. The urgency ranking discussed on 10 Nov (exposure,
+    accounts touched, fix cost in one rank) is not built; it would need its own entry.
+  - **Fail counts are shown per test, never as a rule total:** a rule can have tests that count different units
+    (trade rows and transaction IDs), so their counts cannot be added. The rule list shows one line per test.
+  - **A unit is listed once on a rule page.** `outputs/02_score_outcomes.csv` lists a transaction ID once per account
+    its copies name, and the scorecard counts it once; the rule page folds those rows into one record with its
+    accounts side by side, so the lists equal what the tests counted. On an account page the same ID is one unit of
+    each account, as in the account scores.
+  - **Scores always come with coverage and the confirmed-only score** (brief §5), with two exceptions the outputs
+    impose: an account's per-domain scores have coverage only, and the sensitivity variants are shown as alternatives
+    beside the main score.
+  - **A blank stays a blank:** "not priced", "not computed", "not applicable"; never 0 (D-050). Scores and shares are
+    cut, never rounded up, so "100" always means complete.
+  - **Trace links:** a price row opens its security; an FX rate row and a feed-day have no single record to trace
+    (D-056 keeps currency findings off traces).
+  - **The stress section** shows the rates, the changes on untouched securities, the deliverable's own measures
+    before and after, and the run's seed, sizes, multiplier, finish time and short labels checksum; never a file
+    path. It says so when the stress test has not been run, and warns when its "before" platform score differs from
+    the scorecard's (an older run).
+- **Building rulings:** spec §8 is the record. The ones that change what a reader sees: the page lives at `/executive`
+  and is first in the sidebar while the Data map stays the home page; the worst-accounts list shows ten rows with a
+  note when the cut falls inside a tie; indicators with a daily or effective-date series get a small trend line; the
+  plain rule names are our wording and wait for the team's review.
+- **Instead of:** a combined urgency rank; a scenario-to-rule mapping to give every rule a dollar column; noting the
+  inherited-records gap on the page without closing it; a richer test fixture (the two cases the small fixture lacks
+  are tested on a copy of the fixture store); a per-fund impact table; the three office wireframes (the final).
+- **Moves:** nothing that existed. Every pre-existing `outputs/02_*` file is byte-identical before and after, the run
+  record aside; the register and scorecard checksums in FINDINGS.md are unchanged; the stress rates are unchanged on
+  the rerun (the new file appears there only as a consequence on the injected securities). New:
+  `outputs/02_account_outcomes.csv`, the six store tables, the four pages under `dashboard/app/executive/`.
+- **Reviewed:** one review per task for the notebook, the store, the view logic and the reads; one combined review
+  for the five page tasks; a whole-branch review. Every finding rated Important was fixed, among them: an account's
+  per-domain scores shown without coverage; fractional unit changes rounded to whole units (now shown as stored);
+  one plain rule name that claimed more than its rule checks; and example figures copied from real outputs into a
+  test file, code comments and the plan (replaced by invented values). The notes kept unfixed are listed in spec §8.

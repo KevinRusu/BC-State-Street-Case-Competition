@@ -13,6 +13,7 @@ export RECONCILIATION_OUTPUTS=$W
 export STORE_PATH=$W/store.duckdb          # relative on purpose: the builder and the app both start at the repo root
 
 tests/run_notebook.sh                       # the deliverable notebook on the fixture: the register the store copies
+uv run --quiet python tests/stress_fixture.py "$W"   # made-up stress files: the fixture has no stress run
 uv run --quiet python scripts/build_store.py > "$W/build_store.log"
 uv run --quiet python - <<'PY'
 import os, duckdb
@@ -117,6 +118,24 @@ assert names[names.index('worst_n_kept') + 1] == 'ties_at_cutoff'
 assert dict(described('scorecard_sensitivity'))['ties_at_cutoff'] == 'DOUBLE'
 assert one("SELECT count(*) FROM scorecard_sensitivity WHERE (level = 'accounts') <> (ties_at_cutoff IS NOT NULL)")[0] == 0
 print('scorecard tables OK')
+# The executive view's tables: dollar impact, each account's records and the stress test (its files here are made up
+# by tests/stress_fixture.py). Each has its CSV's columns and rows; the listed columns are numbers, a blank stays NULL.
+from build_store import EXECUTIVE_TABLES
+for table, (file_name, numeric) in EXECUTIVE_TABLES.items():
+    path = os.path.join(os.environ['RECONCILIATION_OUTPUTS'], file_name)   # stress files: tests/stress_fixture.py
+    got = [r[0] for r in con.sql(f'DESCRIBE "{table}"').fetchall()]
+    with open(path, newline='', encoding='utf-8') as stream:
+        rows = list(csv.reader(stream))
+    assert got == rows[0], f'{table}: columns differ from {file_name}'
+    assert one(f'SELECT count(*) FROM "{table}"')[0] == len(rows) - 1, f'{table}: row count differs'
+    types = dict((r[0], r[1]) for r in con.sql(f'DESCRIBE "{table}"').fetchall())
+    assert all(types[c] == ('DOUBLE' if c in numeric else 'VARCHAR') for c in rows[0]), f'{table}: column types'
+assert one("SELECT count(*) FROM severity WHERE gross_delta_usd_valued_subset IS NULL")[0] > 0, \
+    'a scenario with nothing valued must stay NULL, not 0'
+scored = {r[0] for r in con.sql("SELECT DISTINCT rule FROM scorecard WHERE level = 'rule'").fetchall()}
+named = {r[0] for r in con.sql("SELECT key FROM plain_text WHERE kind = 'rule' AND coalesce(text, '') <> ''").fetchall()}
+assert scored == named, f'plain rule names: missing {sorted(scored - named)}, unknown {sorted(named - scored)}'
+print('executive tables OK')
 print('store checks OK')
 PY
 # Without a register the store still builds: the map simply has no counts.
@@ -130,6 +149,8 @@ c = duckdb.connect('$E/store.duckdb', read_only=True)
 n = lambda t: c.sql(f'SELECT count(*) FROM {t}').fetchone()[0]
 assert n('register') == 0 and n('map_offices') == 4 and n('map_sources') > 0 and n('map_edges') > 0
 assert c.sql(\"SELECT count(*) FROM plain_text WHERE kind = 'status'\").fetchone()[0] == 4, 'plain_text without a register'
+for t in ['severity', 'impact_detail', 'account_outcomes', 'stress_rates', 'stress_impact', 'stress_run']:
+    assert [r[0] for r in c.sql(f'DESCRIBE {t}').fetchall()] == ['note'], f'{t}: a missing file must give the note table'
 print('no-register build OK')"
 # A register without its member list (an older notebook run), and a member list from another run: the store falls
 # back to the register's examples and says so, rather than failing or claiming every record is marked.
