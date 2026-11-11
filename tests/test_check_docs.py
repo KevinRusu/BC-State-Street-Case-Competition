@@ -3,12 +3,14 @@
 Run: uv run python -m unittest tests/test_check_docs.py -v
 """
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / 'scripts'))
 import check_docs  # noqa: E402
+import build_findings  # noqa: E402
 
 
 class CheckDocs(unittest.TestCase):
@@ -53,6 +55,32 @@ class CheckDocs(unittest.TestCase):
             [sys.executable, '-X', 'warn_default_encoding', '-W', 'error::EncodingWarning', 'scripts/check_docs.py'],
             cwd=ROOT, capture_output=True, text=True, encoding='utf-8')
         self.assertNotIn('EncodingWarning', result.stderr)
+
+
+class ScorecardFreshness(unittest.TestCase):
+    """FINDINGS' Scorecard section carries a checksum of the files it reads; a change to them makes it stale."""
+
+    def folder(self, tmp, score):
+        root = Path(tmp)
+        (root / '02_scorecard.csv').write_text(f'level,score\nplatform,{score}\n', encoding='utf-8')
+        return root
+
+    def test_fresh_section_passes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self.folder(tmp, '78.79')
+            text = f'- Scorecard checksum: `{build_findings.scorecard_checksum(root)}`\n'
+            self.assertEqual(check_docs.scorecard_problems(text, root), [])
+
+    def test_changed_scorecard_is_stale(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            text = f'- Scorecard checksum: `{build_findings.scorecard_checksum(self.folder(tmp, "78.79"))}`\n'
+            root = self.folder(tmp, '70.00')
+            self.assertEqual(len(check_docs.scorecard_problems(text, root)), 1)
+
+    def test_missing_checksum_line_is_stale_but_absent_files_are_quiet(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(check_docs.scorecard_problems('no line', Path(tmp)), [])
+            self.assertEqual(len(check_docs.scorecard_problems('no line', self.folder(tmp, '1'))), 1)
 
 
 if __name__ == '__main__':

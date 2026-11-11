@@ -864,3 +864,54 @@ each are in `tests/fixture_test.sh` (quality fixture, and FXT58 in the R3 fixtur
   `odd_vendor` moves: on 19 backed spread-flagged securities the chosen vendor was named as the odd one, and now none
   is. The release has no `inf` or `nan` text, no BOOKED or REVERSED link to a missing ID and no blank master currency.
   D-067's known limit on the lag line names no longer applies.
+
+### D-069 · 10 Nov · Scorecard and indicators: scores with coverage, a sensitivity check, eight indicators, a look-back, the seven KPIs with values, and the two rules behind KPI 1
+
+Design: `docs/superpowers/specs/2026-11-10-scorecard-design.md` (user decisions in §5, choices taken during the build
+in §8); plan: `docs/superpowers/plans/2026-11-10-scorecard.md`.
+
+- **Decision:** a new section 12 of `notebooks/deliverable.ipynb` (the run record is now section 13) scores every rule,
+  domain, account and the platform, with coverage and a confirmed-only bound beside every score; runs a sensitivity
+  check; computes eight indicators with daily and weekly series, a retrospective look-back for the leading ones, and
+  the seven Check-in 1 KPIs with values. Outputs: `outputs/02_score_outcomes.csv`, `02_scorecard.csv`,
+  `02_scorecard_accounts.csv`, `02_scorecard_sensitivity.csv`, `02_indicators.csv`, `02_indicator_series.csv`,
+  `02_indicator_lookback.csv`, `02_kpis.csv`. Weights, the register-line mapping, the indicator catalog and the KPI
+  targets live in a new `config/scorecard.toml` (read through `SCORECARD_CONFIG`). Section 9c also codes the two rules
+  behind KPI 1, `TXN_SECURITY_NOT_MASTERED` and `ACC_NOT_OPEN_ON_TRADE_DATE`, as eight register lines at the end.
+- **Why (the user's decisions, spec §5):** domains are the seven check areas, each with its D-002 owner. A rule is
+  split into tests that each count one unit kind; a rule scores the average of its tests, a domain the weighted average
+  of its rules, the platform the weighted average of its domains, all weights equal to start. Confirmed and unresolved
+  findings both fail, cleared passes, and the confirmed-only score is reported beside as the best case. An account
+  scores its own records plus problems it inherits through what it holds; its fund's NAV result is shown beside it,
+  not in it. The sensitivity check varies the weights (NAV-proximity, a team assumption set before looking), the
+  aggregation (weakest link) and the evidence rule (confirmed-only). The look-back claims a lead only on shared keys
+  and lists the misses; it is retrospective, not predictive accuracy (brief App. B).
+- **Supersedes in part:**
+  - **D-002**'s "seven KPIs roll up to one platform score": the platform score rolls up from rules and domains, because
+    the rules cover more of our checks than the KPIs; the KPIs are the office view beside it
+    (`scripts/framework.json` `rollup` updated).
+  - **D-050**'s "no combined score" is scoped to the severity measures (dollars and account counts: different units,
+    unknown values). The quality scores combine pass rates, one unit, always beside their coverage, as brief §5
+    requires.
+  - **D-066**: the two rules behind KPI 1 are coded, a narrow exception, so six of the seven KPIs have values and the
+    Accounts and Securities domains have real tests. KPI 7 stays proposed: it needs `NAV_OPEN_ISSUES_BEFORE_RELEASE`
+    and a materiality threshold (open question 5). The other uncoded rules stay proposed controls.
+- **Building rulings:** spec §8 is the record of every decision taken while building (as D-067 did with its spec
+  §10); DECISIONS holds the treatment and scope choices. The ones a reader of the numbers needs: scores are rounded down to two decimals, so a score with any failure
+  never prints 100.00 (the spec first said one decimal); an account's status is its status at extract time and the
+  dates decide whether it was open, so a trade on an account closed later is a cleared look-alike line; a
+  corporate-action holder takes its action's own outcomes, so the account and domain views agree; a summary register
+  line is never scored and is checked against the union of its breakdown lines; only units that are not a plain pass
+  are written to `02_score_outcomes.csv` (passes are counted). Where every corporate action is quarantined or flagged
+  (`outputs/02_ca_readiness.csv` shows it for this release), the corporate-action look-back share is near complete by
+  construction and is not evidence of predictive reach.
+- **Instead of:** an urgency ranking of defects (it waits for the executive view and needs its own decision, because it
+  mixes dollars, accounts and fix cost); exposure-based weights (unknown dollars would drift into the score); a dashboard
+  page now (step 4); a predictive model (optional in brief §5).
+- **Moves:** every existing register line is byte-identical and still first; the eight KPI 1 lines are appended at the end
+  (names in `outputs/02_defect_register.csv`; new checksum in FINDINGS.md). Every other pre-existing `02_*` output is
+  byte-identical except `02_finding_members.csv` (the new lines' members added), `02_row_ledger.csv` (lines for
+  section 12) and the run record. Section 8b's quote logic became a function of the price date (`quote_rule`) for the
+  price indicator; `02_price_quality.csv` is unchanged. The store gains eight tables; FINDINGS.md gains a generated
+  scorecard section. Robustness: three shuffles give identical outputs, and a live domain-weight change moves only
+  the platform, account and sensitivity-platform scores (`tests/robustness_test.sh`).

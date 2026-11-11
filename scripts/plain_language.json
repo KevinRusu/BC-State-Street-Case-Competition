@@ -89,7 +89,15 @@
   "Settlement later than the lag limit with no agreed extension": "A trade settled more business days after the trade date than our settlement limit allows, and no longer settlement was agreed. Whether the delay is a mistake is not known.",
   "Settlement later than the lag limit with an agreed extension": "A trade settled more business days after the trade date than our settlement limit allows, but a longer settlement was agreed in advance.",
   "Same economics under a different transaction_id": "Two trades with different IDs have the same account, security, buy or sell, trade date, quantity and price, and no chain of correction links joins them, so one trade may be recorded twice.",
-  "Correction link points to itself, to a missing ID, or to another account or security": "A trade's correction link points back to the trade itself, to a trade ID that is not in the data, or to a trade on a different account or security from its own."
+  "Correction link points to itself, to a missing ID, or to another account or security": "A trade's correction link points back to the trade itself, to a trade ID that is not in the data, or to a trade on a different account or security from its own.",
+  "Trade on a security_id missing from securities": "A trade names a security that is not in the security list, or names no security at all.",
+  "Trade cusip differs from the security master": "A trade carries a CUSIP that differs from the CUSIP the security list holds for the same security.",
+  "Trade currency differs from the security master": "A trade is in a currency that differs from the currency the security list holds for the same security.",
+  "Trade on an account_id missing from accounts": "A trade names an account that is not in the account list, or names no account at all.",
+  "Trade before the account's open_date": "A trade is dated before the day its account was opened.",
+  "Trade after the account's close_date": "A trade is dated after the day its account was closed.",
+  "Trade on an account closed later, open on the trade date": "A trade is on an account that is now marked closed, but the trade date falls between the account's open date and its close date.",
+  "Trade on an account whose status contradicts its close_date": "An account is marked open yet has a close date, or is marked closed yet has none, so its status and its dates disagree."
  },
  "nodes": {
   "accounts": "The list of client accounts, each with its fund, share class and the dates it opened and closed.",

@@ -4,12 +4,12 @@
 `notebooks/deliverable.ipynb`, then the script. Full write-ups of the classes we take forward are in
 `docs/DEFECT_CATALOG.md`.*
 
-- Register checksum: `aa27c43d5a75` (built at commit `5ae93ce`)
-- Run: config `reconciliation.toml`, snapshot 2026-07-10, shuffle seed 0, 103.6 s
-- 63 findings: 30 confirmed, 29 unresolved, 4 cleared
+- Register checksum: `c4f264d9f5ed` (built at commit `d629db3`)
+- Run: config `reconciliation.toml`, snapshot 2026-07-10, shuffle seed 0, 187.4 s
+- 71 findings: 37 confirmed, 29 unresolved, 5 cleared
 - Denominators: eligible + not evaluable = population (D-027 in `docs/DECISIONS.md`).
 
-## Confirmed (30)
+## Confirmed (37)
 
 | finding | stage | unit | affected | eligible | not evaluable | rule | examples |
 |---|---|---|---|---|---|---|---|
@@ -43,6 +43,13 @@
 | Blank or unreadable trade price | trade capture | rows | 2,104 | 1,409,513 | 20 | TXN_FIELDS_VALID | TXN100000339, TXN100000564, TXN100000863 |
 | gross_amount does not equal quantity x price | trade capture | rows | 4,462 | 1,404,583 | 4,950 | TXN_FIELDS_VALID | TXN100000037, TXN100000367, TXN100000467 |
 | Correction link points to itself, to a missing ID, or to another account or security | trade capture | rows | 13 | 4,913 | 842 | TXN_CORRECTION_LINK | TXN100095195, TXN100442375, TXN100469483 |
+| Trade on a security_id missing from securities | master data | rows | 1,131 | 1,409,533 | 0 | TXN_SECURITY_NOT_MASTERED | TXN100000175, TXN100000641, TXN100002458 |
+| Trade cusip differs from the security master | master data | rows | 8,352 | 1,404,156 | 5,377 | TXN_SECURITY_NOT_MASTERED | TXN100000008, TXN100000168, TXN100000191 |
+| Trade currency differs from the security master | master data | rows | 3,543 | 1,408,394 | 1,139 | TXN_SECURITY_NOT_MASTERED | TXN100000320, TXN100000589, TXN100001117 |
+| Trade on an account_id missing from accounts | master data | rows | 706 | 1,409,533 | 0 | ACC_NOT_OPEN_ON_TRADE_DATE | TXN100001910, TXN100005837, TXN100006892 |
+| Trade before the account's open_date | master data | rows | 0 | 1,408,827 | 706 | ACC_NOT_OPEN_ON_TRADE_DATE |  |
+| Trade after the account's close_date | master data | rows | 7,166 | 1,408,827 | 706 | ACC_NOT_OPEN_ON_TRADE_DATE | TXN100097689, TXN100108900, TXN100137118 |
+| Trade on an account whose status contradicts its close_date | master data | rows | 0 | 1,408,827 | 706 | ACC_NOT_OPEN_ON_TRADE_DATE |  |
 
 ## Unresolved (29)
 
@@ -78,7 +85,7 @@
 | Settlement later than the lag limit with no agreed extension | trade capture | rows | 2,106 | 1,406,692 | 2,841 | TXN_FIELDS_VALID | TXN100001003, TXN100001845, TXN100002051 |
 | Same economics under a different transaction_id | trade capture | transaction_ids | 5,001 | 1,402,516 | 4,912 | TXN_DUPLICATE | TXN100000530, TXN100000618, TXN100001138 |
 
-## Cleared (4)
+## Cleared (5)
 
 | finding | stage | unit | affected | eligible | not evaluable | rule | examples |
 |---|---|---|---|---|---|---|---|
@@ -86,3 +93,48 @@
 | Scale flag: the chosen quote is backed by another vendor | pricing | securities | 6 | 10 | 0 | PRC_VENDOR_DISPERSION | SEC140715, SEC385778, SEC479397 |
 | Spread flag: the chosen quote is backed by another vendor | pricing | securities | 54 | 388 | 0 | PRC_VENDOR_DISPERSION | SEC109016, SEC110436, SEC127904 |
 | Settlement later than the lag limit with an agreed extension | trade capture | rows | 842 | 1,406,692 | 2,841 | TXN_FIELDS_VALID | TXN100000542, TXN100003782, TXN100004664 |
+| Trade on an account closed later, open on the trade date | master data | rows | 7,757 | 1,408,827 | 706 | ACC_NOT_OPEN_ON_TRADE_DATE | TXN100000042, TXN100000115, TXN100000196 |
+
+## Scorecard
+
+*From `outputs/02_scorecard.csv`, `02_kpis.csv` and `02_indicators.csv`. Rule and test rows, accounts, sensitivity and the look-back stay in the CSVs. Scores and coverage are on a 0-100 scale.*
+
+- Scorecard checksum: `d2fb0fd5dce1`
+
+| Level | Domain | Score | Coverage | Confirmed-only score |
+|---|---|---|---|---|
+| Platform |  | 81.62 | 99.82 | 95.38 |
+| Domain | Accounts | 99.78 | 99.98 | 99.78 |
+| Domain | Securities | 99.72 | 99.92 | 99.72 |
+| Domain | Trades | 80.53 | 99.94 | 97.25 |
+| Domain | Corporate actions | 0.00 | 100.00 | 73.00 |
+| Domain | Positions | 99.09 | 99.64 | 100.00 |
+| Domain | Prices | 94.22 | 99.24 | 99.90 |
+| Domain | NAV | 98.00 | 100.00 | 98.00 |
+
+| KPI | Name | Value | Target | Met | Status |
+|---|---|---|---|---|---|
+| 1 | Trades with a valid account and security | 99.41 % | 100% | no | computed |
+| 2 | Trades booked before cutoff | 99.57 % | at least 99% | yes | computed |
+| 3 | Duplicate trade rate | 0.30 % | at most 0.01% | no | computed |
+| 4 | Positions matching the custodian | 99.60 % | at least 99.9% | no | computed |
+| 5 | Holdings with a fresh, agreed price | 93.13 % | at least 99% | no | computed |
+| 6 | NAV rows that add up | 98.00 % | 100% | no | computed |
+| 7 | Funds released with no serious open issue | not computed | 100% |  | proposed |
+
+| Indicator | Name | Status | Value | Threshold | Breaches | First breach |
+|---|---|---|---|---|---|---|
+| I1 | Unmastered security rate | computed | 0.09 % of trade rows | any occurrence (brief App. B): a trade date with one such trade is a breach | 30 | 2026-06-01 |
+| I2 | Booking latency | computed | 12 minutes | a daily median above the feed's limit in config/reconciliation.toml [timeliness.processing_latency_limit_minutes] (brief App. B: above four hours), or a week's median at least doubling_factor times the previous week's (brief App. B: a doubling week over week) | 0 |  |
+| I3 | Corporate action readiness | computed | 59.00 % of actions | below 100% once the effective date is reached (brief App. B), judged at the snapshot | 24 | 2026-06-08 |
+| I4 | Fresh, agreed price coverage | computed | 93.13 % of held securities | below KPI 5's target, at least 99% (scripts/framework.json) | 30 | 2026-06-01 |
+| I5 | Position break count | computed | 2398 keys | any break: no materiality has been agreed (open question 5 in docs/STATUS.md) | 1 | 2026-07-10 |
+| I6 | NAV rows that add up | computed | 98.00 % of ledger rows | 100% (KPI 6) | 1 | 2026-07-10 |
+| I7 | NAV restatement rate | proposed |  | any restatement (brief App. B) |  |  |
+| I8 | Defect age to closure | proposed |  | open past 2 business days (scripts/framework.json operating_model: escalated to management) |  |  |
+
+Where the views count differently:
+
+- KPI 1 reports trades on an unknown account separately (not evaluable), while the Accounts domain counts them as fails of `ACC.exists`.
+- I4 and KPI 5 count a flagged vendor quote that another vendor backs as not agreed (a strict reading), while `PRC.vendors` counts a backed quote as cleared.
+- The Corporate actions domain score, its confirmed-only score and I3 measure different things: a confirmed or unresolved finding on an action fails it in the domain score; only a confirmed finding fails it in the confirmed-only score; only quarantine fails it in I3.

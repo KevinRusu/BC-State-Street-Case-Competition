@@ -1,6 +1,6 @@
 # Rules: the detailed rules under our 7 checks
 
-Last updated: 2026-11-10 (quality checks, D-067)
+Last updated: 2026-11-10 (scorecard and the two rules behind KPI 1, D-069)
 
 *Built 12 Oct 2026 from the old spine workbook (`Spine_Checkin1_v0.3.xlsx`, in git history); rule gaps added 16 Oct (D-036 in `docs/DECISIONS.md`). Thresholds live in `config/*.toml`; which rules have run, and what they found, is in `docs/FINDINGS.md`.*
 
@@ -18,7 +18,7 @@ Last updated: 2026-11-10 (quality checks, D-067)
 
 | Suggested id | What it tests | If it fails | Notes |
 |---|---|---|---|
-| `ACC_NOT_OPEN_ON_TRADE_DATE` | account_id exists in accounts, status = OPEN, open_date ≤ trade_date and (close_date blank or trade_date ≤ close_date) | hold | Hold the trade; route to onboarding |
+| `ACC_NOT_OPEN_ON_TRADE_DATE` | account_id exists in accounts, open_date ≤ trade_date and (close_date blank or trade_date ≤ close_date). The dates decide: `status` is the account's status at extract time, so an account now CLOSED whose close_date is on or after the trade date was open when it traded | hold | Hold the trade; route to onboarding. Coded 10 Nov (D-069, notebook section 9c). Counts: `outputs/02_defect_register.csv`, lines "Trade on an account_id missing from accounts", "Trade before the account's open_date", "Trade after the account's close_date", "Trade on an account closed later, open on the trade date" (cleared: the look-alike below) and "Trade on an account whose status contradicts its close_date" (OPEN with a filled close_date, or CLOSED with none; those trades are not evaluable on the open-date lines). Unknown account, unreadable dates and copies of a repeated transaction_id that disagree are reported separately |
 | `ACC_REQUIRED_FIELDS` | Required fields populated and valid before an account can trade: fund_id, share_class, base_currency (ISO 4217), domicile (ISO 3166), custodian, open_date; close_date ≥ open_date; status consistent with close_date | reject | Account not activated until it passes |
 
 ## 2. Security check
@@ -28,7 +28,7 @@ Last updated: 2026-11-10 (quality checks, D-067)
 | Suggested id | What it tests | If it fails | Notes |
 |---|---|---|---|
 | `SEC_IDENTIFIER_VALID` | security_id unique; CUSIP/ISIN well-formed and not shared by two security_ids; ISIN embeds the CUSIP; currency is ISO 4217; BOND rows have coupon, maturity and par | reject | Runs on every new or changed security record |
-| `TXN_SECURITY_NOT_MASTERED` | Every transaction security_id exists in securities; trade cusip = master cusip; trade currency = security currency | hold | Hold the trade; ask security master to create or fix the record |
+| `TXN_SECURITY_NOT_MASTERED` | Every transaction security_id exists in securities; trade cusip = master cusip; trade currency = security currency | hold | Hold the trade; ask security master to create or fix the record. Coded 10 Nov (D-069, notebook section 9c). Counts: `outputs/02_defect_register.csv`, lines "Trade on a security_id missing from securities" (a blank security_id is a fail), "Trade cusip differs from the security master" and "Trade currency differs from the security master" (not evaluable when the security is unmastered or either side is blank) |
 
 ## 3. Trade check
 
@@ -116,12 +116,30 @@ The general rule: a record we cannot test is **reported separately and never rai
 | Funds released with no serious open issue | Unpriced holdings disclosed; a fund is left out if less than 95% of its holdings can be valued |
 | Overall score | Untestable records lower the coverage figure; they never raise the score |
 
+## Scores: how the rules above become a scorecard
+
+Coded 10 Nov (D-069, notebook section 12). This table stays the authority on how each measure treats a record it
+cannot test; the scorecard only adds up what the rules decide.
+
+- **What is scored:** every register line is mapped to one test of one rule in one domain (the seven checks above),
+  with a role: fail, cleared, beside, not evaluable or summary. The mapping, the weights and the sensitivity settings
+  are in `config/scorecard.toml`; a register line the mapping does not know stops the run.
+- **How:** formulas, weights, aggregation and the sensitivity variants are in
+  `docs/superpowers/specs/2026-11-10-scorecard-design.md` §5 (decisions taken while building: §8). Results:
+  `outputs/02_scorecard.csv` (platform, domain, rule, test), `outputs/02_scorecard_accounts.csv` (one row per
+  account) and `outputs/02_scorecard_sensitivity.csv`; the records behind each score are in
+  `outputs/02_score_outcomes.csv`.
+- **Indicators and KPIs:** the indicator catalog (calculation, refresh, threshold, owner, decision, gaming note) is
+  `outputs/02_indicators.csv`, its series `outputs/02_indicator_series.csv`, the retrospective look-back
+  `outputs/02_indicator_lookback.csv`; the seven KPIs with values are `outputs/02_kpis.csv`. Numbers: `docs/FINDINGS.md`.
+
 ## Things that look wrong but may be fine (look-alikes)
 
 Every rule needs a way to clear these, or we report false alarms:
 
 - **Short positions:** a negative holding can be a real short sale, not an error.
 - **Zero-opening rebuild:** we rebuild positions from zero because we have no opening balances, so a rebuild can dip below zero during the month and still end correct.
+- **Account closed later:** an account marked CLOSED now, with a close_date on or after the trade date, was open when the trade happened. We judge by the dates, so the trade is not a break; it gets its own cleared line ("Trade on an account closed later, open on the trade date"). It would reopen if an account history showed the account closed earlier.
 - **Agreed late settlement:** a trade settling after T+2 is fine if `settlement_note = EXTENDED_SETTLEMENT_AGREED`.
 - **Flat prices:** a price that does not move for days can be a quiet security, not a stale feed.
 - **Rebooked trades:** a BOOKED trade linked to a CANCELLED original is a correction, not a duplicate.
