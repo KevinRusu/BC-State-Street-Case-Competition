@@ -1,13 +1,13 @@
 # Status
 
-Last updated: 2026-11-11 (stress test built, run and reviewed on branch `stress-test`, D-070; not yet committed or merged)
+Last updated: 2026-11-11 (stress test merged to `main` in PR #14, D-070; next: executive view)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
 
 ## Where we are
 
-- **Stress test (11 Nov):** built on branch `stress-test` (D-070), not yet merged. `tests/stress_test.sh` runs the
+- **Stress test (11 Nov):** built, reviewed and merged to `main` in PR #14 (D-070). `tests/stress_test.sh` runs the
   deliverable on the release and on a copy under `tests/runs/` with 100x snapshot prices injected into a seeded random
   sample of held equities (defects, look-alikes, priority flips; labels in `tests/stress/cases.toml`, frozen by
   checksum before the first injected run), and scores each case against the planted truth. Code: `scripts/stress.py`.
@@ -26,7 +26,7 @@ Last updated: 2026-11-11 (stress test built, run and reviewed on branch `stress-
   - **Reviewed:** every task reviewed; the whole-branch review found one Important issue (no provenance, stale outputs
     after a failed run) and minor ones, all fixed and re-reviewed (spec §8). Each run now records its config, labels
     checksum and seed in `outputs/03_stress_run.csv`, and `check_docs.py` flags a stale stress section.
-  - **Next:** the user commits (labels file first) and merges; then step 4 (executive view).
+  - **Next:** step 4 (executive view).
 
 - **Scorecard and indicators (10 Nov):** reviewed and merged to `main` ([PR #13](https://github.com/KevinRusu/BC-State-Street-Case-Competition/pull/13)), D-069. Section 12
   of `notebooks/deliverable.ipynb` scores every rule, domain (the seven checks), account and the platform with coverage
@@ -199,7 +199,7 @@ and stress tests, roadmap, working executive view, complete slide draft.
    weights, aggregation rules and a sensitivity check; evaluable coverage beside every score; at least six
    indicators, three leading, marked computed, simulated or proposed (at least three computed, one of them leading).
    Picks up App. B's week-over-week doubling, left by the timeliness session.
-3. **Stress test (Kevin): built 11 Nov on branch `stress-test` (D-070; see "Where we are").** On a copy of the data, inject one new defect and one valid look-alike; record the changed
+3. **Stress test (Kevin): done 11 Nov, merged in PR #14 (D-070; see "Where we are").** On a copy of the data, inject one new defect and one valid look-alike; record the changed
    fields and expected outcomes; report before and after, false positives and misses (brief §5). The row-shuffle
    half is done (`tests/robustness_test.sh`).
 4. **Executive view (Kevin).** Confirm the dashboard has one functional executive view with drill-down to
