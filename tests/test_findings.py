@@ -150,6 +150,136 @@ class EndToEndFixtureTests(unittest.TestCase):
         self.assertIsNone(check["flag_count"])
 
 
+class StressSectionTests(unittest.TestCase):
+    """docs/FINDINGS.md's generated Stress test section: read from the 03_stress_* outputs, never typed."""
+
+    def write(self, root, name, header, rows):
+        with (root / name).open("w", encoding="utf-8", newline="") as stream:
+            writer = csv.writer(stream, lineterminator="\n")
+            writer.writerow(header)
+            writer.writerows(rows)
+
+    def fill(self, root):
+        self.write(root, "03_stress_rates.csv", ["role", "level", "cases", "share", "drawn", "wanted"],
+                   [["defect", "caught", "29", "0.9667", "30", "30"], ["defect", "missed", "1", "0.0333", "30", "30"],
+                    ["flip", "", "0", "", "0", "30"],
+                    ["untouched", "false positive", "2", "", "", ""], ["untouched", "unattributable", "3", "", "", ""]])
+        impact_head = ["case", "role", "security_id", "fund_id", "signed_usd", "gross_usd", "fund_net_assets_usd",
+                       "signed_bps", "gross_bps", "not_valued_reason", "source", "measure", "before", "after"]
+        self.write(root, "03_stress_impact.csv", impact_head,
+                   [["defect-01", "defect", "SEC1", "", "100.0", "100.0", "", "", "", "no fund", "stress", "", "", ""],
+                    ["defect-01", "defect", "SEC1", "FND1", "-40.0", "40.0", "1000", "-400.0", "400.0", "", "stress", "", "", ""],
+                    ["defect-02", "defect", "SEC2", "FND2", "10.0", "10.0", "1000", "100.0", "100.0", "", "stress", "", "", ""],
+                    ["flip-01", "flip", "SEC3", "FND3", "5.0", "5.0", "1000", "50.0", "50.0", "", "stress", "", "", ""],
+                    ["look-01", "lookalike", "SEC4", "FND4", "0.0", "0.0", "1000", "0.0", "0.0", "", "stress", "", "", ""],
+                    ["", "", "", "", "", "", "", "", "", "", "deliverable", "platform score", "81.6", "81.5"],
+                    ["", "", "", "", "", "", "", "", "", "", "deliverable", "gross delta", "", "99.5"],
+                    ["", "", "", "", "", "", "", "", "", "", "deliverable", "scale flag: gross_delta_usd_valued_subset",
+                     "0", "574164563792.7428"]])
+        self.write(root, "03_stress_cases.csv",
+                   ["case", "role", "security_id", "bad_vendor", "swap_with", "verdict_line", "level", "joined", "left",
+                    "consequences", "snapshot_quotes", "showcase"],
+                   [["defect-01", "defect", "SEC1", "VENDOR_A", "", "Odd one out", "caught", "x", "", "",
+                     "VENDOR_A=5.00; VENDOR_B=5.01; VENDOR_C=4.99", "True"],
+                    ["defect-02", "defect", "SEC2", "VENDOR_B", "", "Odd one out", "caught", "x", "", "", "", "False"],
+                    ["look-01", "lookalike", "SEC4", "VENDOR_B", "", "Backed", "cleared", "y", "", "",
+                     "VENDOR_A=3.00; VENDOR_B=3.00", "True"]])
+        self.write(root, "03_stress_changes.csv", ["case", "role", "security_id", "vendor", "field", "old", "new"],
+                   [["defect-01", "defect", "SEC1", "VENDOR_A", "price", "5.00", "500.00"],
+                    ["flip-01", "flip", "SEC3", "VENDOR_A", "price", "7.00", "700.00"],
+                    ["flip-01", "flip", "SEC3", "VENDOR_A", "vendor_priority", "1", "2"],
+                    ["flip-01", "flip", "SEC3", "VENDOR_B", "vendor_priority", "2", "1"],
+                    ["defect-02", "defect", "SEC2", "VENDOR_B", "price", "9.00", "900.00"],
+                    ["look-01", "lookalike", "SEC4", "VENDOR_B", "price", "3.00", "300.00"]])
+        self.write(root, "03_stress_unexplained.csv", ["source", "scope", "kind", "finding", "record_id", "security_id",
+                                                        "change", "file", "rows_changed", "detail"], [])
+        self.write(root, "03_stress_run.csv", ["item", "value"],
+                   [["config path", "config/reconciliation.toml"], ["labels sha256", "c768055d64f341b8a9f676d981844cf85a6ad19b2d23d2400fadd40d21958023"],
+                    ["seed", "20261111"], ["finished at", "2026-11-11T10:00:00Z"]])
+
+    def test_section_shows_rates_impact_and_showcase(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self.fill(root)
+            text = "\n".join(report.stress_lines(root))
+        self.assertIn("## Stress test", text)
+        for name in ("rates", "impact", "cases", "changes", "unexplained", "members"):
+            self.assertIn(f"03_stress_{name}.csv", text)
+        self.assertIn("| defect | caught | 29 | 96.7% |", text)
+        self.assertIn("| flip | none drawn | 0 |", text)
+        self.assertNotIn("| untouched |", text)
+        self.assertIn("Unexplained changes: 2 on untouched securities (false positive), 3 unattributable.", text)
+        self.assertIn("- Run: config `config/reconciliation.toml`, labels sha256 `c768055d64f3`, seed 20261111, "
+                      "finished at 2026-11-11T10:00:00Z", text)
+        self.assertIn("(defect: 1 case-fund rows not valued: no fund 1;", text)
+        self.assertIn("(flip: 0 case-fund rows not valued;", text)
+        self.assertIn("| scale flag: gross_delta_usd_valued_subset | 0.00 | 574,164,563,792.74 |", text)
+        self.assertNotIn("574164563792", text)
+        # Showcase shows the quotes the other vendors still hold, not the edited one.
+        self.assertIn("500.00 | VENDOR_B=5.01; VENDOR_C=4.99 |", text)
+        self.assertIn("300.00 | VENDOR_A=3.00 |", text)
+        self.assertIn("none valued", text)
+        # Defects: signed 100 - 40 + 10, gross 100 + 40 + 10; the largest fund is 400 bps.
+        self.assertIn("| defect | 70.00 | 150.00 | 400.00 bps (FND1, SEC1) |", text)
+        self.assertIn("| flip | 5.00 | 5.00 | 50.00 bps (FND3, SEC3) |", text)
+        self.assertIn("| platform score | 81.6 | 81.5 |", text)
+        # Showcase: the defect and the look-alike only, with the dollar effect summed over the case's rows.
+        self.assertIn("| defect | SEC1 | VENDOR_A |", text)
+        self.assertIn("| lookalike | SEC4 | VENDOR_B |", text)
+        self.assertNotIn("SEC2 | VENDOR_B", text)
+        self.assertIn("Odd one out", text)
+        self.assertIn("price 5.00 → 500.00", text)
+        self.assertIn("price 3.00 → 300.00", text)
+        self.assertNotIn("9.00", text)
+        self.assertIn("| 60.00 | 140.00 |", text)
+        self.assertIn("| 0.00 | 0.00 |", text)
+
+    def test_section_has_the_fixed_notes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            text = "\n".join(report.stress_lines(Path(folder)))
+        self.assertIn("The look-alike's backup quote is still wrong; it is valid for NAV only.", text)
+        self.assertIn("The severity scale row values look-alikes too (neither vendor assumed correct), so it is an "
+                      "upper bound.", text)
+        self.assertIn("a genuine 1:100 reverse split would show as a position break, because the rebuild does not "
+                      "apply corporate actions (D-016)", text)
+        self.assertIn("A rerun with another config may draw a different sample; compare rates, not per-case rows, "
+                      "across configs.", text)
+        self.assertIn("The rates hold for the sample drawn: held equities whose vendor check passes on the snapshot; "
+                      "they are not a general detection rate.", text)
+
+    def test_missing_files_are_named(self):
+        with tempfile.TemporaryDirectory() as folder:
+            text = "\n".join(report.stress_lines(Path(folder)))
+        self.assertIn("## Stress test", text)
+        for name in ("rates", "impact", "cases", "changes", "run"):
+            self.assertIn(f"`03_stress_{name}.csv` not found", text)
+
+    def test_checksum_ignores_finish_time_but_not_results(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self.assertEqual(report.stress_checksum(root), "")
+            self.fill(root)
+            before = report.stress_checksum(root)
+            self.assertIn(f"Stress checksum: `{before}`", "\n".join(report.stress_lines(root)))
+            self.write(root, "03_stress_run.csv", ["item", "value"],
+                       [["config path", "config/reconciliation.toml"], ["labels sha256", "c768055d64f341b8a9f676d981844cf85a6ad19b2d23d2400fadd40d21958023"],
+                        ["seed", "20261111"], ["finished at", "2027-01-01T00:00:00Z"]])
+            self.assertEqual(report.stress_checksum(root), before)
+            self.write(root, "03_stress_rates.csv", ["role"], [["defect"]])
+            self.assertNotEqual(report.stress_checksum(root), before)
+
+    def test_read_output_closes_the_file(self):
+        import warnings
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self.write(root, "a.csv", ["x"], [["1"]])
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", ResourceWarning)
+                self.assertEqual(report.read_output(root, "a.csv"), [{"x": "1"}])
+                import gc
+                gc.collect()
+
+
 class ScorecardSectionTests(unittest.TestCase):
     """docs/FINDINGS.md's generated Scorecard section: read from the scorecard outputs, never typed."""
 

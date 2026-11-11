@@ -12,6 +12,9 @@ Step by step:
    `<!-- /card -->`, naming one or more register findings; everything between the markers is rewritten from the
    register (with its checksum, which scripts/check_docs.py also compares). The prose around the cards is not touched.
 
+6. A "Stress test" section from outputs/03_stress_*.csv (rates, dollar impact, deliverable aggregates, two showcase
+   cases); a missing file is named in the section instead.
+
 Run from the repo root after the deliverable notebook: uv run python scripts/build_findings.py
 """
 import csv, hashlib, re, subprocess
@@ -54,7 +57,10 @@ def scorecard_checksum(folder=OUTPUTS):
 
 def read_output(folder, name):
     path = folder / name
-    return list(csv.DictReader(path.open(newline='', encoding='utf-8'))) if path.is_file() else None
+    if not path.is_file():
+        return None
+    with path.open(newline='', encoding='utf-8') as stream:
+        return list(csv.DictReader(stream))
 
 
 def scorecard_lines(folder=OUTPUTS):
@@ -94,6 +100,126 @@ def scorecard_lines(folder=OUTPUTS):
               '- The Corporate actions domain score, its confirmed-only score and I3 measure different things: a confirmed '
               'or unresolved finding on an action fails it in the domain score; only a confirmed finding fails it in the '
               'confirmed-only score; only quarantine fails it in I3.']
+    return lines
+
+
+STRESS_FILES = ('rates', 'impact', 'cases', 'changes', 'members', 'unexplained', 'run')
+
+
+def stress_checksum(folder=OUTPUTS):
+    """One fingerprint of the 03_stress_* files ('' when none exists). The run record counts without its finish time,
+    so a rerun with identical results does not make FINDINGS stale; check_docs.py compares it."""
+    digest, found = hashlib.sha256(), False
+    for n in STRESS_FILES:
+        name = f'03_stress_{n}.csv'
+        path = folder / name
+        if path.is_file():
+            found = True
+            data = path.read_bytes().replace(b'\r\n', b'\n')
+            if n == 'run':
+                data = b''.join(line for line in data.splitlines(keepends=True) if not line.startswith(b'finished at,'))
+            digest.update(name.encode() + b'\0' + data)
+    return digest.hexdigest()[:12] if found else ''
+
+
+
+def money(value):
+    return f'{value:,.2f}'
+
+
+def measure_value(measure, value):
+    """A deliverable aggregate as text: USD measures with thousands separators, other numbers as in the CSV."""
+    if not value:
+        return 'none valued'
+    try:
+        return money(float(value)) if 'usd' in measure.lower() else value
+    except ValueError:
+        return value
+
+
+def stress_lines(folder=OUTPUTS):
+    """The generated Stress test section: detection rates, dollar impact, deliverable aggregates, two showcase cases."""
+    names = [f'03_stress_{n}.csv' for n in STRESS_FILES]
+    lines = ['', '## Stress test', '',
+             '*From ' + ', '.join(f'`outputs/{n}`' for n in names) + '. Per-case rows, the member changes, the unexplained-change list '
+             'and every fund stay in the CSVs.*',
+             '', f'- Stress checksum: `{stress_checksum(folder) or "none"}`']
+    run = read_output(folder, '03_stress_run.csv')
+    if run is None:
+        lines += ['', '`03_stress_run.csv` not found: run `scripts/stress.py`.']
+    else:
+        info = {r['item']: r['value'] for r in run}
+        lines.append(f"- Run: config `{info.get('config path', '?')}`, labels sha256 "
+                     f"`{info.get('labels sha256', '?')[:12]}`, seed {info.get('seed', '?')}, "
+                     f"finished at {info.get('finished at', '?')}")
+    rates, impact, cases, changes = (read_output(folder, f'03_stress_{n}.csv')
+                                     for n in ('rates', 'impact', 'cases', 'changes'))
+    for n, rows in (('rates', rates), ('impact', impact), ('cases', cases), ('changes', changes)):
+        if rows is None:
+            lines += ['', f'`03_stress_{n}.csv` not found: run `scripts/stress.py`.']
+    if rates is not None:
+        lines += ['', '| Role | Level | Cases | Share | Drawn | Wanted |', '|---|---|---|---|---|---|']
+        for r in rates:
+            if r['role'] == 'untouched':
+                continue
+            share = f"{float(r['share']) * 100:.1f}%" if r['share'] else ''
+            lines.append('| ' + ' | '.join([r['role'], r['level'] or 'none drawn', r['cases'], share, r['drawn'],
+                                             r['wanted']]) + ' |')
+        counts = {r['level']: r['cases'] for r in rates if r['role'] == 'untouched'}
+        lines += ['', 'Unexplained changes: '
+                  + ', '.join(f"{counts[k]} {label}" for k, label in (('false positive', 'on untouched securities '
+                                                                       '(false positive)'),
+                                                                      ('unattributable', 'unattributable'))
+                              if k in counts) + '.']
+    stress = [r for r in impact if r['source'] == 'stress'] if impact is not None else None
+    if stress is not None:
+        lines += ['', '| Role | Signed USD | Gross USD | Largest fund effect |', '|---|---|---|---|']
+        for role in ('defect', 'flip'):
+            rows = [r for r in stress if r['role'] == role]
+            funds = [r for r in rows if r['fund_id'] and r['gross_bps']]
+            top = max(funds, key=lambda r: float(r['gross_bps']), default=None)
+            largest = (f"{float(top['gross_bps']):,.2f} bps ({top['fund_id']}, {top['security_id']})"
+                       if top else 'none')
+            lines.append('| ' + ' | '.join([role, money(sum(float(r['signed_usd']) for r in rows if r['signed_usd'])),
+                                             money(sum(float(r['gross_usd']) for r in rows if r['gross_usd'])),
+                                             largest]) + ' |')
+        for role in ('defect', 'flip'):
+            reasons = {}
+            for r in stress:
+                if r['role'] == role and r['not_valued_reason']:
+                    reasons[r['not_valued_reason']] = reasons.get(r['not_valued_reason'], 0) + 1
+            lines.append('')
+            lines.append(f"({role}: {sum(reasons.values())} case-fund rows not valued"
+                         + (': ' + ', '.join(f'{k} {v}' for k, v in sorted(reasons.items())) if reasons else '')
+                         + '; totals add the amounts that exist.)')
+        aggregates = [r for r in impact if r['source'] == 'deliverable']
+        if aggregates:
+            lines += ['', '| Deliverable measure | Before | After |', '|---|---|---|']
+            lines += [f"| {cell(r['measure'])} | {measure_value(r['measure'], r['before'])} | "
+                      f"{measure_value(r['measure'], r['after'])} |"
+                      for r in aggregates]
+    if cases is not None:
+        lines += ['', '| Role | Security | Bad vendor | Quotes before → after | Other vendors (unedited) | Verdict | '
+                  'Signed USD | Gross USD |', '|---|---|---|---|---|---|---|---|']
+        for c in (c for c in cases if c['showcase'] == 'True'):
+            moved = '; '.join(f"{r['vendor']} {r['field']} {r['old']} → {r['new']}" for r in (changes or [])
+                              if r['case'] == c['case'])
+            rows = [r for r in (stress or []) if r['case'] == c['case']]
+            others = '; '.join(q for q in c.get('snapshot_quotes', '').split('; ')
+                               if q and not q.startswith(c['bad_vendor'] + '='))
+            lines.append('| ' + ' | '.join([c['role'], c['security_id'], c['bad_vendor'], cell(moved) or 'none',
+                                             cell(others) or 'none', cell(c['verdict_line']),
+                                             money(sum(float(r['signed_usd']) for r in rows if r['signed_usd'])),
+                                             money(sum(float(r['gross_usd']) for r in rows if r['gross_usd']))]) + ' |')
+    lines += ['', 'Reading the numbers:', '',
+              "- The look-alike's backup quote is still wrong; it is valid for NAV only.",
+              '- The severity scale row values look-alikes too (neither vendor assumed correct), so it is an upper bound.',
+              '- A limitation: a genuine 1:100 reverse split would show as a position break, because the rebuild does '
+              'not apply corporate actions (D-016).',
+              '- The rates hold for the sample drawn: held equities whose vendor check passes on the snapshot; they are '
+              'not a general detection rate.',
+              '- A rerun with another config may draw a different sample; compare rates, not per-case rows, across '
+              'configs.']
     return lines
 
 
@@ -159,6 +285,7 @@ def main():
                   '| ' + ' | '.join(COLUMNS) + ' |', '|' + '---|' * len(COLUMNS)]
         lines += ['| ' + ' | '.join(cell(r[c]) for c in COLUMNS) + ' |' for r in group]
     lines += scorecard_lines()
+    lines += stress_lines()
     OUT.write_text('\n'.join(lines) + '\n')
     print(f'wrote {OUT.relative_to(ROOT)}: {len(rows)} findings')
     fill_catalog(rows, checksum(REGISTER))

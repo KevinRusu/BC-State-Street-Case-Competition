@@ -915,3 +915,57 @@ in §8); plan: `docs/superpowers/plans/2026-11-10-scorecard.md`.
   price indicator; `02_price_quality.csv` is unchanged. The store gains eight tables; FINDINGS.md gains a generated
   scorecard section. Robustness: three shuffles give identical outputs, and a live domain-weight change moves only
   the platform, account and sensitivity-platform scores (`tests/robustness_test.sh`).
+
+### D-070 · 11 Nov · Stress test: 100x prices injected into a random sample of held equities, scored against the planted truth
+
+Design: `docs/superpowers/specs/2026-11-11-stress-test-design.md` (user decisions in §5, choices taken during the build
+in §8); plan: `docs/superpowers/plans/2026-11-11-stress-test.md`.
+
+- **Decision:** `tests/stress_test.sh` runs the deliverable notebook unchanged on the release and on a copy of it
+  (under the gitignored `tests/runs/`) in which `scripts/stress.py` multiplies one snapshot quote by 100 for each case
+  of a seeded random sample of held equities: **defects** (the chosen vendor's quote), **look-alikes** (another vendor's
+  quote; the chosen quote stays right) and **priority flips** (as a look-alike, with that vendor swapped to preferred).
+  Sample sizes, seed, multiplier and the map from register line to verdict level live in `tests/stress/cases.toml`,
+  which the detection code never reads. Each case is scored against the truth we planted: caught / partial / missed for
+  defects and flips, cleared / sent to review / false positive for look-alikes, plus false positives on securities
+  nobody touched. Outputs: `outputs/03_stress_changes.csv`, `03_stress_cases.csv`, `03_stress_rates.csv`,
+  `03_stress_unexplained.csv`, `03_stress_impact.csv`, `03_stress_members.csv` (every register-member change, for
+  audit) and `03_stress_run.csv` (config, labels checksum, seed, time; old outputs are removed before a run); the numbers are in the generated "Stress test" section of FINDINGS.md.
+- **Why (the user's decisions, spec §5):** the rule under test is `PRC_VENDOR_DISPERSION`, because a 100x price has a
+  small base of real flags (one injected case is visible), a real money effect, and a look-alike that differs from the
+  defect only in which vendor sent the bad quote. Misses and false positives can only be counted against a known
+  truth, so we inject rather than sample real records; to stay realistic the cases go into a random sample, not a
+  cleaned set, and the result is rates. Equities only: their quote basis supports a dollar figure (the deliverable
+  values no bond). Three-level scoring keeps "confirmed" apart from "someone must look". The look-alike is "valid for
+  NAV" only: the backup vendor's quote is still wrong.
+- **Building rulings:**
+  - VENDOR_B, not VENDOR_C, carries the look-alike and flip quote: every C quote is stamped after the 18:00 cutoff, so
+    a flip onto C would also fail freshness.
+  - The pool leaves out securities section 8 already flags (no known truth there); when securities with a second
+    vendor are scarce, look-alikes and flips split them evenly, and an empty role stops the run.
+  - The labels were frozen before the first injected run by recording their sha256
+    (`c768055d64f341b8a9f676d981844cf85a6ad19b2d23d2400fadd40d21958023`), not by a commit mid-build.
+  - The run exits non-zero only on a false positive on an untouched security or a change that cannot be tied to an
+    injected security; misses, partials and review cases are results.
+  - Output files without a `security_id` column (for example `02_scorecard_accounts.csv`, `02_account_membership.csv`)
+    are reported as aggregate changes and cannot fail the run by themselves; the member-level check covers every
+    register line. The 11 Nov run was checked by hand on both: every changed account holds an injected security.
+  - The impact is the stress script's own measure (quantity × (injected − original chosen price) × FX, per fund, in bps
+    of the deliverable's fund net assets); the deliverable's severity "scale flag" row is shown beside it as an upper
+    bound, because it values look-alikes too.
+- **Read the rates as:** detection on the sample drawn (held equities whose vendor check passes on the snapshot), not a
+  general detection rate.
+  The pool comes from the clean run, so a rerun with another threshold may draw other securities: compare rates, not
+  per-case rows, across configs. Each run records its config, labels checksum and seed in `03_stress_run.csv`.
+- **Known label slip:** `tests/stress/cases.toml` skips `02_row_ledger.csv` as "run metadata only"; it is the row
+  accounting, and one of its rows moves in the injected run. It has no `security_id`, so it could only ever be an
+  aggregate change and cannot affect the result. The labels are frozen, so the comment is left as it is; a correction
+  would go in its own commit, named in this entry.
+- **Negative check:** with a scale band that excludes 100 (`scale_ratio_low` 150, `scale_ratio_high` 200, in a copy
+  of the config under `tests/runs/`), the 100x quotes fall into the spread test, defects and flips score partial and
+  look-alikes stay cleared, so the band setting matters (result in STATUS).
+- **Limitation:** a genuine 1:100 reverse split (every record correct) would show as a position break, because the
+  rebuild does not apply corporate actions (D-016); it was not built.
+- **Instead of:** three hand-picked clean securities (unrealistic, no rates); a genuine reverse-split control; changing
+  the deliverable's severity section to value scale flags (a possible later job); a dashboard page now (step 4).
+- **Moves:** nothing in `outputs/02_*`, the deliverable notebook or the config (checksums identical before and after).

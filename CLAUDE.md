@@ -71,6 +71,7 @@ uv sync                                      # set up the environment
 tests/run_notebook.sh                        # run the deliverable notebook headless on the full data (~3.5 min); rebuilds outputs/
 tests/fixture_test.sh                        # the deliverable notebook on the made-up fixture (~25 s)
 tests/robustness_test.sh                     # shuffled rows + one threshold change (~25 min, ~9 GB RAM)
+tests/stress_test.sh                         # 100x prices injected into a copy, clean vs injected run, scored (~7 min)
 uv run python scripts/build_findings.py      # outputs/02_defect_register.csv -> docs/FINDINGS.md
 uv run python scripts/check_docs.py          # broken paths in living docs, stale FINDINGS
 uv run python scripts/build_store.py         # data + the deliverable's outputs -> outputs/store.duckdb (~15 s)

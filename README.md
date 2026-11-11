@@ -96,6 +96,12 @@ Run from the repo root. The notebook tests run the committed notebooks headless,
 - `tests/robustness_test.sh` (~5 min): runs the release with rows shuffled under several seeds and with one
   threshold changed, and checks that only what should move does. About 4 GB RAM per run; it leaves the default
   run in `outputs/`.
+- `tests/stress_test.sh` (~7 min): the stress test (D-070). Runs the deliverable on the release and on a copy under
+  `tests/runs/` with 100x snapshot prices injected into a seeded sample of held equities (defects, look-alikes and
+  priority flips; labels in `tests/stress/cases.toml`), scores each case against the planted truth and writes
+  `outputs/03_stress_*.csv`. Exits non-zero on a false positive on an untouched security or a change it
+  cannot tie to an injected security. Honours
+  `RECONCILIATION_CONFIG` (rerun after a threshold change) and `STRESS_OUTPUTS` (another output folder).
 - `tests/store_test.sh`: builds the dashboard store from the fixture, checks its contracts, then runs the dashboard's
   unit tests and a production build. Inside `dashboard/`: `npm test` and `npm run test:e2e` (see its README).
 - `uv run python -m unittest discover -s tests -p 'test_*.py'`: the Python unit tests (the Sankey findings builder

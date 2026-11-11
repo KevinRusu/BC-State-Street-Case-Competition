@@ -4,7 +4,7 @@
 `notebooks/deliverable.ipynb`, then the script. Full write-ups of the classes we take forward are in
 `docs/DEFECT_CATALOG.md`.*
 
-- Register checksum: `c4f264d9f5ed` (built at commit `d629db3`)
+- Register checksum: `c4f264d9f5ed` (built at commit `7ba9918`)
 - Run: config `reconciliation.toml`, snapshot 2026-07-10, shuffle seed 0, 187.4 s
 - 71 findings: 37 confirmed, 29 unresolved, 5 cleared
 - Denominators: eligible + not evaluable = population (D-027 in `docs/DECISIONS.md`).
@@ -138,3 +138,55 @@ Where the views count differently:
 - KPI 1 reports trades on an unknown account separately (not evaluable), while the Accounts domain counts them as fails of `ACC.exists`.
 - I4 and KPI 5 count a flagged vendor quote that another vendor backs as not agreed (a strict reading), while `PRC.vendors` counts a backed quote as cleared.
 - The Corporate actions domain score, its confirmed-only score and I3 measure different things: a confirmed or unresolved finding on an action fails it in the domain score; only a confirmed finding fails it in the confirmed-only score; only quarantine fails it in I3.
+
+## Stress test
+
+*From `outputs/03_stress_rates.csv`, `outputs/03_stress_impact.csv`, `outputs/03_stress_cases.csv`, `outputs/03_stress_changes.csv`, `outputs/03_stress_members.csv`, `outputs/03_stress_unexplained.csv`, `outputs/03_stress_run.csv`. Per-case rows, the member changes, the unexplained-change list and every fund stay in the CSVs.*
+
+- Stress checksum: `c1708712b53d`
+- Run: config `config/reconciliation.toml`, labels sha256 `c768055d64f3`, seed 20261111, finished at 2026-11-11T07:24:12Z
+
+| Role | Level | Cases | Share | Drawn | Wanted |
+|---|---|---|---|---|---|
+| defect | caught | 30 | 100.0% | 30 | 30 |
+| defect | partial | 0 | 0.0% | 30 | 30 |
+| defect | missed | 0 | 0.0% | 30 | 30 |
+| lookalike | cleared | 30 | 100.0% | 30 | 30 |
+| lookalike | review | 0 | 0.0% | 30 | 30 |
+| lookalike | false_positive | 0 | 0.0% | 30 | 30 |
+| flip | caught | 30 | 100.0% | 30 | 30 |
+| flip | partial | 0 | 0.0% | 30 | 30 |
+| flip | missed | 0 | 0.0% | 30 | 30 |
+
+Unexplained changes: 0 on untouched securities (false positive), 0 unattributable.
+
+| Role | Signed USD | Gross USD | Largest fund effect |
+|---|---|---|---|
+| defect | 44,964,714,009.51 | 228,350,996,563.36 | 77,906.75 bps (FND00384, SEC251679) |
+| flip | 42,209,582,613.17 | 175,414,399,263.69 | 64,683.81 bps (FND00061, SEC609018) |
+
+(defect: 6 case-fund rows not valued: no fund 6; totals add the amounts that exist.)
+
+(flip: 4 case-fund rows not valued: no fund 4; totals add the amounts that exist.)
+
+| Deliverable measure | Before | After |
+|---|---|---|
+| platform score | 81.62 | 81.58 |
+| Prices domain score | 94.22 | 93.97 |
+| KPI 5 value | 93.13 | 91.63 |
+| I4 value | 93.13 | 91.63 |
+| scale flag: financial_rows (upper bound) | 767 | 8022 |
+| scale flag: gross_delta_usd_valued_subset (upper bound) | none valued | 574,164,563,792.74 |
+
+| Role | Security | Bad vendor | Quotes before → after | Other vendors (unedited) | Verdict | Signed USD | Gross USD |
+|---|---|---|---|---|---|---|---|
+| lookalike | SEC135753 | VENDOR_B | VENDOR_B price 129.119 → 12911.900 | VENDOR_A=128.9403; VENDOR_C=128.957 | Scale flag: the chosen quote is backed by another vendor | 0.00 | 0.00 |
+| defect | SEC760983 | VENDOR_A | VENDOR_A price 288.3022 → 28830.2200 | VENDOR_B=288.4356; VENDOR_C=288.5227 | Scale flag: the chosen quote is the odd one out | 1,031,305,115.87 | 8,644,804,605.18 |
+
+Reading the numbers:
+
+- The look-alike's backup quote is still wrong; it is valid for NAV only.
+- The severity scale row values look-alikes too (neither vendor assumed correct), so it is an upper bound.
+- A limitation: a genuine 1:100 reverse split would show as a position break, because the rebuild does not apply corporate actions (D-016).
+- The rates hold for the sample drawn: held equities whose vendor check passes on the snapshot; they are not a general detection rate.
+- A rerun with another config may draw a different sample; compare rates, not per-case rows, across configs.
