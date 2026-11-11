@@ -1,12 +1,36 @@
 import path from "node:path";
 import { DuckDBInstance } from "@duckdb/node-api";
-import { test, expect, type Page } from "@playwright/test";
-import { WORST_ACCOUNTS, accountHref, fmtNumber, ruleHref, scenarioHref } from "../lib/executive";
+import { test, expect, type Locator, type Page } from "@playwright/test";
+import { WORST_ACCOUNTS, accountHref, fmtNumber, fmtUsdShort, ruleHref, scenarioHref } from "../lib/executive";
 
 // The fixture's CSV files (made up, tests/fixtures/small); the page must show what they hold.
 const FIXTURE = path.join(__dirname, "../../tests/runs/dashboard_browser_fixture");
 const SHOTS = "../tests/runs/dashboard_browser/shots";
 const runtimeErrors = new WeakMap<Page, string[]>();
+const domainOrder = ["Accounts", "Securities", "Trades", "Corporate Actions", "Positions", "Prices", "NAV"];
+
+async function expandRankedPreview(section: Locator, rowId: string, total: number) {
+  const rows = section.getByTestId(rowId);
+  await expect(rows).toHaveCount(Math.min(5, total));
+  if (total <= 5) {
+    await expect(section.getByRole("button", { name: /^Show \d+ more$/ })).toHaveCount(0);
+    return;
+  }
+  const firstLinks = await rows.getByRole("link").allTextContents();
+  const toggle = section.getByRole("button", { name: `Show ${total - 5} more`, exact: true });
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await toggle.press("Enter");
+  await expect(rows).toHaveCount(total);
+  expect((await rows.getByRole("link").allTextContents()).slice(0, firstLinks.length)).toEqual(firstLinks);
+  await expect(section.getByRole("button", { name: "Show fewer", exact: true })).toHaveAttribute("aria-expanded", "true");
+}
+
+async function collapseRankedPreview(section: Locator, rowId: string, total: number) {
+  if (total <= 5) return;
+  await section.getByRole("button", { name: "Show fewer", exact: true }).press("Space");
+  await expect(section.getByTestId(rowId)).toHaveCount(5);
+  await expect(section.getByRole("button", { name: `Show ${total - 5} more`, exact: true })).toBeFocused();
+}
 
 async function csv(file: string): Promise<Record<string, string>[]> {
   const instance = await DuckDBInstance.create(":memory:");
@@ -40,12 +64,43 @@ test("executive view shows the scorecard's own figures", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1, name: "Executive view" })).toBeVisible();
   const tile = page.getByTestId("tile-platform");
   await expect(tile.getByTestId("score")).toHaveText(platform.score);
+  const summary = tile.getByRole("button", { name: /Platform Score/ });
+  await expect(summary).toHaveAttribute("aria-expanded", "false");
+  await expect(tile.getByTestId("coverage")).toBeHidden();
+  await summary.press("Enter");
   await expect(tile.getByTestId("coverage")).toContainText(platform.coverage);
   await expect(tile.getByTestId("confirmed-only")).toContainText(platform.confirmed_only_score);
+  await summary.press("Space");
+  await expect(tile.getByTestId("coverage")).toBeHidden();
+
   const domains = (await csv("02_scorecard.csv")).filter((r) => r.level === "domain");
-  await expect(page.getByTestId("domain-row")).toHaveCount(domains.length);
-  for (const d of domains)
-    await expect(page.getByTestId("domain-row").filter({ hasText: d.domain }).getByTestId("score")).toHaveText(d.score);
+  const cards = page.getByTestId("domain-card");
+  await expect(cards).toHaveCount(domains.length);
+  await expect(cards.getByRole("link")).toHaveText(domainOrder);
+  for (const d of domains) {
+    const card = cards.filter({ has: page.getByRole("link", { name: new RegExp(`^${d.domain}$`, "i") }) });
+    await expect(card.getByTestId("score")).toHaveText(d.score);
+    await expect(card.getByText(d.score ? "No target" : "No score", { exact: true })).toBeVisible();
+  }
+  const accounts = cards.first();
+  const accountDetails = accounts.getByRole("button", { name: "Score details for Accounts" });
+  await accountDetails.press("Enter");
+  await expect(accounts.getByText("Confirmed-only score", { exact: true })).toBeVisible();
+  await expect(accounts.getByText(domains[0].owner, { exact: true })).toBeVisible();
+  await accountDetails.press("Space");
+  await expect(accountDetails).toHaveAttribute("aria-expanded", "false");
+
+  const rowWidths = await page.getByTestId("domain-top-row").evaluate((row) => {
+    const box = row.getBoundingClientRect();
+    const cards = Array.from(row.children, (card) => card.getBoundingClientRect());
+    return { left: cards[0].left - box.left, right: box.right - cards.at(-1)!.right, width: cards[0].width };
+  });
+  const bottomWidths = await page.getByTestId("domain-bottom-row").getByTestId("domain-card")
+    .evaluateAll((cards) => cards.map((card) => card.getBoundingClientRect().width));
+  expect(rowWidths.left).toBeGreaterThan(0);
+  expect(Math.abs(rowWidths.left - rowWidths.right)).toBeLessThan(1);
+  expect(bottomWidths).toHaveLength(4);
+  for (const width of bottomWidths) expect(Math.abs(width - rowWidths.width)).toBeLessThan(1);
   await page.screenshot({ path: `${SHOTS}/executive-light.png`, fullPage: true });
   await page.evaluate(() => localStorage.setItem("theme", "dark"));
   await page.addInitScript(() => localStorage.setItem("theme", "dark"));
@@ -54,26 +109,61 @@ test("executive view shows the scorecard's own figures", async ({ page }) => {
   await page.screenshot({ path: `${SHOTS}/executive-dark.png`, fullPage: true });
 });
 
+test("headline disclosures use the same historical indicator and impact results as the outputs", async ({ page }) => {
+  const indicators = (await csv("02_indicators.csv")).filter((i) => i.type === "Leading" && i.status === "computed");
+  const breaching = indicators.filter((i) => Number(i.breaches) > 0);
+  const dates = (await csv("02_indicator_series.csv")).filter((s) => indicators.some((i) => i.id === s.id))
+    .map((s) => s.start).filter(Boolean).sort();
+  const scenario = (await csv("02_severity.csv")).filter((s) => Number(s.financial_rows) && Number(s.gross_delta_usd_valued_subset) > 0)
+    .sort((a, b) => Number(b.gross_delta_usd_valued_subset) - Number(a.gross_delta_usd_valued_subset) || a.scenario.localeCompare(b.scenario, "en"))[0];
+  await page.goto("/executive");
+  const impact = page.getByTestId("tile-impact");
+  const impactTrigger = impact.getByRole("button", { name: /Largest Impact Scenario/ });
+  await expect(impactTrigger).toContainText(fmtUsdShort(Number(scenario.gross_delta_usd_valued_subset)));
+  await impactTrigger.press("Enter");
+  await expect(impact.getByText("Share of rows priced")).toBeVisible();
+  await expect(impact.getByRole("link", { name: "View scenario details" })).toHaveAttribute("href", scenarioHref(scenario.scenario));
+  await impactTrigger.press("Space");
+
+  const leading = page.getByTestId("tile-leading");
+  const leadingTrigger = leading.getByRole("button", { name: /Leading Indicators/ });
+  await expect(leadingTrigger).toContainText(`${breaching.length} of ${indicators.length}`);
+  await leadingTrigger.press("Enter");
+  await expect(leading.getByRole("listitem")).toHaveCount(indicators.length);
+  await expect(leading.getByRole("listitem").getByText("Recorded a breach", { exact: true })).toHaveCount(breaching.length);
+  await expect(leading.getByText(dates[0], { exact: true })).toBeVisible();
+  await expect(leading.getByText(dates.at(-1)!, { exact: true })).toBeVisible();
+  await leading.getByRole("link", { name: indicators[0].indicator, exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`#indicator-${indicators[0].id}$`));
+});
+
 test("indicators, KPIs and worst accounts are listed, blanks stay blanks", async ({ page }) => {
   const indicators = await csv("02_indicators.csv");
   await page.goto("/executive");
   for (const i of indicators) await expect(page.getByTestId(`indicator-${i.id}`)).toBeVisible();
   const proposed = indicators.find((i) => i.status === "proposed")!;
-  await expect(page.getByTestId(`indicator-${proposed.id}`)).toContainText("Proposed");
+  const proposedCard = page.getByTestId(`indicator-${proposed.id}`);
+  await expect(proposedCard).toContainText("Proposed");
+  await expect(proposedCard.getByText("Data needed")).toBeHidden();
+  const details = proposedCard.getByRole("button", { name: /Indicator details/ });
+  await details.press("Space");
+  await expect(proposedCard.getByText("Data needed")).toBeVisible();
   await expect(page.getByText("not computed").first()).toBeVisible(); // KPI 7
   const accounts = await csv("02_scorecard_accounts.csv");
   const worst = accounts.find((r) => r.rank === "1")!;
   await expect(page.getByRole("link", { name: worst.account_id })).toBeVisible();
   await expect(page.locator("main")).not.toContainText("NaN");
-  // Worst accounts sit under "Where is the platform degrading?", and each domain score comes with its coverage.
   await expect(page.locator("#degrading").getByTestId("worst-accounts")).toBeVisible();
   const shown = accounts.filter((a) => a.rank !== null && Number(a.rank) <= WORST_ACCOUNTS);
+  const list = page.getByTestId("worst-accounts");
+  await expandRankedPreview(list, "worst-account-row", shown.length);
   const cell = shown.flatMap((a) => Object.keys(a)
     .filter((c) => c.endsWith(" coverage") && a[c] !== null && a[c] !== a[`${c.slice(0, -" coverage".length)} score`])
     .map((c) => ({ account: a.account_id, domain: c.slice(0, -" coverage".length), coverage: a[c] })))[0];
   expect(cell, "the fixture has a worst account whose domain coverage differs from its score").toBeDefined();
   const row = page.getByTestId("worst-account-row").filter({ has: page.getByRole("link", { name: cell.account, exact: true }) });
   await expect(row.locator(`[data-domain="${cell.domain}"]`)).toContainText(`coverage ${cell.coverage}`);
+  await collapseRankedPreview(list, "worst-account-row", shown.length);
 });
 
 test("the sidebar opens the executive view", async ({ page }) => {
@@ -101,6 +191,7 @@ test("narrow screen: no page scrolls sideways", async ({ page }) => {
     const frame = page.getByTestId("page-frame");
     const widths = await frame.evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth }));
     expect(widths.scroll, `${url} scrolls sideways`).toBeLessThanOrEqual(widths.client);
+    if (url === "/executive") await expect(page.getByTestId("domain-card").getByRole("link")).toHaveText(domainOrder);
     await page.screenshot({ path: `${SHOTS}/${shot}.png`, fullPage: true });
   }
 });
@@ -109,19 +200,22 @@ test("fix first: lowest score on top, and the switch shows dollars", async ({ pa
   const rules = (await csv("02_scorecard.csv")).filter((r) => r.level === "rule");
   const lowest = Math.min(...rules.map((r) => Number(r.score)));
   await page.goto("/executive");
-  await expect(page.getByTestId("rule-row")).toHaveCount(rules.length);
+  const list = page.locator("#fix-first");
+  await expandRankedPreview(list, "rule-row", rules.length);
   await expect(page.getByTestId("rule-row").first().getByTestId("score")).toHaveText(lowest.toFixed(2));
+  await collapseRankedPreview(list, "rule-row", rules.length);
   await page.locator("#fix-first").scrollIntoViewIfNeeded();
   await page.screenshot({ path: `${SHOTS}/fix-first-score.png`, fullPage: true });
   await page.getByRole("tab", { name: "By dollar impact" }).click();
   await expect(page).toHaveURL(/by=dollars/);
   const severity = await csv("02_severity.csv");
-  await expect(page.getByTestId("scenario-row")).toHaveCount(severity.length);
+  await expandRankedPreview(list, "scenario-row", severity.length);
   const empty = severity.filter((r) => Number(r.financial_rows) === 0).length;
   const unknown = severity.filter((r) => Number(r.financial_rows) > 0 && r.gross_delta_usd_valued_subset === "").length;
   await expect(page.getByRole("heading", { name: "No records in this run" })).toHaveCount(empty ? 1 : 0);
   await expect(page.getByRole("heading", { name: "Not priced: unknown, not zero" })).toHaveCount(unknown ? 1 : 0);
   await expect(page.getByText("do not add them up")).toBeVisible();
+  await collapseRankedPreview(list, "scenario-row", severity.length);
   await page.locator("#fix-first").scrollIntoViewIfNeeded();
   await page.screenshot({ path: `${SHOTS}/fix-first-dollars.png`, fullPage: true });
 });
@@ -129,16 +223,17 @@ test("fix first: lowest score on top, and the switch shows dollars", async ({ pa
 test("fix first: a domain filters the list, a header re-sorts it", async ({ page }) => {
   const rules = (await csv("02_scorecard.csv")).filter((r) => r.level === "rule");
   await page.goto("/executive");
-  await page.getByTestId("domain-row").filter({ hasText: "Trades" }).getByRole("link", { name: "Trades" }).click();
+  await page.getByTestId("domain-card").getByRole("link", { name: "Trades", exact: true }).click();
   await expect(page).toHaveURL(/domain=Trades#fix-first/);
-  await expect(page.getByTestId("rule-row")).toHaveCount(rules.filter((r) => r.domain === "Trades").length);
+  await expect(page.getByTestId("rule-row")).toHaveCount(Math.min(5, rules.filter((r) => r.domain === "Trades").length));
   await page.getByRole("link", { name: "Show all domains" }).click();
   // The reader stays at the list, not at the top of the page.
   await expect(page).toHaveURL(/\/executive#fix-first$/);
-  await expect(page.getByTestId("rule-row")).toHaveCount(rules.length);
+  await expect(page.getByTestId("rule-row")).toHaveCount(Math.min(5, rules.length));
   await expect(page.locator("#fix-first")).toBeInViewport();
-  await page.getByRole("button", { name: "Score" }).click();
-  await page.getByRole("button", { name: "Score" }).click();
+  const scoreSort = page.locator("#fix-first").getByRole("button", { name: "Score", exact: true });
+  await scoreSort.click();
+  await scoreSort.click();
   const highest = Math.max(...rules.map((r) => Number(r.score)));
   await expect(page.getByTestId("rule-row").first().getByTestId("score")).toHaveText(highest.toFixed(2));
 });
@@ -174,6 +269,7 @@ test("fix first: a rule with several tests names the test on each what-failed li
   const one = unique.find((r) => testsOf(r).length === 1)!;
   expect(several && one, "the fixture has a rule with several tests and one with one").toBeTruthy();
   await page.goto("/executive");
+  await expandRankedPreview(page.locator("#fix-first"), "rule-row", rules.length);
   const lines = (r: Record<string, string>) => page.getByTestId("rule-row")
     .filter({ has: page.getByText(r.rule, { exact: true }) }).getByTestId("what-failed").locator("div");
   const ids = testsOf(several).map((t) => t.test).sort();
@@ -255,7 +351,14 @@ test("drill-down: a scenario lists its keys with dollars, and one opens in the t
     .sort((a, b) => Number(b.gross_delta_usd_valued_subset) - Number(a.gross_delta_usd_valued_subset))[0];
   const detail = (await csv("02_impact_detail.csv")).filter((r) => r.scenario === top.scenario);
   await page.goto("/executive?by=dollars");
-  await page.getByTestId("scenario-row").first().getByRole("link").first().click();
+  const first = page.getByTestId("scenario-row").first();
+  const description = first.getByRole("button", { name: `Description for ${top.scenario}`, exact: true });
+  await expect(first.getByText(top.interpretation, { exact: true })).toBeHidden();
+  await description.press("Enter");
+  await expect(first.getByText(top.interpretation, { exact: true })).toBeVisible();
+  await description.press("Space");
+  await expect(first.getByText(top.interpretation, { exact: true })).toBeHidden();
+  await first.getByRole("link").click();
   await expect(page.getByRole("heading", { level: 1, name: top.scenario })).toBeVisible();
   await expect(page.getByTestId("impact-row")).toHaveCount(detail.length);
   // A change in units as stored, never rounded to whole units.

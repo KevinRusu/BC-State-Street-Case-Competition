@@ -26,7 +26,7 @@ export default function ExecutivePage({ searchParams }: Props) {
 }
 
 function Heading({ children }: { children: React.ReactNode }) {
-  return <h2 className="text-base font-semibold">{children}</h2>;
+  return <h2 className="text-lg font-semibold tracking-tight">{children}</h2>;
 }
 
 async function ExecutiveContent({ searchParams }: Props) {
@@ -39,14 +39,11 @@ async function ExecutiveContent({ searchParams }: Props) {
   const data = result.data;
   const missing = (p: (typeof data.missing)[number]) => data.missing.includes(p);
   return (
-    <PageFrame>
-        <div>
-          <h1 className="text-lg font-semibold">Executive view</h1>
-          <p className="text-sm text-muted-foreground">Scores, cost and what to fix first, from the deliverable&apos;s own outputs.</p>
-        </div>
+    <PageFrame spacing="space-y-7 md:space-y-9">
+        <h1 className="text-2xl font-semibold tracking-tight">Executive view</h1>
         <HeadlineTiles data={data} />
-        <section id="degrading" className="space-y-4">
-          <Heading>Where is the platform degrading?</Heading>
+        <section id="degrading" className="space-y-5">
+          <Heading>Platform Degradation</Heading>
           <div className="space-y-2">
             <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Domains</h3>
             {missing("scorecard") ? <PartMissing part="scorecard" /> : <DomainScores domains={data.domains} />}
@@ -56,23 +53,23 @@ async function ExecutiveContent({ searchParams }: Props) {
             {missing("indicators") ? <PartMissing part="indicators" /> : <IndicatorCards indicators={data.indicators} />}
           </div>
           <div className="space-y-2">
-            <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">KPIs by office</h3>
+            <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">KPIs by Office</h3>
             {missing("kpis") ? <PartMissing part="kpis" /> : <KpiTable kpis={data.kpis} />}
           </div>
           <div className="space-y-2" data-testid="worst-accounts">
-            <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Worst accounts</h3>
+            <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Worst Accounts</h3>
             {missing("accounts") ? <PartMissing part="accounts" /> : <WorstAccounts worst={data.worst} />}
           </div>
         </section>
-        <section id="fix-first" className="space-y-4">
-          <Heading>What should we fix first?</Heading>
+        <section id="fix-first" className="space-y-4 border-t pt-5">
+          <Heading>Platform Repair Triage</Heading>
           <FixFirst
             rules={data.rules} scenarios={data.scenarios} by={by} domain={domain}
             impactMissing={missing("impact")} scorecardMissing={missing("scorecard")}
           />
         </section>
-        <section id="trust" className="space-y-4">
-          <Heading>Can we trust these numbers?</Heading>
+        <section id="trust" className="space-y-4 border-t pt-5">
+          <Heading>Data Integrity Status</Heading>
           <TrustSection
             stress={data.stress} sensitivity={data.sensitivity} platformScore={data.platform?.score ?? null}
             missing={data.missing}

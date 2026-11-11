@@ -1,19 +1,27 @@
 import { sparkline } from "@/lib/executive";
 import type { SeriesPoint } from "@/lib/executive-types";
 
-const W = 120;
-const H = 28;
+const WIDTH = 256;
+const HEIGHT = 62;
 
-/** A tiny trend line; breach points are marked in the red tone. Nothing is drawn without two valued points. */
 export function Sparkline({ points, label }: { points: SeriesPoint[]; label: string }) {
-  const line = sparkline(points, W, H);
+  const line = sparkline(points, WIDTH, HEIGHT);
   if (!line) return null;
+  const dates = points.filter((p) => p.value !== null).map((p) => p.start);
+
   return (
-    <svg role="img" aria-label={label} width={W} height={H} viewBox={`-3 -3 ${W + 6} ${H + 6}`} className="shrink-0 overflow-visible text-muted-foreground">
-      <path d={line.path} fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
-      {line.marks.map((m, i) => (
-        <circle key={i} cx={m.x} cy={m.y} r={2.5} fill="var(--status-bad)" stroke="var(--background)" strokeWidth={1} />
-      ))}
-    </svg>
+    <>
+      <svg role="img" aria-label={label} viewBox={`-4 -4 ${WIDTH + 8} ${HEIGHT + 8}`} className="block h-auto w-full text-brand-line">
+        <path d={`M0 0 H${WIDTH} M0 ${HEIGHT / 2} H${WIDTH} M0 ${HEIGHT} H${WIDTH}`} fill="none" stroke="var(--border)" />
+        <path d={line.path} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+        {line.marks.map((mark) => (
+          <circle key={mark.x} cx={mark.x} cy={mark.y} r={2.5} fill="var(--status-bad)" stroke="var(--background)" strokeWidth={0.75} />
+        ))}
+      </svg>
+      <div className="flex flex-wrap justify-between gap-x-2 text-[10px] tabular-nums text-muted-foreground">
+        <time dateTime={dates[0]}>{dates[0]}</time>
+        <time dateTime={dates.at(-1)}>{dates.at(-1)}</time>
+      </div>
+    </>
   );
 }

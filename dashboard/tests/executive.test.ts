@@ -2,7 +2,7 @@
 import { describe, expect, test } from "vitest";
 import type { Indicator, IndicatorSeries, RuleScore, Scenario, SeriesPoint, Stress } from "@/lib/executive-types";
 import {
-  BLANK, PAGE_SIZE, RESULTS, RESULT_TONE, RUN_FACTS, WORST_ACCOUNTS, accountHref, defaultRuleOrder, drawable,
+  BLANK, PAGE_SIZE, RESULTS, RESULT_TONE, RUN_FACTS, WORST_ACCOUNTS, accountHref, defaultRuleOrder, domainTargetStatus, drawable,
   executiveHref, fmtBps, fmtCount, fmtNumber, fmtScore, fmtShare, fmtUsd, fmtUsdShort, fmtValue, impactTraceTarget, largestScenario, leadingBreaches,
   noTraceReason, parsePage, parseResult, resultOf, ruleHref, scenarioHref, sortRules, sparkline, splitScenarios,
   stressState, traceHref, traceTarget,
@@ -283,8 +283,23 @@ describe("scenarios", () => {
   });
 });
 
+describe("domain score targets", () => {
+  test.each([
+    [99, 98, 98, "ok"],
+    [98, 98, 98, "ok"],
+    [97, 98, 98, "warn"],
+    [96.99, 98, 98, "bad"],
+    [98, null, null, null],
+    [null, 98, 98, null],
+    [98, 101, null, null],
+    [98, Number.NaN, null, null],
+  ])("score %s with minimum %s has target %s and tone %s", (score, minimum, target, tone) => {
+    expect(domainTargetStatus(score, minimum)).toEqual({ target, tone });
+  });
+});
+
 describe("leading indicators", () => {
-  test("only computed leading indicators count; earliest is the smallest first breach", () => {
+  test("the headline and detail entries use historical breaches for computed leading indicators", () => {
     const list = [
       indicator("I1", "Leading", "computed", 3, "2026-07-02"),
       indicator("I2", "Leading", "computed", 0, ""),
@@ -293,11 +308,21 @@ describe("leading indicators", () => {
       indicator("I5", "Leading", "proposed", 4, "2026-01-01"),
       indicator("I6", "Lagging", "computed", 2, "2026-01-02"),
     ];
-    expect(leadingBreaches(list)).toEqual({ breaching: 2, computed: 4, earliest: "2026-06-20" });
+    list[0].series = [{ key: "all", period: "day", points: [
+      { ...pt(1), start: "2026-06-01", breach: true },
+      { ...pt(0), start: "2026-07-10", breach: false },
+    ] }];
+    list[4].series = [{ key: "all", period: "day", points: [{ ...pt(1), start: "2026-01-01" }] }];
+    const summary = leadingBreaches(list);
+    expect(summary).toMatchObject({ breaching: 2, computed: 4, start: "2026-06-01", end: "2026-07-10" });
+    expect(summary.entries.map(({ indicator, recordedBreach }) => [indicator.id, recordedBreach])).toEqual([
+      ["I1", true], ["I2", false], ["I3", true], ["I4", false],
+    ]);
   });
-  test("no breach gives an empty earliest date", () => {
-    expect(leadingBreaches([indicator("I1", "Leading", "computed", 0, "")])).toEqual({ breaching: 0, computed: 1, earliest: "" });
-    expect(leadingBreaches([])).toEqual({ breaching: 0, computed: 0, earliest: "" });
+  test("no series leaves the reporting dates unavailable", () => {
+    expect(leadingBreaches([indicator("I1", "Leading", "computed", 0, "")]))
+      .toMatchObject({ breaching: 0, computed: 1, start: "", end: "" });
+    expect(leadingBreaches([])).toEqual({ entries: [], breaching: 0, computed: 0, start: "", end: "" });
   });
 });
 

@@ -104,7 +104,9 @@ describe("scorecard", () => {
     const domains = await csv("02_scorecard.csv", "WHERE level = 'domain'");
     expect(exec.domains.map((d) => d.domain)).toEqual(domains.map((r) => r.domain));
     for (const r of domains) {
-      expect(exec.domains.find((d) => d.domain === r.domain), r.domain!).toEqual({ domain: r.domain, owner: r.owner ?? "", ...trio(r) });
+      expect(exec.domains.find((d) => d.domain === r.domain), r.domain!).toEqual({
+        domain: r.domain, owner: r.owner ?? "", target: n(r.target), ...trio(r),
+      });
     }
 
     const rules = await csv("02_scorecard.csv", "WHERE level = 'rule'");
@@ -122,6 +124,16 @@ describe("scorecard", () => {
       })));
     }
     expect(exec.missing).toEqual([]);
+  });
+
+  test("a domain target comes from its scorecard row", async () => {
+    const file = await copyStore("domain-target.duckdb", async (con) => {
+      await con.run("ALTER TABLE scorecard ADD COLUMN target DOUBLE");
+      await con.run("UPDATE scorecard SET target = 98 WHERE level = 'domain' AND domain = 'Accounts'");
+    });
+    const { domains } = await onStore(file, getExecutive);
+    expect(domains.find((d) => d.domain === "Accounts")?.target).toBe(98);
+    expect(domains.find((d) => d.domain === "Prices")?.target).toBeNull();
   });
 
   test("a rule has its plain name, what it tests and its on-fail action", async () => {

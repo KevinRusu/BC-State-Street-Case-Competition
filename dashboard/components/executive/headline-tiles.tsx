@@ -1,65 +1,118 @@
+import { ChevronDown } from "lucide-react";
 import Link from "next/link";
-import { Pill } from "@/components/common";
-import { fmtCount, fmtShare, fmtUsd, fmtUsdShort, largestScenario, leadingBreaches, scenarioHref } from "@/lib/executive";
+import { Metric, RegisterStatus } from "@/components/common";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { BLANK, fmtCount, fmtScore, fmtShare, fmtUsd, fmtUsdShort, largestScenario, leadingBreaches, scenarioHref } from "@/lib/executive";
 import type { ExecutiveData } from "@/lib/executive-types";
-import { REGISTER_STATUS } from "@/lib/status";
 import { PartMissing } from "./part-missing";
-import { ScoreTrio } from "./score-trio";
 
-const TILE = "min-w-0 rounded-2xl bg-block px-4 py-3 space-y-1.5";
-const LABEL = "text-xs font-semibold tracking-wide text-muted-foreground uppercase";
+function HeadlineCard({ id, title, value, caption, children }: {
+  id: string; title: string; value: React.ReactNode; caption?: React.ReactNode; children: React.ReactNode;
+}) {
+  const captionId = `${id}-caption`;
+  return (
+    <div className="min-w-0">
+      <Collapsible data-testid={id} className="rounded-2xl border bg-block">
+        <CollapsibleTrigger
+          aria-describedby={caption ? captionId : undefined}
+          className="group flex min-h-28 w-full flex-col items-start justify-between gap-3 rounded-2xl px-5 py-4 text-left hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring @min-[44rem]:min-h-36"
+        >
+          <span className="flex w-full items-center justify-between gap-2 text-sm font-semibold">
+            {title}
+            <span className="grid size-7 shrink-0 place-items-center rounded-full border bg-background text-brand-line">
+              <ChevronDown aria-hidden className="size-4 transition-transform group-data-[panel-open]:rotate-180 motion-reduce:transition-none" />
+            </span>
+          </span>
+          <span className="font-sans text-[clamp(2.625rem,6cqi,3.75rem)] leading-none font-semibold tracking-[-0.055em] tabular-nums">
+            {value}
+          </span>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-2 border-t px-5 py-4">
+          {children}
+        </CollapsibleContent>
+      </Collapsible>
+      {caption && <div id={captionId} className="mt-2 px-1 text-xs leading-relaxed text-muted-foreground">{caption}</div>}
+    </div>
+  );
+}
 
-/** Three tiles: the platform score, the largest impact scenario (never a total) and the leading indicators. */
 export function HeadlineTiles({ data }: { data: ExecutiveData }) {
-  const missing = (p: Parameters<typeof PartMissing>[0]["part"]) => data.missing.includes(p);
   const scenario = largestScenario(data.scenarios);
   const leading = leadingBreaches(data.indicators);
+  const missingScore = data.missing.includes("scorecard");
+  const missingImpact = data.missing.includes("impact");
+  const missingIndicators = data.missing.includes("indicators");
   return (
-    <div className="grid gap-3 md:grid-cols-3">
-      <div data-testid="tile-platform" className={TILE}>
-        <div className={LABEL}>Platform score</div>
-        {missing("scorecard") ? (
-          <PartMissing part="scorecard" />
-        ) : (
-          <ScoreTrio trio={data.platform ?? { score: null, coverage: null, confirmedOnly: null }} size="lg" />
-        )}
-      </div>
-      <div data-testid="tile-impact" className={TILE}>
-        <div className={LABEL}>Largest impact scenario</div>
-        {missing("impact") ? (
-          <PartMissing part="impact" />
-        ) : scenario ? (
-          <>
-            <div className="font-mono text-3xl font-semibold tabular-nums" title={fmtUsd(scenario.grossUsd)}>
-              {fmtUsdShort(scenario.grossUsd)}
-            </div>
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              <Link href={scenarioHref(scenario.scenario)} className="text-brand-line underline-offset-2 hover:underline">
-                {scenario.scenario}
+    <div className="@container">
+      <div className="grid items-start gap-4 @min-[44rem]:grid-cols-3">
+        <HeadlineCard
+          id="tile-platform"
+          title="Platform Score"
+          value={<span data-testid="score">{fmtScore(data.platform?.score ?? null)}</span>}
+        >
+          {missingScore ? <PartMissing part="scorecard" /> : (
+            <>
+              <div data-testid="coverage"><Metric label="Coverage" value={fmtScore(data.platform?.coverage ?? null)} /></div>
+              <div data-testid="confirmed-only"><Metric label="Confirmed-only score" value={fmtScore(data.platform?.confirmedOnly ?? null)} /></div>
+            </>
+          )}
+        </HeadlineCard>
+        <HeadlineCard
+          id="tile-impact"
+          title="Largest Impact Scenario"
+          value={<span title={scenario ? fmtUsd(scenario.grossUsd) : undefined}>{scenario ? fmtUsdShort(scenario.grossUsd) : BLANK}</span>}
+          caption={scenario && (
+            <>
+              <p className="font-medium">{scenario.scenario}</p>
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span>Gross estimate for one scenario</span>
+                <RegisterStatus status={scenario.evidence} />
+              </div>
+            </>
+          )}
+        >
+          {missingImpact ? <PartMissing part="impact" /> : scenario ? (
+            <>
+              <Metric label="Share of rows priced" value={fmtShare(scenario.valuationCoverage)} />
+              <Link href={scenarioHref(scenario.scenario)} className="text-sm font-medium text-brand-line underline-offset-2 hover:underline">
+                View scenario details
               </Link>
-              <Pill tone={REGISTER_STATUS[scenario.evidence] ?? "info"}>{scenario.evidence}</Pill>
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {fmtShare(scenario.valuationCoverage)} of rows priced · one scenario, not a total
-            </div>
-          </>
-        ) : (
-          <div className="text-sm text-muted-foreground">No scenario is priced in this run.</div>
-        )}
-      </div>
-      <div data-testid="tile-leading" className={TILE}>
-        <div className={LABEL}>Leading indicators</div>
-        {missing("indicators") ? (
-          <PartMissing part="indicators" />
-        ) : (
-          <>
-            <div className="font-mono text-3xl font-semibold tabular-nums">
-              {fmtCount(leading.breaching)} <span className="text-base font-normal text-muted-foreground">of {fmtCount(leading.computed)}</span>
-            </div>
-            <div className="text-sm">{leading.breaching === 1 ? "indicator is" : "indicators are"} breaching</div>
-            {leading.earliest !== "" && <div className="text-xs text-muted-foreground">first breach {leading.earliest}</div>}
-          </>
-        )}
+            </>
+          ) : <p className="text-sm text-muted-foreground">No scenario is priced in this run.</p>}
+        </HeadlineCard>
+        <HeadlineCard
+          id="tile-leading"
+          title="Leading Indicators"
+          value={missingIndicators ? BLANK : `${fmtCount(leading.breaching)} of ${fmtCount(leading.computed)}`}
+          caption={!missingIndicators && leading.computed > 0 && "Recorded a breach during the reporting period"}
+        >
+          {missingIndicators ? <PartMissing part="indicators" /> : (
+            <>
+              <p className="text-xs text-muted-foreground">
+                Reporting period {leading.start ? (
+                  <>
+                    <time dateTime={leading.start}>{leading.start}</time>
+                    {leading.start !== leading.end && <> to <time dateTime={leading.end}>{leading.end}</time></>}
+                  </>
+                ) : "unavailable"}
+              </p>
+              {leading.entries.length === 0 ? <p className="text-sm text-muted-foreground">No computed leading indicators.</p> : (
+                <ul className="space-y-2 text-sm">
+                  {leading.entries.map(({ indicator, recordedBreach }) => (
+                    <li key={indicator.id} className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+                      <Link href={`#indicator-${indicator.id}`} className="font-medium text-brand-line underline-offset-2 hover:underline">
+                        {indicator.name}
+                      </Link>
+                      <span className="text-xs text-muted-foreground">
+                        {recordedBreach ? "Recorded a breach" : indicator.breaches === null ? "Breach count unavailable" : "No breach recorded"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </HeadlineCard>
       </div>
     </div>
   );
