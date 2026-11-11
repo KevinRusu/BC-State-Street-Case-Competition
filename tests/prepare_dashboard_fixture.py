@@ -44,6 +44,8 @@ def main():
     except BaseException:
         print(log_path.read_text(encoding="utf-8")[-8000:], file=sys.stderr)
         raise
+    from stress_fixture import write as write_stress_files   # made up: the fixture has no stress run
+    write_stress_files(output)
     subprocess.run([sys.executable, "-X", "utf8", str(ROOT / "scripts/build_store.py")], check=True)
     # Include additional genuine register examples so this tiny fixture exercises the expanded story list.
     # The production builder's first-example policy and finding counts remain unchanged.

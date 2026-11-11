@@ -841,6 +841,26 @@ expect('accounts: FXACC8 in the master with no records -> blank score and covera
        tuple(acc.loc['FXACC8', c] for c in ['in_account_master', 'score', 'coverage', 'rank']))
 expect('accounts: NAV beside, never a score column', (False, True),
        ('NAV score' in acc.columns, 'fund_nav_result' in acc.columns))
+ao = read('score', '02_account_outcomes.csv')
+oc = read('score', '02_score_outcomes.csv')
+expect('account outcomes: columns',
+       ['account_id', 'domain', 'rule', 'test', 'unit_kind', 'record_id', 'holding', 'security_id', 'outcome',
+        'confirmed_only_outcome', 'line'], list(ao.columns))
+expect('account outcomes: no plain pass row', False,
+       ((ao['outcome'] == 'pass') & (ao['confirmed_only_outcome'] == 'pass')).any())
+own = ['test', 'record_id', 'account_id', 'outcome', 'confirmed_only_outcome', 'line']
+expect('account outcomes: every score outcome that names an account is there as an own unit (holding blank)',
+       set(map(tuple, oc.loc[oc['account_id'] != '', own].values)),
+       set(map(tuple, ao.loc[ao['holding'] == '', own].values)))
+inherited = ao[ao['holding'] != '']
+expect('account outcomes: inherited rows come only from security and action tests', True,
+       set(inherited['unit_kind']) <= {'security', 'action'})
+expect('account outcomes: FXACC1 inherits the unquoted FXSEC9 through its snapshot position FXSP9', True,
+       ((inherited['account_id'] == 'FXACC1') & (inherited['record_id'] == 'FXSEC9')
+        & (inherited['holding'] == 'FXSP9') & (inherited['security_id'] == 'FXSEC9')).any())
+expect('account outcomes: an action reaches its holder key', True,
+       ((inherited['unit_kind'] == 'action') & inherited['holding'].str.contains('/')).any())
+expect('account outcomes: sorted', True, ao.equals(ao.sort_values(list(ao.columns)).reset_index(drop=True)))
 
 # Sensitivity (section 12c): three variants against the main score.
 for run in ['default', 'score']:

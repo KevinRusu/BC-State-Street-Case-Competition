@@ -1,5 +1,6 @@
-// Every read of outputs/store.duckdb lives here (read-only; all values bound as parameters).
-// Plain Node: no Next.js imports, so the tests can call it directly. Pages go through lib/data.ts.
+// Every read of outputs/store.duckdb lives here and in lib/executive-store.ts, which uses the helpers exported below
+// (read-only; all values bound as parameters). Plain Node: no Next.js imports, so the tests can call it directly.
+// Pages go through lib/data.ts.
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -31,7 +32,7 @@ const cache = globalThis as unknown as { __dataMapStore?: Open };
  * awaits between the check and the swap, so requests that arrive together share one new instance. The old one is
  * never closed: a request may still be connecting to it, and DuckDB frees it once its last connection is closed and
  * it is garbage-collected. */
-async function connect(): Promise<DuckDBConnection> {
+export async function connect(): Promise<DuckDBConnection> {
   const file = storePath();
   let mtimeMs: number;
   try {
@@ -53,13 +54,13 @@ async function connect(): Promise<DuckDBConnection> {
 
 type Raw = Record<string, unknown>;
 
-async function rows(con: DuckDBConnection, sql: string, params: DuckDBValue[] = []): Promise<Raw[]> {
+export async function rows(con: DuckDBConnection, sql: string, params: DuckDBValue[] = []): Promise<Raw[]> {
   const reader = await con.runAndReadAll(sql, params);
   return reader.getRowObjectsJson() as Raw[];
 }
 
 const num = (v: unknown) => (v === null || v === undefined || v === "" ? 0 : Number(v));
-const text = (v: unknown) => (v === null || v === undefined ? "" : String(v));
+export const text = (v: unknown) => (v === null || v === undefined ? "" : String(v));
 const STATUS_ORDER: Status[] = ["orphans", "fan_out", "blank_keys", "ok", "info"];
 
 /** Whether the register a store copied is still the one on disk: same short checksum as scripts/build_findings.py
@@ -97,11 +98,11 @@ function toInfo(r: Raw): StoreInfo {
   };
 }
 
-async function hasTable(con: DuckDBConnection, table: string): Promise<boolean> {
+export async function hasTable(con: DuckDBConnection, table: string): Promise<boolean> {
   return (await rows(con, "SELECT 1 FROM information_schema.tables WHERE table_name = $1", [table])).length > 0;
 }
 
-async function hasColumn(con: DuckDBConnection, table: string, column: string): Promise<boolean> {
+export async function hasColumn(con: DuckDBConnection, table: string, column: string): Promise<boolean> {
   return (await rows(con,
     "SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2", [table, column])).length > 0;
 }

@@ -2,7 +2,7 @@
 
 A local web app for the team: how the ten tables join, where the raw keys break, which checks watch each handoff,
 and what happens to one record as it moves from capture to NAV. It is the first page of the final dashboard
-(brief §5, Dashboard); the executive view and monitoring come later on the same foundation.
+(brief §5, Dashboard); the [executive view](#executive-view) is on the same foundation; monitoring comes later.
 
 **Confidential data.** The app serves the raw tables. It listens on `127.0.0.1` only. Never deploy it or put
 `outputs/store.duckdb` anywhere public.
@@ -122,6 +122,72 @@ In a record trace, click a traced map box to open or close its matching steps; m
 a group. Map buttons and timeline headers share expansion state, including keyboard activation. Context-only boxes
 have no matching step and are disabled. Changing records restores the normal finding-based default expansions.
 
+## Executive view
+
+`/executive` is the page for someone who wants the state of the platform without opening a trace. It shows only
+values the store holds: it adds nothing up and computes no new score. It answers three questions, top to bottom.
+
+**Headline tiles.** Three tiles:
+
+- Platform score, with its coverage and its confirmed-only score beside it, from `scorecard`
+  (`outputs/02_scorecard.csv`).
+- Largest impact scenario: the priced scenario with the largest gross dollar figure, with its share of rows priced
+  and its evidence status, from `severity` (`outputs/02_severity.csv`). It is one scenario, never a total.
+- Leading indicators: how many of the computed leading indicators breach their threshold, out of how many, and the
+  earliest first breach, from `indicators` (`outputs/02_indicators.csv`).
+
+**Where is the platform degrading?**
+
+- Domains: score, coverage and confirmed-only score per domain, with a bar as long as the score, from `scorecard`.
+  A domain's name opens the fix-first list filtered to that domain.
+- Indicators: a card per indicator with its series and look-back, from `indicators`, `indicator_series` and
+  `indicator_lookback` (`outputs/02_indicators.csv`, `outputs/02_indicator_series.csv`,
+  `outputs/02_indicator_lookback.csv`).
+- KPIs by office: from `kpis` (`outputs/02_kpis.csv`); a row's formula is its tooltip.
+- Worst accounts: the lowest-ranked accounts with their score, coverage and confirmed-only score, and each domain's
+  score with its coverage under it (an account's domain scores have no confirmed-only score), from
+  `scorecard_accounts` (`outputs/02_scorecard_accounts.csv`). A lookup opens any account by its ID.
+
+**What should we fix first?**
+
+- Rules and impact scenarios, ranked by score or by dollars (the switch is the `by` address parameter). A rule shows
+  its plain name from `scripts/plain_language.json` (here and on the rule page); its units come from
+  `score_outcomes` (`outputs/02_score_outcomes.csv`). Scenarios come from `severity` and their keys from
+  `impact_detail` (`outputs/02_impact_detail.csv`).
+
+**Can we trust these numbers?**
+
+- Stress test: the planted-defect, look-alike and priority-flip rates, the before and after measures and the run
+  facts, from `stress_rates`, `stress_impact` and `stress_run` (`outputs/03_stress_rates.csv`,
+  `outputs/03_stress_impact.csv`, `outputs/03_stress_run.csv`). The rates hold only for the sample drawn. This part
+  needs `tests/stress_test.sh` to have been run, then a rebuilt store; without it the page says the test has not
+  been run. If the run's platform score before injection differs from the current scorecard's, the page says the
+  results come from an older run.
+- Sensitivity: the platform score under the alternative weightings, shown beside the main score (never instead of
+  it), from `scorecard_sensitivity` (`outputs/02_scorecard_sensitivity.csv`). The per-domain rows are folded under
+  "By domain".
+
+**Drill-down paths.** Three, each ending in the record trace:
+
+1. A rule row opens every unit of the rule that is not a plain pass (failed, cleared or not evaluable), with a
+   "Trace" link per unit that has a record to trace.
+2. A scenario row opens its keys with their dollars; a key with a record to trace (its ledger line, else its account
+   and security) has a "Trace" link, and a key with neither shows a dash.
+3. A worst-account row (or the account lookup, by account ID) opens the account page with the account's units, its
+   own and those it inherits through its holdings, from `account_outcomes` (`outputs/02_account_outcomes.csv`), and
+   the same Trace links.
+
+**Blanks.** A part whose table the store lacks shows a note asking for a rebuilt store
+(`uv run python scripts/build_store.py`); the rest of the page still renders. In a cell:
+
+- A dash means the value is blank in the output: unknown, never zero.
+- "not priced" means no dollar figure exists for that item.
+- "not computed" means a KPI's or an indicator's inputs were not available, so it has no value.
+- "not applicable" means the measure does not apply to that row.
+
+**Do not add scenarios up.** Impact scenarios overlap (one security can sit in several), so their dollars are
+alternatives, not parts of a total, and units of different kinds are never added into one rule total.
+
 ## Test
 
 After `uv sync` in the repo root, run these commands inside `dashboard/`:
@@ -138,6 +204,9 @@ The fixture comes from `tests/fixtures/small/`. Its real notebook outputs and da
 `tests/runs/dashboard_fixture/` (unit tests) or `tests/runs/dashboard_browser_fixture/` (browser tests); the story
 picker there lists the fixture trace and the first traceable example of each register line. Production data and
 `outputs/store.duckdb` are not changed.
+
+Browser tests also cover the executive view (its figures against the fixture's own CSV files, the three
+drill-downs, and the stress and sensitivity part over made-up stress files from `tests/stress_fixture.py`).
 
 Browser tests cover map details and lookups, panel/theme/menu controls, confirmed versus unresolved findings (and
 the headline's tone), the no-finding caveat, every "Trace an example" link, search and unknown IDs, the story picker,

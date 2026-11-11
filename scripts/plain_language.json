@@ -127,5 +127,24 @@
   "position_security": "Every holding's security must be in the security list.",
   "nav_check": "NAV check: holdings must roll up into each fund, net assets divided by shares must equal the NAV, and no serious open problem may feed it.",
   "class_mapping": "Every open account's fund and share class should have NAV rows, and every NAV row a matching account."
+ },
+ "rules": {
+  "ACC_NOT_OPEN_ON_TRADE_DATE": "Every trade is on a known account that was open on the trade date",
+  "TXN_SECURITY_NOT_MASTERED": "Every trade names a known security, with matching CUSIP and currency",
+  "TXN_DUPLICATE": "Each trade is recorded once",
+  "TXN_FIELDS_VALID": "Every trade is complete and readable, with a positive quantity, an amount equal to quantity x price and on-time settlement",
+  "TXN_CORRECTION_LINK": "Every correction points to a real original trade on the same account and security",
+  "TXN_ONE_REVERSAL_PER_ORIGINAL": "Each original trade is reversed at most once",
+  "TXN_TIMESTAMPS_IN_ORDER": "Every trade's processing times are recorded and in order, and each feed's daily median delay is within its limit",
+  "TXN_AFTER_CUTOFF": "Every trade is booked and published by the cutoff",
+  "CA_TERMS_COMPLETE": "Every corporate action has complete, consistent terms, dates in order and a known security",
+  "POS_REBUILD_MATCHES": "Every holding equals the sum of its trades",
+  "POS_CUSTODIAN_BREAK": "Every holding matches the custodian's record",
+  "POS_KEYS_MASTERED": "Every holding names a known account and a known security",
+  "PRC_QUOTE_ELIGIBLE": "Every holding has a valid price from the valuation date, stamped before the cutoff",
+  "PRC_VENDOR_DISPERSION": "The price vendors agree on each held security's price",
+  "FX_RATE_VALID": "Each currency has one valid exchange rate a day, with no sudden jump, and the US dollar rate is 1",
+  "FX_RATE_COVERAGE": "Every price's currency has an exchange rate for that day",
+  "NAV_ARITHMETIC": "Each NAV equals net assets divided by shares outstanding"
  }
 }

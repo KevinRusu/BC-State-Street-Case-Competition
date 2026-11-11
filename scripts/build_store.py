@@ -21,7 +21,13 @@ Step by step:
    02_indicator_lookback.csv, 02_kpis.csv). Counts and scores become DOUBLE, everything else stays text (so
    `start = unknown` on a series row stays text, and so does an indicator's `unit`, e.g. "minutes"). A missing file gives an empty table and a printed note. On
    `02_indicator_series` rows with period = week, `numerator` and `denominator` hold two medians (minutes), not
-   counts; the store keeps them as numbers and the table's `period` column tells the two apart.
+   counts; the store keeps them as numbers and the table's `period` column tells the two apart. Then, the same way,
+   the executive view's tables (EXECUTIVE_TABLES below): 02_severity.csv, 02_impact_detail.csv,
+   02_account_outcomes.csv and the stress test's 03_stress_rates.csv, 03_stress_impact.csv and 03_stress_run.csv. A
+   blank number stays NULL (a scenario with nothing valued has no dollar figure, not 0); 03_stress_run.csv holds
+   paths of the computer that ran it, which the dashboard never shows. Every scored rule (the `rule` of each test in
+   the scorecard config, SCORECARD_CONFIG, default config/scorecard.toml) must have a plain name in
+   scripts/plain_language.json (`rules`), or the build stops; the names go into `plain_text` as kind `rule`.
 6. Write to a temporary file, then swap it in, so a running dashboard never sees a half-built store.
 
 Paths follow the deliverable notebook: RECONCILIATION_DATA (manifest), RECONCILIATION_CONFIG, RECONCILIATION_OUTPUTS
@@ -47,6 +53,7 @@ def path_from_env(variable, default):
 
 MANIFEST_PATH = path_from_env('RECONCILIATION_DATA', 'manifest.csv')
 CONFIG_PATH = path_from_env('RECONCILIATION_CONFIG', 'config/reconciliation.toml')
+SCORECARD_CONFIG_PATH = path_from_env('SCORECARD_CONFIG', 'config/scorecard.toml')   # as the notebook reads it
 OUTPUTS = path_from_env('RECONCILIATION_OUTPUTS', 'outputs')
 STORE_PATH = path_from_env('STORE_PATH', OUTPUTS / 'store.duckdb')
 REGISTER = OUTPUTS / '02_defect_register.csv'
@@ -396,9 +403,20 @@ def load_plain():
 STATUS_KEYS = {'confirmed', 'unresolved', 'cleared', 'none'}
 
 
-def check_plain(plain, graph=GRAPH):
+def scorecard_rules(path=None):
+    """The rule IDs the scorecard scores: the `rule` of every test in the scorecard config."""
+    with (path or SCORECARD_CONFIG_PATH).open('rb') as stream:
+        return {test['rule'] for test in tomllib.load(stream)['tests'].values()}
+
+
+def check_plain(plain, graph=GRAPH, scored_rules=None):
     """The wording covers exactly the map's nodes and edges, the four status phrases and every lead-in the trace can
-    need. Findings may be missing (the build falls back to the register text); the map is fixed, so it may not."""
+    need, and, when `scored_rules` is given, exactly those rule IDs with a plain name. Findings may be missing (the
+    build falls back to the register text); the map and the scored rules are fixed, so they may not."""
+    if scored_rules is not None:
+        named = {rule for rule, name in plain['rules'].items() if name}
+        assert named == set(scored_rules), (f'plain rule names: missing {sorted(set(scored_rules) - named)}, '
+                                            f'unknown {sorted(named - set(scored_rules))}')
     nodes, edges = {n['id'] for n in graph['nodes']}, {e['id'] for e in graph['edges']}
     assert set(plain['nodes']) == nodes, \
         f"plain wording nodes: missing {sorted(nodes - set(plain['nodes']))}, unknown {sorted(set(plain['nodes']) - nodes)}"
@@ -426,6 +444,7 @@ def plain_rows(plain):
     rows = [dict(kind='status', key=k, position=None, text=v) for k, v in plain['status'].items()]
     rows += [dict(kind='lead_in', key=k, position=None, text=v) for k, v in plain['lead_in'].items()]
     rows += [dict(kind='stage', key=s['stage'], position=i, text=s['label']) for i, s in enumerate(plain['stages'], 1)]
+    rows += [dict(kind='rule', key=k, position=None, text=v) for k, v in plain['rules'].items()]
     return rows
 
 
@@ -635,12 +654,31 @@ SCORECARD_TABLES = {
     'kpis': ('02_kpis.csv', ['value', 'numerator', 'denominator', 'not_evaluable']),
 }
 
+# The executive view's tables (spec docs/superpowers/specs/2026-11-11-executive-view-design.md §5.8), loaded the same
+# way: table -> (CSV file, columns stored as DOUBLE). Severity scenarios overlap and are never added up; a scenario
+# with nothing valued keeps blank (NULL) dollar columns. The 03_stress_* files come from tests/stress_test.sh.
+EXECUTIVE_TABLES = {
+    'severity': ('02_severity.csv', [
+        'financial_rows', 'distinct_accounts', 'accounts_without_fund_mapping', 'affected_funds',
+        'fund_wide_account_cohort', 'valued_rows', 'unknown_rows', 'valuation_coverage',
+        'signed_delta_usd_valued_subset', 'gross_delta_usd_valued_subset', 'max_abs_fund_net_bps_valued_subset',
+        'max_fund_gross_bps_valued_subset', 'funds_without_NAV_denominator', 'account_ids_in_extract',
+        'account_share_of_extract']),
+    'impact_detail': ('02_impact_detail.csv', ['delta_units', 'delta_usd']),
+    'account_outcomes': ('02_account_outcomes.csv', []),
+    'stress_rates': ('03_stress_rates.csv', ['cases', 'share', 'drawn', 'wanted']),
+    'stress_impact': ('03_stress_impact.csv', ['signed_usd', 'gross_usd', 'fund_net_assets_usd', 'signed_bps',
+                                               'gross_bps', 'before', 'after']),
+    'stress_run': ('03_stress_run.csv', []),
+}
+
 
 def load_scorecard_table(con, table, file_name, numeric):
     """Copy one scorecard CSV into the store (text, with the numeric columns as DOUBLE). Missing = empty table."""
     path = OUTPUTS / file_name
     if not path.is_file():
-        print(f'  no {file_name}: table {table} left empty (rerun notebooks/deliverable.ipynb)')
+        writer = 'tests/stress_test.sh' if file_name.startswith('03_stress') else 'notebooks/deliverable.ipynb'
+        print(f'  no {file_name}: table {table} left empty (rerun {writer})')
         con.sql(f"CREATE TABLE {q(table)} (note VARCHAR)")
         return 0
     with path.open(newline='', encoding='utf-8') as stream:
@@ -667,7 +705,7 @@ def main():
     framework = load_framework()
     check_graph(catalog, framework)
     plain = load_plain()
-    check_plain(plain)
+    check_plain(plain, scored_rules=scorecard_rules())
 
     STORE_PATH.parent.mkdir(parents=True, exist_ok=True)
     temporary = STORE_PATH.with_name(STORE_PATH.name + '.building')
@@ -732,6 +770,8 @@ def main():
                columns=['position', 'record_id', 'label', 'status', 'source', 'stage'])
     write_rows(con, 'plain_text', plain_rows(plain), columns=['kind', 'key', 'position', 'text'])
     for table, (file_name, numeric) in SCORECARD_TABLES.items():
+        print(f'  {table}: {load_scorecard_table(con, table, file_name, numeric)} rows')
+    for table, (file_name, numeric) in EXECUTIVE_TABLES.items():
         print(f'  {table}: {load_scorecard_table(con, table, file_name, numeric)} rows')
     unplaced = sorted({r['rule_id'] for r in register} - {r for r, _, _ in placed})
     if unplaced:
