@@ -1,13 +1,13 @@
 # Status
 
-Last updated: 2026-11-10 (scorecard and indicators built on branch `scorecard`, D-069; whole-branch review pending; quality checks merged in PR #12)
+Last updated: 2026-11-11 (scorecard and indicators reviewed and merged to `main` in PR #13, D-069; stress test next on branch `stress-test`)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
 
 ## Where we are
 
-- **Scorecard and indicators (10 Nov):** built on branch `scorecard` (uncommitted; the user commits), D-069. Section 12
+- **Scorecard and indicators (10 Nov):** reviewed and merged to `main` ([PR #13](https://github.com/KevinRusu/BC-State-Street-Case-Competition/pull/13)), D-069. Section 12
   of `notebooks/deliverable.ipynb` scores every rule, domain (the seven checks), account and the platform with coverage
   and a confirmed-only bound, runs the sensitivity check (NAV-proximity weights, weakest link, confirmed-only), and
   computes eight indicators (six computed, two proposed) with daily and weekly series, a retrospective look-back and the
@@ -27,7 +27,7 @@ Last updated: 2026-11-10 (scorecard and indicators built on branch `scorecard`, 
     unresolved findings count as fails; its confirmed-only score shows how much of that is open questions. The
     corporate-action look-back is near complete by construction and is not evidence of predictive reach. Read the
     numbers from FINDINGS.md.
-  - **Next:** the whole-branch review, then the user commits and opens the PR. Then step 3 (stress test).
+  - **Reviewed:** a whole-branch review found one Critical and four Important issues (fixed, then re-reviewed). Next: step 3 (stress test).
 
 - **Quality checks (10 Nov):** done and merged to `main`
   ([PR #12](https://github.com/KevinRusu/BC-State-Street-Case-Competition/pull/12)). Section 8b of the deliverable codes
@@ -174,7 +174,7 @@ and stress tests, roadmap, working executive view, complete slide draft.
    inside the vendor-spread and scale flags, and the four partly coded rules are coded; the thresholds are in the
    config. Every check publishes pass, fail and not-evaluable counts for the scorecard. Reviewed and fixed (D-068);
    merged in PR #12.
-2. **Scorecard and indicators (Kevin): built 10 Nov on branch `scorecard` (D-069; see "Where we are"); whole-branch review pending.** Brief §5: scores at account, domain and platform level with formulas,
+2. **Scorecard and indicators (Kevin): done 10 Nov, reviewed and merged in PR #13 (D-069; see "Where we are").** Brief §5: scores at account, domain and platform level with formulas,
    weights, aggregation rules and a sensitivity check; evaluable coverage beside every score; at least six
    indicators, three leading, marked computed, simulated or proposed (at least three computed, one of them leading).
    Picks up App. B's week-over-week doubling, left by the timeliness session.
@@ -278,9 +278,6 @@ What worked, what did not, and what a Windows teammate should know:
 
 Docs known to disagree with a higher source. Fix, then remove the line.
 
-- `CLAUDE.md` "Commands" gives `tests/run_notebook.sh` ~1.5 min and `tests/robustness_test.sh` ~5 min / ~4 GB. With
-  section 12 (D-069) the full run takes about 3.3 min and the robustness test about 24 min, with a notebook peak near
-  9 GB (the peak was already there before D-069). Update the figures, or speed up the per-date price indicator.
 - `docs/figures/01_control_map.png` (`scripts/fig_control_map.py`) still shows the Check-in 1 bands; the dashboard map
   uses the office × stage grid (D-055). Redraw it for the final deck if the team wants one picture.
 - `notebooks/additional/01_explore_tables.ipynb` mentions numbers "from PROJECT_SUMMARY section 5". That is history (the file
