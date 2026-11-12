@@ -1,11 +1,17 @@
 # Status
 
-Last updated: 2026-11-11 (executive view merged in PR #15; presentation redesign on branch `executive-view-redesign`)
+Last updated: 2026-11-12 (final deck outline agreed for the 13 Nov test run)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
 
 ## Where we are
+
+- **Final deck outline (12 Nov):** agreed in [docs/final/PRESENTATION_OUTLINE.md](final/PRESENTATION_OUTLINE.md),
+  replacing the 30 Oct draft. Order: 6 intro slides, a live dashboard demo (about 4 minutes), 8 technical slides;
+  14 in all. Slides are built by hand in PowerPoint with Morph transitions (plan in the outline). The 13 Nov test run
+  needs the full deck and the demo. Still open: speakers, the three recommendations (slide 13), the two clearances
+  (slide 11), and the three office wireframes (required, after the test run).
 
 - **Executive view redesign (11 Nov):** the `executive-view-redesign` branch adds expandable headline and indicator
   details, a compact domain layout, clearer KPI attainment and five-row previews for the ranked lists. The domain
