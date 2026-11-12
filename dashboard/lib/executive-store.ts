@@ -334,7 +334,7 @@ export async function getExecutive(): Promise<ExecutiveData> {
       const [platform] = await rows(con, "SELECT * FROM scorecard WHERE level = 'platform' LIMIT 1");
       data.platform = platform ? trio(platform) : null;
       data.domains = (await rows(con, "SELECT * FROM scorecard WHERE level = 'domain' ORDER BY rowid")).map(
-        (r): DomainScore => ({ domain: text(r.domain), owner: text(r.owner), ...trio(r) }));
+        (r): DomainScore => ({ domain: text(r.domain), owner: text(r.owner), target: maybe(r.target), ...trio(r) }));
       data.rules = await readRules(con);
     }
     if (await has("indicators", "indicators", "id")) data.indicators = await readIndicators(con);

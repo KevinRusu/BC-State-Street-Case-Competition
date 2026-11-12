@@ -124,38 +124,42 @@ have no matching step and are disabled. Changing records restores the normal fin
 
 ## Executive view
 
-`/executive` is the page for someone who wants the state of the platform without opening a trace. It shows only
-values the store holds: it adds nothing up and computes no new score. It answers three questions, top to bottom.
+`/executive` shows the platform's state using the deliverable outputs loaded into the store.
 
-**Headline tiles.** Three tiles:
+**Headline tiles.** Each card opens to reveal its supporting details.
 
 - Platform score, with its coverage and its confirmed-only score beside it, from `scorecard`
   (`outputs/02_scorecard.csv`).
 - Largest impact scenario: the priced scenario with the largest gross dollar figure, with its share of rows priced
   and its evidence status, from `severity` (`outputs/02_severity.csv`). It is one scenario, never a total.
-- Leading indicators: how many of the computed leading indicators breach their threshold, out of how many, and the
-  earliest first breach, from `indicators` (`outputs/02_indicators.csv`).
+- Leading indicators: how many of the computed leading indicators recorded a breach during the reporting period.
+  Open the card for the dates and the indicator list. The count comes from `indicators` and the dates come from
+  `indicator_series`.
 
-**Where is the platform degrading?**
+**Platform Degradation**
 
-- Domains: score, coverage and confirmed-only score per domain, with a bar as long as the score, from `scorecard`.
-  A domain's name opens the fix-first list filtered to that domain.
-- Indicators: a card per indicator with its series and look-back, from `indicators`, `indicator_series` and
+- Domains: a compact card per domain on a common 0–100 scale. Coverage, confirmed-only score and owner are in its
+  details. A domain's name opens the triage list filtered to that domain. The current scorecard supplies no
+  comparable domain targets, so the cards show a neutral status. KPI targets are in the KPI table.
+- Indicators: a card per indicator with a larger trend chart when a series is available. The details contain the
+  thresholds, recorded breaches, owner, look-back, or inputs needed. Sources are `indicators`, `indicator_series` and
   `indicator_lookback` (`outputs/02_indicators.csv`, `outputs/02_indicator_series.csv`,
   `outputs/02_indicator_lookback.csv`).
 - KPIs by office: from `kpis` (`outputs/02_kpis.csv`); a row's formula is its tooltip.
-- Worst accounts: the lowest-ranked accounts with their score, coverage and confirmed-only score, and each domain's
+- Worst accounts: the five lowest-ranked accounts by default, with their score, coverage and confirmed-only score, and each domain's
   score with its coverage under it (an account's domain scores have no confirmed-only score), from
-  `scorecard_accounts` (`outputs/02_scorecard_accounts.csv`). A lookup opens any account by its ID.
+  `scorecard_accounts` (`outputs/02_scorecard_accounts.csv`). Expand the list for the rest of the loaded ranking.
+  A lookup opens any account by its ID.
 
-**What should we fix first?**
+**Platform Repair Triage**
 
-- Rules and impact scenarios, ranked by score or by dollars (the switch is the `by` address parameter). A rule shows
+- Rules and impact scenarios, ranked by score or by dollars (the switch is the `by` address parameter). Each view
+  shows five rows with a control for revealing the rest. Scenario descriptions open on demand. A rule shows
   its plain name from `scripts/plain_language.json` (here and on the rule page); its units come from
   `score_outcomes` (`outputs/02_score_outcomes.csv`). Scenarios come from `severity` and their keys from
   `impact_detail` (`outputs/02_impact_detail.csv`).
 
-**Can we trust these numbers?**
+**Data Integrity Status**
 
 - Stress test: the planted-defect, look-alike and priority-flip rates, the before and after measures and the run
   facts, from `stress_rates`, `stress_impact` and `stress_run` (`outputs/03_stress_rates.csv`,

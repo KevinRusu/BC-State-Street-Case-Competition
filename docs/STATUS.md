@@ -1,13 +1,18 @@
 # Status
 
-Last updated: 2026-11-11 (executive view built and reviewed on branch `executive-view`, D-071; not yet committed or merged)
+Last updated: 2026-11-11 (executive view merged in PR #15; presentation redesign on branch `executive-view-redesign`)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
 
 ## Where we are
 
-- **Executive view (11 Nov):** built and reviewed on branch `executive-view` (D-071); **Kevin commits and merges**.
+- **Executive view redesign (11 Nov):** the `executive-view-redesign` branch adds expandable headline and indicator
+  details, a compact domain layout, clearer KPI attainment and five-row previews for the ranked lists. The domain
+  cards show neutral status because the scorecard supplies no domain targets. The view uses the existing scores,
+  evidence labels, rankings, and record links. [Dashboard guide](../dashboard/README.md#executive-view).
+
+- **Executive view (11 Nov):** built and reviewed on branch `executive-view` (D-071) and merged in PR #15.
   The dashboard has a new page, "Executive view" (`/executive`, first in the sidebar), for the Chief Data Officer's
   three questions (brief §2): where the platform is degrading (domain scores, indicators, KPIs by office, worst
   accounts), what to fix first (one switch: rules by lowest score, or impact scenarios by largest dollars; nothing is

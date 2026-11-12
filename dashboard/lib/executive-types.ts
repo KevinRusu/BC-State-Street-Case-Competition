@@ -7,7 +7,8 @@ export type Num = number | null;
 /** A score with the two values the brief requires beside it: its coverage and its confirmed-only score. */
 export type ScoreTrio = { score: Num; coverage: Num; confirmedOnly: Num };
 
-export type DomainScore = ScoreTrio & { domain: string; owner: string };
+/** The optional target is a minimum published on the domain-score scale. */
+export type DomainScore = ScoreTrio & { domain: string; owner: string; target: Num };
 
 /** One test of a rule. Counts exist at test level only, each in the test's own unit kind. */
 export type TestScore = ScoreTrio & {

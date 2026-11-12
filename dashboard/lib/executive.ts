@@ -198,12 +198,31 @@ export function largestScenario(s: Scenario[]): Scenario | null {
   return splitScenarios(s).priced.find((x) => x.grossUsd !== null && x.grossUsd > 0) ?? null;
 }
 
-/** Computed leading indicators: how many breach, out of how many, and the earliest first breach ("" when none). */
-export function leadingBreaches(i: Indicator[]): { breaching: number; computed: number; earliest: string } {
-  const computed = i.filter((x) => x.type === "Leading" && x.status === "computed");
-  const breaching = computed.filter((x) => x.breaches !== null && x.breaches > 0).length;
-  const dates = computed.map((x) => x.firstBreach).filter((d) => d !== "").sort();
-  return { breaching, computed: computed.length, earliest: dates[0] ?? "" };
+/** A minimum on the 0–100 domain score scale. Individual KPI targets have their own populations and directions. */
+export function domainTargetStatus(score: Num, minimum: Num): { target: Num; tone: "ok" | "warn" | "bad" | null } {
+  const onScale = (value: Num): value is number =>
+    value !== null && Number.isFinite(value) && value >= 0 && value <= 100;
+  const target = onScale(minimum) ? minimum : null;
+  if (!onScale(score) || target === null) return { target, tone: null };
+  if (score >= target) return { target, tone: "ok" };
+  return { target, tone: score >= target - 1 ? "warn" : "bad" };
+}
+
+/** The published breach counts cover the reporting period. They do not describe the latest observation alone. */
+export function leadingBreaches(indicators: Indicator[]) {
+  const computed = indicators.filter((i) => i.type === "Leading" && i.status === "computed");
+  const entries = computed.map((indicator) => ({
+    indicator,
+    recordedBreach: indicator.breaches !== null && indicator.breaches > 0,
+  }));
+  const dates = computed.flatMap((i) => i.series.flatMap((s) => s.points.map((p) => p.start))).filter(Boolean).sort();
+  return {
+    entries,
+    breaching: entries.filter((entry) => entry.recordedBreach).length,
+    computed: entries.length,
+    start: dates[0] ?? "",
+    end: dates.at(-1) ?? "",
+  };
 }
 
 const valued = (points: SeriesPoint[]) => points.filter((p): p is SeriesPoint & { value: number } => p.value !== null);

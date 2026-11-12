@@ -1,65 +1,81 @@
 import { Pill } from "@/components/common";
 import { drawable, fmtCount, fmtNumber, fmtValue } from "@/lib/executive";
 import type { Indicator } from "@/lib/executive-types";
+import { cn } from "@/lib/utils";
+import { DetailDisclosure } from "./detail-disclosure";
 import { Sparkline } from "./sparkline";
 
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="text-xs">
-      <span className="text-muted-foreground">{label} </span>
-      {children}
+    <div className="text-sm">
+      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+      <dd>{children}</dd>
     </div>
   );
 }
 
-/** One card per indicator: its value, threshold, breaches, trend lines and look-backs. A proposed one has no value. */
 export function IndicatorCards({ indicators }: { indicators: Indicator[] }) {
   return (
-    <div className="grid gap-3 lg:grid-cols-2">
+    <div className="grid items-start gap-4 lg:grid-cols-2">
       {indicators.map((i) => {
         const proposed = i.status === "proposed";
         const lines = drawable(i.series);
         return (
-          <article key={i.id} data-testid={`indicator-${i.id}`} className="min-w-0 space-y-2 rounded-2xl bg-block px-4 py-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <h4 className="text-sm font-semibold">{i.name}</h4>
-              <Pill tone="info">{i.type}</Pill>
-              <Pill tone="info">{i.status}</Pill>
+          <article
+            key={i.id}
+            id={`indicator-${i.id}`}
+            data-testid={`indicator-${i.id}`}
+            className="@container min-w-0 scroll-mt-4 space-y-3 rounded-xl border bg-block p-4"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+              <h4 className="text-base font-semibold">{i.name}</h4>
+              <div className="flex flex-wrap gap-1.5">
+                <span className="rounded border bg-background px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">{i.type}</span>
+                {proposed ? <Pill tone="info">Proposed</Pill> : (
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground capitalize">{i.status}</span>
+                )}
+              </div>
             </div>
-            {proposed ? (
-              <p className="text-sm text-muted-foreground">Proposed: needs {i.inputsNeeded}</p>
-            ) : (
-              <>
-                <div className="font-mono text-xl font-semibold tabular-nums">{fmtValue(i.value, i.unit)}{i.value !== null && <span className="ml-1.5 font-sans text-sm font-normal text-muted-foreground">{i.unit}</span>}</div>
-                <Fact label="Threshold">{i.threshold}</Fact>
-                <div className="flex flex-wrap gap-x-4">
-                  <Fact label="Breaches"><span className="font-mono tabular-nums">{fmtCount(i.breaches)}</span></Fact>
-                  {i.firstBreach !== "" && <Fact label="First breach">{i.firstBreach}</Fact>}
-                </div>
-                {lines.length > 0 && (
-                  <div className="flex flex-wrap gap-x-4 gap-y-2 pt-1">
-                    {lines.map((s) => (
-                      <figure key={s.key} className="space-y-0.5">
-                        <Sparkline points={s.points} label={`${i.name}, ${s.key}`} />
-                        {s.key !== "all" && <figcaption className="text-[11px] text-muted-foreground">{s.key}</figcaption>}
-                      </figure>
-                    ))}
-                  </div>
-                )}
-                {i.lookback.length > 0 && (
-                  <div className="space-y-1 border-t pt-2">
-                    {i.lookback.map((l) => (
-                      <p key={l.lagging} className="text-xs">
-                        {fmtCount(l.flaggedEarlier)} of {fmtCount(l.laggingKeys)} {l.lagging} flagged earlier
-                        {l.medianLeadDays !== null && <>, median lead {fmtNumber(l.medianLeadDays)} days</>}: {l.verdict}
-                      </p>
-                    ))}
-                    <p className="text-[11px] text-muted-foreground">A look-back on this release, not predictive accuracy.</p>
-                  </div>
-                )}
-              </>
+            {!proposed && (
+              <div className="flex flex-wrap items-baseline gap-x-1.5">
+                <span className="text-3xl leading-none font-semibold tracking-tight tabular-nums">{fmtValue(i.value, i.unit)}</span>
+                {i.value !== null && <span className="text-sm text-muted-foreground">{i.unit}</span>}
+              </div>
             )}
-            <Fact label="Owner">{i.owner}</Fact>
+            {lines.length > 0 && (
+              <div className={cn("grid gap-3", lines.length > 1 && "@min-[24rem]:grid-cols-2")}>
+                {lines.map((s) => (
+                  <figure key={`${s.key}/${s.period}`} className="min-w-0 space-y-1 rounded-lg border bg-background p-2.5">
+                    {s.key !== "all" && <figcaption className="text-xs font-medium text-muted-foreground">{s.key}</figcaption>}
+                    <Sparkline points={s.points} label={s.key === "all" ? i.name : `${i.name}, ${s.key}`} />
+                  </figure>
+                ))}
+              </div>
+            )}
+            <DetailDisclosure label="Indicator details" accessibleLabel={`Indicator details for ${i.name}`} className="border-t pt-1">
+              <dl className="space-y-2.5">
+                {proposed ? <Fact label="Data needed">{i.inputsNeeded}</Fact> : (
+                  <>
+                    <Fact label="Threshold">{i.threshold}</Fact>
+                    <Fact label="Recorded breaches"><span className="font-mono tabular-nums">{fmtCount(i.breaches)}</span></Fact>
+                    {i.firstBreach !== "" && <Fact label="First breach"><time dateTime={i.firstBreach}>{i.firstBreach}</time></Fact>}
+                  </>
+                )}
+                <Fact label="Owner">{i.owner}</Fact>
+              </dl>
+              {i.lookback.length > 0 && (
+                <div className="mt-3 space-y-1 border-t pt-2">
+                  <p className="text-xs font-medium text-muted-foreground">Retrospective look-back on this release</p>
+                  {i.lookback.map((l) => (
+                    <p key={l.lagging} className="text-xs">
+                      {fmtCount(l.flaggedEarlier)} of {fmtCount(l.laggingKeys)} {l.lagging} flagged earlier
+                      {l.medianLeadDays !== null && <>, median lead {fmtNumber(l.medianLeadDays)} days</>}
+                      {" · "}{l.verdict}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </DetailDisclosure>
           </article>
         );
       })}
