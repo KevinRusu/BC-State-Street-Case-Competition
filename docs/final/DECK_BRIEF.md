@@ -114,8 +114,8 @@ Paste this section along with the slides you want built.
   - The negative-quantity trades touch **652** accounts in **358** funds. If their sign is wrong, the exposure we
     could value is **$415 million** gross, up to **958 bps** of one fund's net assets. That covers **64%** of the
     rows; the rest have no usable price.
-  - Master data spreads further: one missing security record sits under **1,118** holdings in **1,116** accounts and
-    **446** funds, with no price at all.
+  - Master data spreads further: **15** securities that were never set up sit under **1,118** holdings in **1,116**
+    accounts and **446** funds, with no price at all.
   - Platform score: **81.6 out of 100**. Only **1** of our 6 measured KPIs meets its target.
 - **Say:** this is exposure, not a loss. Scenarios overlap, so we never add them up. The custodian match alone
   scores 99.6%, which is why the problem stays hidden.

@@ -1,0 +1,795 @@
+
+[Image #1]
+
+❯ <browser_instruction># Claude in Chrome browser automation
+
+  You have access to browser automation tools (mcp__claude-in-chrome__*) for
+  interacting with web pages in Chrome. Follow these guidelines for effective
+  browser automation.
+
+  ## Loading deferred tools
+
+  If the mcp__claude-in-chrome__* tools are deferred (must be loaded via
+  ToolSearch before use), load every tool you expect to need in ONE ToolSearch
+  call — the select query accepts a comma-separated list — never one call per
+  tool. Start with the core set:
+
+  ToolSearch with query
+  "select:mcp__claude-in-chrome__tabs_context_mcp,mcp__claude-in-chrome__naviga
+  te,mcp__claude-in-chrome__computer,mcp__claude-in-chrome__read_page,mcp__clau
+  de-in-chrome__tabs_create_mcp,mcp__claude-in-chrome__tabs_close_mcp"
+
+  Add task-specific tools to the same call when the task obviously needs them:
+  read_console_messages / read_network_requests for debugging, form_input for
+  forms, gif_creator for recordings, javascript_tool for page scripting.
+
+  ## GIF recording
+
+  When performing multi-step browser interactions that the user may want to
+  review or share, use mcp__claude-in-chrome__gif_creator to record them.
+
+  You must ALWAYS:
+  * Capture extra frames before and after taking actions to ensure smooth
+  playback
+  * Name the file meaningfully to help the user identify it later (e.g.,
+  "login_process.gif")
+
+  ## Console log debugging
+
+  You can use mcp__claude-in-chrome__read_console_messages to read console
+  output. Console output may be verbose. If you are looking for specific log
+  entries, use the 'pattern' parameter with a regex-compatible pattern. This
+  filters results efficiently and avoids overwhelming output. For example, use
+  pattern: "[MyApp]" to filter for application-specific logs rather than
+  reading all console output.
+
+  ## Alerts and dialogs
+
+  IMPORTANT: Do not trigger JavaScript alerts, confirms, prompts, or browser
+  modal dialogs through your actions. These browser dialogs block all further
+  browser events and will prevent the extension from receiving any subsequent
+  commands. Instead, when possible, use console.log for debugging and then use
+  the mcp__claude-in-chrome__read_console_messages tool to read those log
+  messages. If a page has dialog-triggering elements:
+  1. Avoid clicking buttons or links that may trigger alerts (e.g., "Delete"
+  buttons with confirmation dialogs)
+  2. If you must interact with such elements, warn the user first that this may
+  interrupt the session
+  3. Use mcp__claude-in-chrome__javascript_tool to check for and dismiss any
+  existing dialogs before proceeding
+
+  If you accidentally trigger a dialog and lose responsiveness, inform the user
+  they need to manually dismiss it in the browser.
+
+  ## Avoid rabbit holes and loops
+
+  When using browser automation tools, stay focused on the specific task. If
+  you encounter any of the following, stop and ask the user for guidance:
+  - Unexpected complexity or tangential browser exploration
+  - Browser tool calls failing or returning errors after 2-3 attempts
+  - No response from the browser extension
+  - Page elements not responding to clicks or input
+  - Pages not loading or timing out
+  - Unable to complete the browser task despite multiple approaches
+
+  Explain what you attempted, what went wrong, and ask how the user would like
+  to proceed. Do not keep retrying the same failing browser action or explore
+  unrelated pages without checking in first.
+
+  ## Tab context and session startup
+
+  IMPORTANT: At the start of each browser automation session, call
+  mcp__claude-in-chrome__tabs_context_mcp first to get information about the
+  user's current browser tabs. Use this context to understand what the user
+  might want to work with before creating new tabs.
+
+  Never reuse tab IDs from a previous/other session. Follow these guidelines:
+  1. Only reuse an existing tab if the user explicitly asks to work with it
+  2. Otherwise, create a new tab with mcp__claude-in-chrome__tabs_create_mcp
+  3. If a tool returns an error indicating the tab doesn't exist or is invalid,
+  call tabs_context_mcp to get fresh tab IDs
+  4. When a tab is closed by the user or a navigation error occurs, call
+  tabs_context_mcp to see what tabs are available</browser_instruction>
+
+❯ I like the executive view, but the graphs don't have axis description and
+  when I hover over the red dots I don't get any information about what this
+  number means.
+
+⏺ Skill(superpowers:brainstorming)
+  ⎿  Successfully loaded skill
+
+  Listed 1 directory, ran 3 shell commands (ctrl+o to expand)
+
+⏺ The chart code is in sparkline.tsx, and the data already carries date, value,
+  threshold and breach status, so a tooltip can show those; I'll build it if
+  you'd rather skip questions, but first I need an answer on one point.
+  · summary
+
+⏺ User answered Claude's questions:
+  ⎿  · The executive-view charts have no axes and no hover info. What should
+     each chart show? → Axes + tooltip + limit (Recommended)
+
+⏺ Got it. Next I'm checking what the threshold values look like in the data,
+  since that decides how the limit line fits on each chart.
+
+  Searched for 2 patterns, ran 2 shell commands (ctrl+o to expand)
+
+⏺ Here's what I'd build. Tell me what's wrong or missing.
+
+  What each chart will show
+  - Y-axis: a label at the bottom and top of the range, with the unit as the
+    axis title (for example "% of trade rows").
+  - Range includes the limit: the dashed threshold line always sits inside the
+    chart, so you can see how far each line is from it. This changes how some
+    charts look:
+    - Booking latency currently looks like a dramatic square wave, but it only
+      moves between 11 and 12 minutes against a 240-minute limit. With the limit
+      in view it becomes a nearly flat line near the bottom. That's the honest
+      picture.
+    - Unmastered security rate gets its limit at 0 on the bottom edge, which
+      shows why every dot is red.
+    - Corporate action readiness and price coverage get their 100% and 99%
+      limits near the top.
+  - X-axis: the first and last dates as now, plus a caption from the series
+    period:
+    - "Date (one point per day)"
+    - "Effective date"
+    - "Week starting"
+  - Hover: moving the mouse over a chart highlights the nearest point with a
+    thin vertical guide. A small box then shows:
+    - the date
+    - the value with its unit
+    - the limit
+    - whether it was a breach
+
+    This works on every point, not just the red ones. Tabbing to a chart and
+    using the arrow keys does the same, so it works without a mouse.
+
+  How it gets made (my call)
+  - Library: I'll extend the existing hand-drawn chart in sparkline.tsx
+    (dashboard/components/executive/sparkline.tsx) instead of adding a chart
+    library. It becomes an interactive (client) component.
+  - Code: the maths moves into sparkline() in lib/executive.ts, with unit tests
+    written first. I'll add one end-to-end test that hovers a point and checks
+    the box.
+  - Data: none of the data or the store changes; it all comes from the existing
+    series rows.
+
+  Size: a small change. I'll do it on a feature branch, run npm test and npm run
+  test:e2e, and leave the commit to you.
+
+  Does this match what you want, or should anything change before I build it?
+
+❯ yes
+
+  Searched for 1 pattern, listed 1 directory, ran 2 shell commands (ctrl+o to expand)
+
+⏺ Approved, so I'm building it on a new branch, executive-chart-axes. Next I'm
+  reading the existing tests so I can write the new ones first.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Writing the failing unit tests first, using made-up numbers:
+
+⏺ Bash(python3 - <<'EOF'
+      p='tests/executive.test.ts'…)
+  ⎿  Updated dashboard/tests/executive.test.ts (+37 -4)
+       4  import {
+       5    BLANK, PAGE_SIZE, RESULTS, RESULT_TONE, RUN_FACTS, WORST_ACCO
+          UNTS, accountHref, defaultRuleOrder, domainTargetStatus, drawab
+          le,
+       6    executiveHref, fmtBps, fmtCount, fmtNumber, fmtScore, fmtShar
+          e, fmtUsd, fmtUsdShort, fmtValue, impactTraceTarget, largestSce
+          nario, leadingBreaches,
+       7 -  noTraceReason, parsePage, parseResult, resultOf, ruleHref, sc
+         -enarioHref, sortRules, sparkline, splitScenarios,              
+       7 +  nearestIndex, noTraceReason, parsePage, parseResult, resultOf
+         +, ruleHref, scenarioHref, seriesAxis, sortRules, sparkline, spl
+         +itScenarios,                                                   
+       8    stressState, traceHref, traceTarget,
+       9  } from "@/lib/executive";
+      10  
+     ...
+      23    firstBreach, series: [], lookback: [],
+      24  });
+      25  
+      26 -const pt = (value: number | null, breach = false): SeriesPoint 
+         -=> ({ start: "2026-07-01", value, threshold: null, breach });  
+      26 +const pt = (value: number | null, breach = false, threshold: nu
+         +mber | null = null, start = "2026-07-01"): SeriesPoint =>      
+      27 +  ({ start, value, threshold, breach });                       
+      28  const ids = (rules: RuleScore[]) => rules.map((r) => `${r.domai
+          n}:${r.rule}`);
+      29  const names = (s: Scenario[]) => s.map((x) => x.scenario);
+      30  
+     ...
+      346      expect(sparkline([], 100, 20)).toBeNull();
+      347    });
+      348    test("a rising series spans the box, low at the bottom", () 
+           => {
+      348 -    expect(sparkline([pt(0), pt(5), pt(10)], 100, 20)).toEqual
+          -({ path: "M0 20 L50 10 L100 0", marks: [] });                 
+      349 +    expect(sparkline([pt(0), pt(5), pt(10)], 100, 20)).toMatch
+          +Object({ path: "M0 20 L50 10 L100 0", marks: [], low: 0, high:
+          + 10, limits: [] });                                           
+      350    });
+      351    test("a constant series is a flat line at mid height", () =>
+            {
+      352      expect(sparkline([pt(7), pt(7), pt(7)], 120, 28)?.path).to
+           Be("M0 14 L60 14 L120 14");
+      353    });
+      354    test("blank values are skipped and breach points are marked"
+           , () => {
+      354 -    expect(sparkline([pt(0), pt(null, true), pt(10, true)], 10
+          -0, 20)).toEqual({                                             
+      355 +    expect(sparkline([pt(0), pt(null, true), pt(10, true)], 10
+          +0, 20)).toMatchObject({                                       
+      356        path: "M0 20 L100 0", marks: [{ x: 100, y: 0 }],
+      357      });
+      358    });
+      359    test("coordinates are rounded to two decimals", () => {
+      360      expect(sparkline([pt(0), pt(1), pt(2), pt(3)], 100, 30)?.p
+           ath).toBe("M0 30 L33.33 20 L66.67 10 L100 0");
+      361    });
+      362 +  test("the range takes in a limit above the values, so a smal
+          +l wiggle stays small", () => {                                
+      363 +    const line = sparkline([pt(10, false, 40), pt(20, false, 4
+          +0)], 100, 30);                                                
+      364 +    expect(line).toMatchObject({ path: "M0 30 L100 20", low: 1
+          +0, high: 40, limits: [{ value: 40, y: 0 }] });                
+      365 +  });                                                         
+      366 +  test("the range takes in a limit below the values", () => { 
+     … 30 more lines (ctrl+o to expand)
+
+⏺ The new tests fail as expected (7 failing). Now the implementation in
+  lib/executive.ts:
+
+⏺ Bash(python3 - <<'EOF'
+      p='lib/executive.ts'…)
+  ⎿  Updated dashboard/lib/executive.ts (+46 -14)
+      234  
+      235  const coord = (n: number) => String(Math.round(n * 100) / 100)
+           ;
+      236  
+      237 +/** A valued point of a trend line: where it sits in the box a
+          +nd what the hover box shows. */                               
+      238 +export type SparkPoint = { x: number; y: number; start: string
+          +; value: number; threshold: Num; breach: boolean };           
+      239 +                                                              
+      240 +export type SparkLine = {                                     
+      241 +  path: string;                                               
+      242 +  marks: { x: number; y: number }[];                          
+      243 +  points: SparkPoint[];                                       
+      244 +  /** The values at the bottom and top of the box (the y-axis 
+          +labels). */                                                   
+      245 +  low: number;                                                
+      246 +  high: number;                                               
+      247 +  /** One horizontal line per distinct threshold. */          
+      248 +  limits: { value: number; y: number }[];                     
+      249 +};                                                            
+      250 +                                                              
+      251  /**
+      238 - * A trend line in a width × height box: the valued points spr
+          -ead evenly left to right, the lowest value at the bottom      
+      239 - * and the highest at the top (a constant series sits at mid h
+          -eight). Blank values are skipped; `marks` are the             
+      240 - * breach points. `null` when fewer than two points have a val
+          -ue.                                                           
+      252 + * A trend line in a width × height box: the valued points spr
+          +ead evenly left to right. The vertical range runs from        
+      253 + * the lowest to the highest of the values and the thresholds,
+          + so a limit is always in view and a small wiggle far from     
+      254 + * it stays small (a constant series with no other limit sits 
+          +at mid height). Blank values are skipped; `marks` are         
+      255 + * the breach points. `null` when fewer than two points have a
+          + value.                                                       
+      256   */
+      242 -export function sparkline(                                    
+      243 -  points: SeriesPoint[], width: number, height: number,       
+      244 -): { path: string; marks: { x: number; y: number }[] } | null 
+          -{                                                             
+      257 +export function sparkline(points: SeriesPoint[], width: number
+          +, height: number): SparkLine | null {                         
+      258    const shown = valued(points);
+      259    if (shown.length < 2) return null;
+      247 -  const values = shown.map((p) => p.value);                   
+      248 -  const min = Math.min(...values);                            
+      249 -  const span = Math.max(...values) - min;                     
+      250 -  const xy = shown.map((p, i) => ({                           
+      251 -    x: Number(coord((i / (shown.length - 1)) * width)),       
+      252 -    y: Number(coord(span === 0 ? height / 2 : height - ((p.val
+          -ue - min) / span) * height)),                                 
+      253 -    breach: p.breach,                                         
+      260 +  const thresholds = [...new Set(shown.map((p) => p.threshold)
+          +.filter((t): t is number => t !== null))].sort((a, b) => a - b
+          +);                                                            
+     … 32 more lines (ctrl+o to expand)
+
+⏺ That one failure is an arithmetic slip in my test: a range of 2 to 8 in a
+  30-tall box puts 6 at y = 10, not 7.5. Fixing the expected value:
+
+⏺ Bash(sed -i '' 's/expect(line?.limits).toEqual(\[{ value: 6, y: 7.5
+      }\]);/expect(line?.limits).toEqual([{ value: 6, y: 10 }]);/'
+      tests/executive.test.ts && npm test…)
+  ⎿  Updated dashboard/tests/executive.test.ts (+1 -1)
+      369    });
+      370    test("each distinct limit is drawn once", () => {
+      371      const line = sparkline([pt(2, false, 6), pt(4, false, 6), 
+           pt(8, true, 6)], 100, 30);
+      372 -    expect(line?.limits).toEqual([{ value: 6, y: 7.5 }]);     
+      372 +    expect(line?.limits).toEqual([{ value: 6, y: 10 }]);      
+      373    });
+      374    test("every valued point carries what the hover box shows", 
+           () => {
+      375      const line = sparkline([pt(3, false, 9, "2026-03-02"), pt(
+           null), pt(12, true, 9, "2026-03-04")], 100, 30);
+
+⏺ Unit tests pass (61 of 61). Now I'm rewriting the chart component:
+
+⏺ Write(dashboard/components/executive/sparkline.tsx)
+  ⎿  Added 113 lines, removed 15 lines
+        1 -import { sparkline } from "@/lib/executive";                  
+        1 +"use client";                                                 
+        2 +                                                              
+        3 +import { useState } from "react";                             
+        4 +import { fmtValue, nearestIndex, seriesAxis, sparkline } from 
+          +"@/lib/executive";                                            
+        5  import type { SeriesPoint } from "@/lib/executive-types";
+        6 +import { cn } from "@/lib/utils";                             
+        7  
+        8  const WIDTH = 256;
+        9  const HEIGHT = 62;
+       10 +const PAD = 4;                                                
+       11  
+        7 -export function Sparkline({ points, label }: { points: SeriesP
+          -oint[]; label: string }) {                                    
+       12 +/**                                                           
+       13 + * An indicator's trend line with its axes: the unit and the v
+          +alues at the top and bottom of the range, the first and       
+       14 + * last dates with the series period, and a dashed line per th
+          +reshold. Hovering, or focusing and using the arrow keys,      
+       15 + * shows the nearest point's date, value, limit and whether it
+          + breached.                                                    
+       16 + */                                                           
+       17 +export function Sparkline({ points, label, unit, period }: { p
+          +oints: SeriesPoint[]; label: string; unit: string; period: str
+          +ing }) {                                                      
+       18 +  const [active, setActive] = useState<number | null>(null);  
+       19    const line = sparkline(points, WIDTH, HEIGHT);
+       20    if (!line) return null;
+       10 -  const dates = points.filter((p) => p.value !== null).map((p)
+          - => p.start);                                                 
+       21 +  const shown = line.points;                                  
+       22 +  const point = active === null ? null : shown[active];       
+       23 +  const value = (v: number) => `${fmtValue(v, unit)} ${unit}`;
+       24  
+       25 +  const pick = (event: React.PointerEvent<SVGSVGElement>) => {
+       26 +    const box = event.currentTarget.getBoundingClientRect();  
+       27 +    const x = ((event.clientX - box.left) / box.width) * (WIDT
+          +H + 2 * PAD) - PAD;                                           
+       28 +    setActive(nearestIndex(shown.length, x / WIDTH));         
+       29 +  };                                                          
+       30 +  const step = (event: React.KeyboardEvent<SVGSVGElement>) => 
+          +{                                                             
+       31 +    const last = shown.length - 1;                            
+       32 +    const next = { ArrowLeft: (active ?? last) - 1, ArrowRight
+          +: (active ?? -1) + 1, Home: 0, End: last }[event.key];        
+       33 +    if (next === undefined) return;                           
+       34 +    event.preventDefault();                                   
+       35 +    setActive(Math.min(last, Math.max(0, next)));             
+       36 +  };                                                          
+       37 +  const left = point ? ((point.x + PAD) / (WIDTH + 2 * PAD)) *
+          + 100 : 0;                                                     
+       38 +                                                              
+       39    return (
+       13 -    <>                                                        
+       14 -      <svg role="img" aria-label={label} viewBox={`-4 -4 ${WID
+          -TH + 8} ${HEIGHT + 8}`} className="block h-auto w-full text-br
+          -and-line">                                                    
+       15 -        <path d={`M0 0 H${WIDTH} M0 ${HEIGHT / 2} H${WIDTH} M0
+          - ${HEIGHT} H${WIDTH}`} fill="none" stroke="var(--border)" />  
+       16 -        <path d={line.path} fill="none" stroke="currentColor" 
+          -strokeWidth={1.8} strokeLinejoin="round" strokeLinecap="round"
+          - vectorEffect="non-scaling-stroke" />                         
+       17 -        {line.marks.map((mark) => (                           
+       18 -          <circle key={mark.x} cx={mark.x} cy={mark.y} r={2.5}
+          - fill="var(--status-bad)" stroke="var(--background)" strokeWid
+          -th={0.75} />                                                  
+       19 -        ))}                                                   
+       20 -      </svg>                                                  
+       21 -      <div className="flex flex-wrap justify-between gap-x-2 t
+          -ext-[10px] tabular-nums text-muted-foreground">               
+       22 -        <time dateTime={dates[0]}>{dates[0]}</time>           
+       23 -        <time dateTime={dates.at(-1)}>{dates.at(-1)}</time>   
+       40 +    <div className="space-y-1">                               
+       41 +      <div className="text-[10px] text-muted-foreground">{unit
+          +}</div>                                                       
+       42 +      <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-
+          +x-1.5">                                                       
+       43 +        <div className="flex flex-col justify-between py-0.5 t
+          +ext-right text-[10px] tabular-nums text-muted-foreground" aria
+          +-hidden>                                                      
+       44 +          <span>{fmtValue(line.high, unit)}</span>            
+       45 +          <span>{fmtValue(line.low, unit)}</span>             
+       46 +        </div>                                                
+       47 +        <div className="relative">                            
+       48 +          <svg                                                
+       49 +            role="img"                                        
+       50 +            aria-label={`${label}: ${fmtValue(line.low, unit)}
+          + to ${fmtValue(line.high, unit)} ${unit}. Use the arrow keys t
+          +o read each point.`}                                          
+       51 +            tabIndex={0}                                      
+       52 +            viewBox={`${-PAD} ${-PAD} ${WIDTH + 2 * PAD} ${HEI
+          +GHT + 2 * PAD}`}                                              
+       53 +            className="block h-auto w-full cursor-crosshair ro
+          +unded-sm text-brand-line outline-none focus-visible:ring-2 foc
+          +us-visible:ring-ring"                                         
+       54 +            onPointerMove={pick}                              
+       55 +            onPointerLeave={() => setActive(null)}            
+       56 +            onFocus={() => setActive((a) => a ?? shown.length 
+          +- 1)}                                                         
+       57 +            onBlur={() => setActive(null)}                    
+       58 +            onKeyDown={step}                                  
+       59 +          >                                                   
+       60 +            <path d={`M0 0 H${WIDTH} M0 ${HEIGHT} H${WIDTH}`} 
+          +fill="none" stroke="var(--border)" />                         
+       61 +            {line.limits.map((limit) => (                     
+       62 +              <path                                           
+       63 +                key={limit.value}                             
+       64 +                data-testid="spark-limit"                     
+       65 +                d={`M0 ${limit.y} H${WIDTH}`}                 
+       66 +                fill="none"                                   
+       67 +                stroke="var(--status-bad)"                    
+       68 +                strokeOpacity={0.7}                           
+       69 +                strokeDasharray="4 3"                         
+       70 +                vectorEffect="non-scaling-stroke"             
+       71 +              />                                              
+       72 +            ))}                                               
+       73 +            {point && <path d={`M${point.x} 0 V${HEIGHT}`} str
+          +oke="var(--muted-foreground)" strokeOpacity={0.5} vectorEffect
+          +="non-scaling-stroke" />}                                     
+       74 +            <path d={line.path} fill="none" stroke="currentCol
+          +or" strokeWidth={1.8} strokeLinejoin="round" strokeLinecap="ro
+          +und" vectorEffect="non-scaling-stroke" />                     
+       75 +            {line.marks.map((mark) => (                       
+       76 +              <circle key={mark.x} cx={mark.x} cy={mark.y} r={
+          +2.5} fill="var(--status-bad)" stroke="var(--background)" strok
+          +eWidth={0.75} />                                              
+       77 +            ))}                                               
+       78 +            {point && (                                       
+       79 +              <circle cx={point.x} cy={point.y} r={3.5} fill={
+          +point.breach ? "var(--status-bad)" : "currentColor"} stroke="v
+          +ar(--background)" strokeWidth={1.25} />                       
+       80 +            )}                                                
+       81 +          </svg>                                              
+       82 +          {point && (                                         
+       83 +            <div                                              
+       84 +              role="status"                                   
+       85 +              data-testid="spark-tooltip"                     
+       86 +              className={cn(                                  
+       87 +                "pointer-events-none absolute bottom-full z-10
+          + mb-1 w-max max-w-56 rounded-md border bg-popover px-2 py-1.5 
+          +text-xs text-popover-foreground shadow-md",                   
+       88 +                left < 25 ? "-translate-x-[10%]" : left > 75 ?
+          + "-translate-x-[90%]" : "-translate-x-1/2",                   
+       89 +              )}                                              
+       90 +              style={{ left: `${left}%` }}                    
+       91 +            >                                                 
+       92 +              <time dateTime={point.start} className="block fo
+          +nt-medium">{point.start}</time>                               
+       93 +              <span className="block tabular-nums">{value(poin
+          +t.value)}</span>                                              
+       94 +              <span className="block text-muted-foreground tab
+          +ular-nums">                                                   
+       95 +                {point.threshold === null ? "No limit recorded
+          +" : `Limit ${value(point.threshold)}`}                        
+       96 +                {" · "}                                       
+       97 +                <span className={point.breach ? "font-medium t
+          +ext-status-bad" : undefined}>{point.breach ? "Breach" : "Withi
+          +n limit"}</span>                                              
+       98 +              </span>                                         
+       99 +            </div>                                            
+      100 +          )}                                                  
+      101 +        </div>                                                
+      102        </div>
+       25 -    </>                                                       
+      103 +      <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-
+          +x-1.5 text-[10px] tabular-nums text-muted-foreground">        
+      104 +        <span aria-hidden className="invisible">{fmtValue(line
+          +.high, unit)}</span>                                          
+      105 +        <div className="space-y-0.5">                         
+      106 +          <div className="flex flex-wrap justify-between gap-x
+          +-2">                                                          
+      107 +            <time dateTime={shown[0].start}>{shown[0].start}</
+          +time>                                                         
+      108 +            <time dateTime={shown.at(-1)!.start}>{shown.at(-1)
+          +!.start}</time>                                               
+      109 +          </div>                                              
+      110 +          <div className="flex flex-wrap items-center justify-
+          +between gap-x-2">                                             
+      111 +            <span>{seriesAxis(period)}</span>                 
+      112 +            {line.limits.length > 0 && (                      
+      113 +              <span className="inline-flex items-center gap-1"
+          +>                                                             
+      114 +                <svg aria-hidden width="14" height="4" classNa
+          +me="overflow-visible">                                        
+      115 +                  <path d="M0 2 H14" stroke="var(--status-bad)
+          +" strokeOpacity={0.7} strokeDasharray="4 3" />                
+      116 +                </svg>                                        
+      117 +                {line.limits.map((l) => `limit ${value(l.value
+          +)}`).join(", ")}                                              
+      118 +              </span>                                         
+      119 +            )}                                                
+      120 +          </div>                                              
+      121 +        </div>                                                
+      122 +      </div>                                                  
+      123 +    </div>                                                    
+      124    );
+      125  }
+
+⏺ Bash(sed -i '' 's|<Sparkline points={s.points} label={s.key === "all" ? i.name
+      : `${i.name}, ${s.key}`} />|<Sparkline points={s.points} label={s.key ===
+      "all" ? i.na…)
+  ⎿  Updated dashboard/components/executive/indicator-cards.tsx (+1 -1)
+      47                  {lines.map((s) => (
+      48                    <figure key={`${s.key}/${s.period}`} classNam
+          e="min-w-0 space-y-1 rounded-lg border bg-background p-2.5">
+      49                      {s.key !== "all" && <figcaption className="
+          text-xs font-medium text-muted-foreground">{s.key}</figcaption>
+          }
+      50 -                    <Sparkline points={s.points} label={s.key =
+         -== "all" ? i.name : `${i.name}, ${s.key}`} />                  
+      50 +                    <Sparkline points={s.points} label={s.key =
+         +== "all" ? i.name : `${i.name}, ${s.key}`} unit={i.unit} period
+         +={s.period} />                                                 
+      51                    </figure>
+      52                  ))}
+      53                </div>
+
+⏺ Type check and lint are clean. I'm checking that the popover colour used by
+  the hover box exists in the theme:
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Theme colours are all there. Now the end-to-end test: it checks the axis
+  captions, the limit line, mouse hover, and the arrow keys against the series
+  CSV.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Bash(python3 - <<'EOF'
+      p='e2e/executive.spec.ts'…)
+  ⎿  Updated dashboard/e2e/executive.spec.ts (+32 -0)
+      137    await expect(page).toHaveURL(new RegExp(`#indicator-${indica
+           tors[0].id}$`));
+      138  });
+      139  
+      140 +test("trend lines have axes, a limit line and a hover box for 
+          +every point", async ({ page }) => {                           
+      141 +  const indicators = (await csv("02_indicators.csv")).filter((
+          +i) => i.status === "computed");                               
+      142 +  const series = (await csv("02_indicator_series.csv")).filter
+          +((s) => s.period === "day" || s.period === "effective date"); 
+      143 +  const id = indicators.find((i) => series.filter((s) => s.id 
+          +=== i.id && s.value !== null).length >= 2)!.id;               
+      144 +  const unit = indicators.find((i) => i.id === id)!.unit;     
+      145 +  const key = series.find((s) => s.id === id && s.value !== nu
+          +ll)!.key;                                                     
+      146 +  const rows = series.filter((s) => s.id === id && s.key === k
+          +ey && s.value !== null);                                      
+      147 +  await page.goto("/executive");                              
+      148 +  const card = page.getByTestId(`indicator-${id}`);           
+      149 +  const chart = card.getByRole("img").first();                
+      150 +  const tip = card.getByTestId("spark-tooltip");              
+      151 +  await expect(card.getByText(/^(Date \(one point per day\)|Ef
+          +fective date)$/).first()).toBeVisible();                      
+      152 +  if (rows.some((r) => r.threshold !== null)) await expect(car
+          +d.getByTestId("spark-limit").first()).toBeAttached();         
+      153 +  await expect(tip).toHaveCount(0);                           
+      154 +                                                              
+      155 +  const box = (await chart.boundingBox())!;                   
+      156 +  await page.mouse.move(box.x + 2, box.y + box.height / 2);   
+      157 +  await expect(tip).toContainText(rows[0].start);             
+      158 +  await expect(tip).toContainText(unit);                      
+      159 +  await expect(tip).toContainText(rows[0].breach === "yes" ? "
+          +Breach" : "Within limit");                                    
+      160 +  await page.mouse.move(box.x + box.width - 2, box.y + box.hei
+          +ght / 2);                                                     
+      161 +  await expect(tip).toContainText(rows.at(-1)!.start);        
+      162 +  await page.mouse.move(0, 0);                                
+      163 +  await expect(tip).toHaveCount(0);                           
+      164 +                                                              
+      165 +  await chart.focus();                                        
+      166 +  await chart.press("Home");                                  
+      167 +  await expect(tip).toContainText(rows[0].start);             
+      168 +  await chart.press("ArrowRight");                            
+      169 +  await expect(tip).toContainText(rows[1].start);             
+      170 +});                                                           
+      171 +                                                              
+      172  test("indicators, KPIs and worst accounts are listed, blanks s
+           tay blanks", async ({ page }) => {
+      173    const indicators = await csv("02_indicators.csv");
+      174    await page.goto("/executive");
+
+⏺ Running the new e2e test (this builds the app first, so it takes a few
+  minutes):
+
+  Ran 1 shell command (ctrl+o to expand)
+⏺ The e2e test passes. I'm now checking how the charts look on the real data in
+  your running dashboard.
+
+  Called claude-in-chrome 3 times (ctrl+o to expand)
+
+⏺ Your dev server on port 3000 isn't running at the moment, so I'm starting it:
+
+  Called claude-in-chrome, ran 2 shell commands (ctrl+o to expand)
+
+⏺ The axes and limit lines render. Booking latency now reads as flat, well under
+  its 240-minute limit. Next I'm zooming in and testing the hover box:
+
+  Called claude-in-chrome (ctrl+o to expand)
+
+⏺ Hover works on every point, with the date, value, limit and breach status. One
+  polish fix: the "· Breach" text wraps onto an awkward second line, so I'm
+  moving the status to a line of its own.
+
+⏺ Update(dashboard/components/executive/sparkline.tsx)
+  ⎿  Added 3 lines, removed 2 lines
+       93                <span className="block tabular-nums">{value(poin
+           t.value)}</span>
+       94                <span className="block text-muted-foreground tab
+           ular-nums">
+       95                  {point.threshold === null ? "No limit recorded
+           " : `Limit ${value(point.threshold)}`}
+       96 -                {" · "}                                       
+       97 -                <span className={point.breach ? "font-medium t
+          -ext-status-bad" : undefined}>{point.breach ? "Breach" : "Withi
+          -n limit"}</span>                                              
+       96                </span>
+       97 +              <span className={cn("block", point.breach ? "fon
+          +t-medium text-status-bad" : "text-muted-foreground")}>        
+       98 +                {point.breach ? "Breach" : "Within limit"}    
+       99 +              </span>                                         
+      100              </div>
+      101            )}
+      102          </div>
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+⏺ Bash(python3 - <<'EOF'
+      p='dashboard/README.md'…)
+  ⎿  Updated dashboard/README.md (+4 -1)
+      141  - Domains: a compact card per domain on a common 0–100 scale. 
+           Coverage, confirmed-only score and owner are in its
+      142    details. A domain's name opens the triage list filtered to t
+           hat domain. The current scorecard supplies no
+      143    comparable domain targets, so the cards show a neutral statu
+           s. KPI targets are in the KPI table.
+      144 -- Indicators: a card per indicator with a larger trend chart w
+          -hen a series is available. The details contain the            
+      144 +- Indicators: a card per indicator with a larger trend chart w
+          +hen a series is available. Each chart shows its unit,         
+      145 +  the values at the top and bottom of its range, the first and
+          + last dates, and a dashed line at the threshold. The          
+      146 +  range always includes the threshold, so a line far from its 
+          +limit looks flat (D-072). Hover over a chart, or focus        
+      147 +  it and use the arrow keys, to see a point's date, value, lim
+          +it and whether it breached. The details contain the           
+      148    thresholds, recorded breaches, owner, look-back, or inputs n
+           eeded. Sources are `indicators`, `indicator_series` and
+      149    `indicator_lookback` (`outputs/02_indicators.csv`, `outputs/
+           02_indicator_series.csv`,
+      150    `outputs/02_indicator_lookback.csv`).
+  ⎿  Updated docs/DECISIONS.md (+12 -0)
+      1042    per-domain scores shown without coverage; fractional unit c
+            hanges rounded to whole units (now shown as stored);
+      1043    one plain rule name that claimed more than its rule checks;
+             and example figures copied from real outputs into a
+      1044    test file, code comments and the plan (replaced by invented
+             values). The notes kept unfixed are listed in spec §8.
+      1045 +                                                             
+      1046 +### D-072 · 12 Nov · Executive view trend charts: axes, a thr
+           +eshold line and a hover box; the range includes the threshold
+      1047 +                                                             
+      1048 +- **Decision:** each indicator chart on the executive view sh
+           +ows its unit, the values at the bottom and top of its        
+      1049 +  range, the first and last dates with the series period ("Da
+           +te (one point per day)" or "Effective date"), and a          
+      1050 +  dashed line at each threshold. Hovering over a chart, or fo
+           +cusing it and using the arrow keys, shows the nearest        
+      1051 +  point's date, value, threshold and whether it breached. The
+           + vertical range runs from the lowest to the highest of       
+      1052 +  the values and the thresholds.                             
+      1053 +- **Why:** the charts had no axes and stretched every line to
+           + fill its box, so a one-unit wiggle looked like a large      
+      1054 +  swing and a red dot gave no reason. With the threshold insi
+           +de the range, the distance to the limit is visible: a        
+      1055 +  series far below its limit draws as a nearly flat line, and
+           + a series that breaches throughout sits on the wrong side    
+      1056 +  of the dashed line. The data comes unchanged from `indicato
+           +r_series`.                                                   
+  ⎿  Updated docs/STATUS.md (+5 -1)
+      1  # Status
+      2  
+      3 -Last updated: 2026-11-12 (final deck outline agreed for the 13 N
+        -ov test run)                                                    
+      3 +Last updated: 2026-11-12 (executive view charts get axes and hov
+        +er)                                                             
+      4  
+      5  *Overwrite this file when the state changes. Choices go in [DECI
+         SIONS.md](DECISIONS.md), numbers in
+      6  [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and
+          §8 (`reference/01_Student_Brief.md`).*
+     ...
+      13    needs the full deck and the demo. Still open: speakers, the t
+          hree recommendations (slide 13), the two clearances
+      14    (slide 11), and the three office wireframes (required, after 
+          the test run).
+      15  
+      16 +- **Executive view charts (12 Nov):** branch `executive-chart-a
+         +xes` gives each indicator chart its unit, a range              
+      17 +  that includes the threshold, a dashed threshold line, dates w
+         +ith the series period, and a hover box (date, value,           
+      18 +  limit, breach) that also works with the arrow keys (D-072). N
+         +ot yet committed.                                              
+      19 +                                                               
+      20  - **Executive view redesign (11 Nov):** the `executive-view-red
+          esign` branch adds expandable headline and indicator
+      21    details, a compact domain layout, clearer KPI attainment and 
+          five-row previews for the ranked lists. The domain
+      22    cards show neutral status because the scorecard supplies no d
+          omain targets. The view uses the existing scores,
+
+⏺ Docs are updated and the docs check passes. Running the full dashboard checks:
+  unit tests, the store test (which includes a production build) and the full
+  e2e suite.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+⏺ All green. One last look at the reworded hover box:
+
+  Called claude-in-chrome 2 times, ran 1 shell command (ctrl+o to expand)
+
+⏺ The executive-view charts now have axes, a dashed threshold line and a hover
+  box on every point. All tests pass, and I checked the charts in the browser on
+  the real data. Nothing is committed yet; the work is on the new branch
+  executive-chart-axes for you to commit.
+
+  What each chart shows now:
+  - Y-axis: the unit as a small title, with the values at the top and bottom of
+    the range.
+  - X-axis: the first and last dates, with a caption such as "Date (one point
+    per day)" or "Effective date".
+  - Threshold line: a dashed red line at the limit, with a key below the chart
+    (for example "limit 99.00 % of held securities").
+  - Hover box: for the nearest point it shows the date, the value with its unit,
+    the limit, and "Breach" or "Within limit". Clicking into a chart and using
+    the arrow keys does the same, so it also works without a mouse.
+
+  This changes how two charts read, which matters for the demo:
+  - Booking latency used to look like a dramatic square wave. It only moves
+    between 11 and 12 minutes against a 240-minute limit, so it now draws as a
+    nearly flat line near the bottom.
+  - Unmastered security rate now shows its limit of 0 at the bottom edge, which
+    explains why every dot is red.
+
+  Checks:
+  - Tests: 148 unit tests (including the new ones), the store test with a
+    production build, and all 51 browser tests pass.
+  - New browser test: it checks the axis caption, the limit line, mouse hover
+    and the arrow keys.
+  - Docs: I added D-072 to docs/DECISIONS.md, a line to docs/STATUS.md and the
+    chart behaviour to dashboard/README.md. The docs check passes.
+
+  The chart itself is in sparkline.tsx
+  (dashboard/components/executive/sparkline.tsx), and the maths behind it is in
+  executive.ts (dashboard/lib/executive.ts). I restarted your dev server on port
+  3000 to check this, and it's still running.
+
+⏺ Background command "Start the dashboard dev server" failed with exit code 143
+
+⏺ Correction to my last message: the dev server I started on port 3000 isn't
+  running any more. It was shut down from outside (exit code 143), most likely
+  when the test runs ended. This doesn't affect the chart changes or the test
+  results. To see the charts again, run cd dashboard && npm run dev and open
+  http://127.0.0.1:3000/executive.
