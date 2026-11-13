@@ -141,7 +141,10 @@ have no matching step and are disabled. Changing records restores the normal fin
 - Domains: a compact card per domain on a common 0–100 scale. Coverage, confirmed-only score and owner are in its
   details. A domain's name opens the triage list filtered to that domain. The current scorecard supplies no
   comparable domain targets, so the cards show a neutral status. KPI targets are in the KPI table.
-- Indicators: a card per indicator with a larger trend chart when a series is available. The details contain the
+- Indicators: a card per indicator with a larger trend chart when a series is available. Each chart shows its unit,
+  the values at the top and bottom of its range, the first and last dates, and a dashed line at the threshold. The
+  range always includes the threshold, so a line far from its limit looks flat (D-072). Hover over a chart, or focus
+  it and use the arrow keys, to see a point's date, value, limit and whether it breached. The details contain the
   thresholds, recorded breaches, owner, look-back, or inputs needed. Sources are `indicators`, `indicator_series` and
   `indicator_lookback` (`outputs/02_indicators.csv`, `outputs/02_indicator_series.csv`,
   `outputs/02_indicator_lookback.csv`).

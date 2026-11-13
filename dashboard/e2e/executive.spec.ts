@@ -137,6 +137,38 @@ test("headline disclosures use the same historical indicator and impact results 
   await expect(page).toHaveURL(new RegExp(`#indicator-${indicators[0].id}$`));
 });
 
+test("trend lines have axes, a limit line and a hover box for every point", async ({ page }) => {
+  const indicators = (await csv("02_indicators.csv")).filter((i) => i.status === "computed");
+  const series = (await csv("02_indicator_series.csv")).filter((s) => s.period === "day" || s.period === "effective date");
+  const id = indicators.find((i) => series.filter((s) => s.id === i.id && s.value !== null).length >= 2)!.id;
+  const unit = indicators.find((i) => i.id === id)!.unit;
+  const key = series.find((s) => s.id === id && s.value !== null)!.key;
+  const rows = series.filter((s) => s.id === id && s.key === key && s.value !== null);
+  await page.goto("/executive");
+  const card = page.getByTestId(`indicator-${id}`);
+  const chart = card.getByRole("img").first();
+  const tip = card.getByTestId("spark-tooltip");
+  await expect(card.getByText(/^(Date \(one point per day\)|Effective date)$/).first()).toBeVisible();
+  if (rows.some((r) => r.threshold !== null)) await expect(card.getByTestId("spark-limit").first()).toBeAttached();
+  await expect(tip).toHaveCount(0);
+
+  const box = (await chart.boundingBox())!;
+  await page.mouse.move(box.x + 2, box.y + box.height / 2);
+  await expect(tip).toContainText(rows[0].start);
+  await expect(tip).toContainText(unit);
+  await expect(tip).toContainText(rows[0].breach === "yes" ? "Breach" : "Within limit");
+  await page.mouse.move(box.x + box.width - 2, box.y + box.height / 2);
+  await expect(tip).toContainText(rows.at(-1)!.start);
+  await page.mouse.move(0, 0);
+  await expect(tip).toHaveCount(0);
+
+  await chart.focus();
+  await chart.press("Home");
+  await expect(tip).toContainText(rows[0].start);
+  await chart.press("ArrowRight");
+  await expect(tip).toContainText(rows[1].start);
+});
+
 test("indicators, KPIs and worst accounts are listed, blanks stay blanks", async ({ page }) => {
   const indicators = await csv("02_indicators.csv");
   await page.goto("/executive");
