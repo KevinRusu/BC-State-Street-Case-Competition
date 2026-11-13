@@ -47,7 +47,7 @@ export function IndicatorCards({ indicators }: { indicators: Indicator[] }) {
                 {lines.map((s) => (
                   <figure key={`${s.key}/${s.period}`} className="min-w-0 space-y-1 rounded-lg border bg-background p-2.5">
                     {s.key !== "all" && <figcaption className="text-xs font-medium text-muted-foreground">{s.key}</figcaption>}
-                    <Sparkline points={s.points} label={s.key === "all" ? i.name : `${i.name}, ${s.key}`} />
+                    <Sparkline points={s.points} label={s.key === "all" ? i.name : `${i.name}, ${s.key}`} unit={i.unit} period={s.period} />
                   </figure>
                 ))}
               </div>

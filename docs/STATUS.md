@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-12 (final deck outline agreed for the 13 Nov test run)
+Last updated: 2026-11-12 (executive view charts get axes and hover)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
@@ -12,6 +12,10 @@ Last updated: 2026-11-12 (final deck outline agreed for the 13 Nov test run)
   14 in all. Slides are built by hand in PowerPoint with Morph transitions (plan in the outline). The 13 Nov test run
   needs the full deck and the demo. Still open: speakers, the three recommendations (slide 13), the two clearances
   (slide 11), and the three office wireframes (required, after the test run).
+
+- **Executive view charts (12 Nov):** branch `executive-chart-axes` gives each indicator chart its unit, a range
+  that includes the threshold, a dashed threshold line, dates with the series period, and a hover box (date, value,
+  limit, breach) that also works with the arrow keys (D-072). Not yet committed.
 
 - **Executive view redesign (11 Nov):** the `executive-view-redesign` branch adds expandable headline and indicator
   details, a compact domain layout, clearer KPI attainment and five-row previews for the ranked lists. The domain

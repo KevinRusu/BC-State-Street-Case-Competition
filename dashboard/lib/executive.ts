@@ -234,26 +234,58 @@ export function drawable(series: IndicatorSeries[]): IndicatorSeries[] {
 
 const coord = (n: number) => String(Math.round(n * 100) / 100);
 
+/** A valued point of a trend line: where it sits in the box and what the hover box shows. */
+export type SparkPoint = { x: number; y: number; start: string; value: number; threshold: Num; breach: boolean };
+
+export type SparkLine = {
+  path: string;
+  marks: { x: number; y: number }[];
+  points: SparkPoint[];
+  /** The values at the bottom and top of the box (the y-axis labels). */
+  low: number;
+  high: number;
+  /** One horizontal line per distinct threshold. */
+  limits: { value: number; y: number }[];
+};
+
 /**
- * A trend line in a width × height box: the valued points spread evenly left to right, the lowest value at the bottom
- * and the highest at the top (a constant series sits at mid height). Blank values are skipped; `marks` are the
- * breach points. `null` when fewer than two points have a value.
+ * A trend line in a width × height box: the valued points spread evenly left to right. The vertical range runs from
+ * the lowest to the highest of the values and the thresholds, so a limit is always in view and a small wiggle far from
+ * it stays small (a constant series with no other limit sits at mid height). Blank values are skipped; `marks` are
+ * the breach points. `null` when fewer than two points have a value.
  */
-export function sparkline(
-  points: SeriesPoint[], width: number, height: number,
-): { path: string; marks: { x: number; y: number }[] } | null {
+export function sparkline(points: SeriesPoint[], width: number, height: number): SparkLine | null {
   const shown = valued(points);
   if (shown.length < 2) return null;
-  const values = shown.map((p) => p.value);
-  const min = Math.min(...values);
-  const span = Math.max(...values) - min;
-  const xy = shown.map((p, i) => ({
-    x: Number(coord((i / (shown.length - 1)) * width)),
-    y: Number(coord(span === 0 ? height / 2 : height - ((p.value - min) / span) * height)),
-    breach: p.breach,
+  const thresholds = [...new Set(shown.map((p) => p.threshold).filter((t): t is number => t !== null))].sort((a, b) => a - b);
+  const range = [...shown.map((p) => p.value), ...thresholds];
+  const low = Math.min(...range);
+  const high = Math.max(...range);
+  const span = high - low;
+  const y = (v: number) => Number(coord(span === 0 ? height / 2 : height - ((v - low) / span) * height));
+  const xy: SparkPoint[] = shown.map((p, i) => ({
+    x: Number(coord((i / (shown.length - 1)) * width)), y: y(p.value),
+    start: p.start, value: p.value, threshold: p.threshold, breach: p.breach,
   }));
   const path = xy.map((p, i) => `${i === 0 ? "M" : "L"}${p.x} ${p.y}`).join(" ");
-  return { path, marks: xy.filter((p) => p.breach).map(({ x, y }) => ({ x, y })) };
+  return {
+    path, points: xy, low, high,
+    marks: xy.filter((p) => p.breach).map(({ x, y }) => ({ x, y })),
+    limits: thresholds.map((value) => ({ value, y: y(value) })),
+  };
+}
+
+/** The point nearest a pointer at `fraction` of the way across a line of `count` evenly spread points. */
+export function nearestIndex(count: number, fraction: number): number {
+  return Math.min(count - 1, Math.max(0, Math.round(fraction * (count - 1))));
+}
+
+/** The x-axis caption of a trend line, from its series period. */
+export function seriesAxis(period: string): string {
+  if (period === "day") return "Date (one point per day)";
+  if (period === "effective date") return "Effective date";
+  if (period === "week") return "Week starting";
+  return period.charAt(0).toUpperCase() + period.slice(1);
 }
 
 /**

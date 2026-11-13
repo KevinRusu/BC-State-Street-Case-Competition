@@ -4,7 +4,7 @@ import type { Indicator, IndicatorSeries, RuleScore, Scenario, SeriesPoint, Stre
 import {
   BLANK, PAGE_SIZE, RESULTS, RESULT_TONE, RUN_FACTS, WORST_ACCOUNTS, accountHref, defaultRuleOrder, domainTargetStatus, drawable,
   executiveHref, fmtBps, fmtCount, fmtNumber, fmtScore, fmtShare, fmtUsd, fmtUsdShort, fmtValue, impactTraceTarget, largestScenario, leadingBreaches,
-  noTraceReason, parsePage, parseResult, resultOf, ruleHref, scenarioHref, sortRules, sparkline, splitScenarios,
+  nearestIndex, noTraceReason, parsePage, parseResult, resultOf, ruleHref, scenarioHref, seriesAxis, sortRules, sparkline, splitScenarios,
   stressState, traceHref, traceTarget,
 } from "@/lib/executive";
 
@@ -23,7 +23,8 @@ const indicator = (id: string, type: string, status: string, breaches: number | 
   firstBreach, series: [], lookback: [],
 });
 
-const pt = (value: number | null, breach = false): SeriesPoint => ({ start: "2026-07-01", value, threshold: null, breach });
+const pt = (value: number | null, breach = false, threshold: number | null = null, start = "2026-07-01"): SeriesPoint =>
+  ({ start, value, threshold, breach });
 const ids = (rules: RuleScore[]) => rules.map((r) => `${r.domain}:${r.rule}`);
 const names = (s: Scenario[]) => s.map((x) => x.scenario);
 
@@ -345,18 +346,50 @@ describe("trend lines", () => {
     expect(sparkline([], 100, 20)).toBeNull();
   });
   test("a rising series spans the box, low at the bottom", () => {
-    expect(sparkline([pt(0), pt(5), pt(10)], 100, 20)).toEqual({ path: "M0 20 L50 10 L100 0", marks: [] });
+    expect(sparkline([pt(0), pt(5), pt(10)], 100, 20)).toMatchObject({ path: "M0 20 L50 10 L100 0", marks: [], low: 0, high: 10, limits: [] });
   });
   test("a constant series is a flat line at mid height", () => {
     expect(sparkline([pt(7), pt(7), pt(7)], 120, 28)?.path).toBe("M0 14 L60 14 L120 14");
   });
   test("blank values are skipped and breach points are marked", () => {
-    expect(sparkline([pt(0), pt(null, true), pt(10, true)], 100, 20)).toEqual({
+    expect(sparkline([pt(0), pt(null, true), pt(10, true)], 100, 20)).toMatchObject({
       path: "M0 20 L100 0", marks: [{ x: 100, y: 0 }],
     });
   });
   test("coordinates are rounded to two decimals", () => {
     expect(sparkline([pt(0), pt(1), pt(2), pt(3)], 100, 30)?.path).toBe("M0 30 L33.33 20 L66.67 10 L100 0");
+  });
+  test("the range takes in a limit above the values, so a small wiggle stays small", () => {
+    const line = sparkline([pt(10, false, 40), pt(20, false, 40)], 100, 30);
+    expect(line).toMatchObject({ path: "M0 30 L100 20", low: 10, high: 40, limits: [{ value: 40, y: 0 }] });
+  });
+  test("the range takes in a limit below the values", () => {
+    const line = sparkline([pt(5, true, 0), pt(10, true, 0)], 100, 20);
+    expect(line).toMatchObject({ path: "M0 10 L100 0", low: 0, high: 10, limits: [{ value: 0, y: 20 }] });
+  });
+  test("each distinct limit is drawn once", () => {
+    const line = sparkline([pt(2, false, 6), pt(4, false, 6), pt(8, true, 6)], 100, 30);
+    expect(line?.limits).toEqual([{ value: 6, y: 10 }]);
+  });
+  test("every valued point carries what the hover box shows", () => {
+    const line = sparkline([pt(3, false, 9, "2026-03-02"), pt(null), pt(12, true, 9, "2026-03-04")], 100, 30);
+    expect(line?.points).toEqual([
+      { x: 0, y: 30, start: "2026-03-02", value: 3, threshold: 9, breach: false },
+      { x: 100, y: 0, start: "2026-03-04", value: 12, threshold: 9, breach: true },
+    ]);
+  });
+  test("the hovered point is the nearest one to the pointer", () => {
+    expect(nearestIndex(5, 0)).toBe(0);
+    expect(nearestIndex(5, 0.3)).toBe(1);
+    expect(nearestIndex(5, 0.4)).toBe(2);
+    expect(nearestIndex(5, 1)).toBe(4);
+    expect(nearestIndex(5, -0.2)).toBe(0);
+    expect(nearestIndex(5, 1.3)).toBe(4);
+  });
+  test("the x-axis caption names the series period", () => {
+    expect(seriesAxis("day")).toBe("Date (one point per day)");
+    expect(seriesAxis("effective date")).toBe("Effective date");
+    expect(seriesAxis("week")).toBe("Week starting");
   });
 });
 

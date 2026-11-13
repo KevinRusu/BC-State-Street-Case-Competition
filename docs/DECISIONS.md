@@ -1042,3 +1042,15 @@ build in §8); plan: `docs/superpowers/plans/2026-11-11-executive-view.md`.
   per-domain scores shown without coverage; fractional unit changes rounded to whole units (now shown as stored);
   one plain rule name that claimed more than its rule checks; and example figures copied from real outputs into a
   test file, code comments and the plan (replaced by invented values). The notes kept unfixed are listed in spec §8.
+
+### D-072 · 12 Nov · Executive view trend charts: axes, a threshold line and a hover box; the range includes the threshold
+
+- **Decision:** each indicator chart on the executive view shows its unit, the values at the bottom and top of its
+  range, the first and last dates with the series period ("Date (one point per day)" or "Effective date"), and a
+  dashed line at each threshold. Hovering over a chart, or focusing it and using the arrow keys, shows the nearest
+  point's date, value, threshold and whether it breached. The vertical range runs from the lowest to the highest of
+  the values and the thresholds.
+- **Why:** the charts had no axes and stretched every line to fill its box, so a one-unit wiggle looked like a large
+  swing and a red dot gave no reason. With the threshold inside the range, the distance to the limit is visible: a
+  series far below its limit draws as a nearly flat line, and a series that breaches throughout sits on the wrong side
+  of the dashed line. The data comes unchanged from `indicator_series`.
