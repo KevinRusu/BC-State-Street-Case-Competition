@@ -2,12 +2,13 @@ import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { Metric, RegisterStatus } from "@/components/common";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { BLANK, fmtCount, fmtScore, fmtShare, fmtUsd, fmtUsdShort, largestScenario, leadingBreaches, scenarioHref } from "@/lib/executive";
+import { BLANK, PLATFORM_SCORE_TARGET, fmtCount, fmtScore, fmtShare, fmtUsd, fmtUsdShort, largestScenario, leadingBreaches, scenarioHref } from "@/lib/executive";
 import type { ExecutiveData } from "@/lib/executive-types";
 import { PartMissing } from "./part-missing";
+import { ScoreTarget } from "./score-target";
 
-function HeadlineCard({ id, title, value, caption, children }: {
-  id: string; title: string; value: React.ReactNode; caption?: React.ReactNode; children: React.ReactNode;
+function HeadlineCard({ id, title, value, summary, caption, children }: {
+  id: string; title: string; value: React.ReactNode; summary?: React.ReactNode; caption?: React.ReactNode; children: React.ReactNode;
 }) {
   const captionId = `${id}-caption`;
   return (
@@ -27,6 +28,7 @@ function HeadlineCard({ id, title, value, caption, children }: {
             {value}
           </span>
         </CollapsibleTrigger>
+        {summary && <div className="px-5 pb-4">{summary}</div>}
         <CollapsibleContent className="space-y-2 border-t px-5 py-4">
           {children}
         </CollapsibleContent>
@@ -49,6 +51,7 @@ export function HeadlineTiles({ data }: { data: ExecutiveData }) {
           id="tile-platform"
           title="Platform Score"
           value={<span data-testid="score">{fmtScore(data.platform?.score ?? null)}</span>}
+          summary={<ScoreTarget score={data.platform?.score ?? null} minimum={PLATFORM_SCORE_TARGET} />}
         >
           {missingScore ? <PartMissing part="scorecard" /> : (
             <>
@@ -89,9 +92,9 @@ export function HeadlineTiles({ data }: { data: ExecutiveData }) {
         </HeadlineCard>
         <HeadlineCard
           id="tile-leading"
-          title="Leading Indicators"
+          title="Leading Indicators Triggered"
           value={missingIndicators ? BLANK : `${fmtCount(leading.breaching)} of ${fmtCount(leading.computed)}`}
-          caption={!missingIndicators && leading.computed > 0 && "Recorded a breach during the reporting period"}
+          caption={!missingIndicators && leading.computed > 0 && "During the reporting period"}
         >
           {missingIndicators ? <PartMissing part="indicators" /> : (
             <>

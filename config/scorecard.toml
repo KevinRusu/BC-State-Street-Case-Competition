@@ -565,7 +565,7 @@ role = "fail"
 # is computed or proposed; a proposed indicator names its missing inputs in `inputs_needed`. `gaming` names one way an
 # operations team could make the number look better without fixing anything, and what in the numbers would show it.
 # `threshold_value` is the number each series row is judged against (the text says how). `unit` is the unit of the headline
-# `value` in 02_indicators.csv (I2's week rows in the series are ratios; the threshold text says so).
+# `value` in 02_indicators.csv.
 [indicators.I1]
 name = "Unmastered security rate"
 type = "Leading"
@@ -582,18 +582,19 @@ gaming = "Creating a placeholder security with no cusip or currency brings the r
 inputs_needed = ""
 
 [indicators.I2]
-name = "Booking latency"
+name = "Pre-cutoff booking alerts"
 type = "Leading"
 status = "computed"
-calculation = "Median of booked - received minutes per feed and day, over the records that can be judged (02_timeliness.csv, processing_latency rows). Week over week: per feed, a calendar week's median over its records (never a median of daily medians) divided by the previous week's."
-unit = "minutes"
-refresh = "daily; weekly for the week-over-week change"
-threshold = "a daily median above the feed's limit in config/reconciliation.toml [timeliness.processing_latency_limit_minutes] (brief App. B: above four hours), or a week's median at least doubling_factor times the previous week's (brief App. B: a doubling week over week)"
-doubling_factor = 2.0                # the feed limits are not repeated here: they stay in config/reconciliation.toml
+calculation = "Count of distinct trades still unbooked at receipt plus the alert delay with time remaining before their NAV cutoff. Replayed from pipeline timestamps and grouped by feed and cutoff day."
+unit = "trades"
+refresh = "intraday alert; historical replay summarized by feed and day"
+threshold = "Any trade still unbooked {alert_after_minutes} minutes after receipt with the NAV cutoff ahead"
+alert_after_minutes = 103            # historical calibration in D-074
+threshold_value = 0                  # any alert triggers the indicator for that feed and day
 owner = "Trade operations lead"
-decision = "Escalate the feed (staff it, fix it or reroute it) before its records start missing the valuation cutoff"
-predicts = "Records missing the valuation cutoff, producing a stale NAV (brief App. B)"
-gaming = "Booking the backlog in one burst just before cutoff keeps the median low; the p95 and maximum minutes in 02_timeliness.csv and the count booked after cutoff rise."
+decision = "Review the waiting trades and prioritize bookings by time remaining before cutoff"
+predicts = "Trades at risk of being booked after the valuation cutoff"
+gaming = "Monitor timestamp completeness alongside the alert. The replay needs usable receipt, booking and cutoff timestamps."
 inputs_needed = ""
 
 [indicators.I3]

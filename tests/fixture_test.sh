@@ -888,15 +888,11 @@ expect('sensitivity score: accounts file has both variant columns filled for eve
        bool(((acc['score'] == '') == (acc['score_nav_proximity'] == '')).all() and ((acc['score'] == '') == (acc['score_weakest_link'] == '')).all()
             and (acc.loc[acc['score'] != '', 'score_weakest_link'].astype(float) <= acc.loc[acc['score'] != '', 'score'].astype(float)).all()))
 
-# Indicators (section 12d): the catalog and its series; pipeline booking doubles in the week of 06-08.
+# Indicators (section 12d): the catalog and its series. The score fixture's quick bookings stay below the alert delay.
 ser = read('score', '02_indicator_series.csv')
-wk = ser[(ser['id'] == 'I2') & (ser['period'] == 'week')].set_index('start')
-expect('I2 score: week of 06-08 doubles (5 -> 12 min), week of 07-06 not evaluable', ('yes', 'not evaluable'),
-       (wk.loc['2026-06-08', 'breach'], wk.loc['2026-07-06', 'breach']))
-expect('I2 score: week of 06-08 is its median over the previous week, 12 / 5; first and last weeks partial',
-       ('12', '5', '2.4', 'yes', 'no', 'yes'),
-       (*[wk.loc['2026-06-08', c] for c in ['numerator', 'denominator', 'value']],
-        wk.loc['2026-06-01', 'partial'], wk.loc['2026-06-08', 'partial'], wk.loc['2026-07-06', 'partial']))
+i2 = ser[ser['id'] == 'I2']
+expect('I2 score: replay reports feed days and no alerts for quick bookings', ({'day'}, {'0'}, False),
+       (set(i2['period']), set(i2['numerator']), bool((i2['breach'] == 'yes').any())))
 i1 = ser[(ser['id'] == 'I1') & (ser['start'] == '2026-06-15')].iloc[0]
 expect('I1 score: on 06-15, 2 of 9 trades on an unmastered or blank security', ('2', '9', 'yes'),
        (i1['numerator'], i1['denominator'], i1['breach']))
@@ -907,8 +903,8 @@ expect('I1 default: the row with no readable trade date (FXT07) is not evaluable
 ind = read('score', '02_indicators.csv').set_index('id')
 expect('indicators: 8 rows, 6 computed, I7 and I8 proposed with inputs named', (8, 6, True),
        (len(ind), int((ind['status'] == 'computed').sum()), bool((ind.loc[['I7', 'I8'], 'inputs_needed'] != '').all())))
-expect('indicators: every row names the unit of its value, in the column after value; I2 in minutes, I5 in keys',
-       (True, 'unit', 'minutes', 'keys'),
+expect('indicators: every row names the unit of its value, in the column after value; I2 in trades, I5 in keys',
+       (True, 'unit', 'trades', 'keys'),
        (bool((ind['unit'] != '').all()), list(ind.columns)[list(ind.columns).index('value') + 1], ind.loc['I2', 'unit'],
         ind.loc['I5', 'unit']))
 i4 = ser[(ser['id'] == 'I4')].set_index('start')
@@ -932,7 +928,13 @@ expect('lookback: one row per pair I1-I4', ['I1', 'I2', 'I3', 'I4'], list(lb.ind
 expect('lookback I1: FXSEC9 traded 06-15, held unmastered at the snapshot (25 days); FXSEC8 a miss',
        ('2', '1', '1', '25', 'lead shown'),
        tuple(lb.loc['I1', c] for c in ['lagging_keys', 'flagged_earlier', 'misses', 'earliest_lead_days', 'verdict']))
-expect('lookback I2: nothing booked after cutoff in the fixture', 'no lagging problem', lb.loc['I2', 'verdict'])
+expect('lookback I2: uses transaction IDs, with no late bookings in the score fixture', ('transaction_id', 'no lagging problem'),
+       (lb.loc['I2', 'key_kind'], lb.loc['I2', 'verdict']))
+edge_i2 = read('edge', '02_indicators.csv').set_index('id').loc['I2']
+edge_lb = read('edge', '02_indicator_lookback.csv').set_index('leading').loc['I2']
+expect('I2 edge: four trades alert, and FXT13 alerts at 10:48 before its 18:00 cutoff', ('4', '1', '1', 432),
+       (edge_i2['value'], edge_lb['lagging_keys'], edge_lb['flagged_earlier'],
+        round(float(edge_lb['median_lead_days']) * 1440)))
 expect('lookback: every pair shares a key, so no verdict is timing only (that is for a pair with no shared key)',
        (True, False), (set(lb['verdict']) <= {'lead shown', 'no lead: all missed', 'no lagging problem'},
                        bool((lb['key_kind'] == '').any())))

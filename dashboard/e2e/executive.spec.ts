@@ -1,13 +1,22 @@
 import path from "node:path";
 import { DuckDBInstance } from "@duckdb/node-api";
 import { test, expect, type Locator, type Page } from "@playwright/test";
-import { WORST_ACCOUNTS, accountHref, fmtNumber, fmtUsdShort, ruleHref, scenarioHref } from "../lib/executive";
+import { DOMAIN_SCORE_TARGETS, PLATFORM_SCORE_TARGET, WORST_ACCOUNTS, accountHref, fmtNumber, fmtScore, fmtUsdShort, ruleHref, scenarioHref, scoreTargetStatus } from "../lib/executive";
 
 // The fixture's CSV files (made up, tests/fixtures/small); the page must show what they hold.
 const FIXTURE = path.join(__dirname, "../../tests/runs/dashboard_browser_fixture");
 const SHOTS = "../tests/runs/dashboard_browser/shots";
 const runtimeErrors = new WeakMap<Page, string[]>();
 const domainOrder = ["Accounts", "Securities", "Trades", "Corporate Actions", "Positions", "Prices", "NAV"];
+const targetLabels = { ok: "Met target", warn: "Within 5% below target", bad: "Below target" };
+
+async function expectScoreTarget(card: Locator, score: string, minimum: number) {
+  const { tone } = scoreTargetStatus(score ? Number(score) : null, minimum);
+  await expect(card.getByText(`Target ${fmtScore(minimum)}`, { exact: true })).toBeVisible();
+  await expect(card.getByText(tone ? targetLabels[tone] : "No score", { exact: true })).toBeVisible();
+  const scoreLabel = score ? `Score ${score} on a scale of 0 to 100` : "No score";
+  await expect(card.getByRole("img", { name: `${scoreLabel}, target ${fmtScore(minimum)}`, exact: true })).toBeVisible();
+}
 
 async function expandRankedPreview(section: Locator, rowId: string, total: number) {
   const rows = section.getByTestId(rowId);
@@ -62,8 +71,17 @@ test("executive view shows the scorecard's own figures", async ({ page }) => {
   const platform = (await csv("02_scorecard.csv")).find((r) => r.level === "platform")!;
   await page.goto("/executive");
   await expect(page.getByRole("heading", { level: 1, name: "Executive view" })).toBeVisible();
-  const tile = page.getByTestId("tile-platform");
+  await expect(page.getByRole("heading", { level: 2 })).toHaveText([
+    "Executive Metrics", "Leading Indicators", "KPIs by Office", "Worst Accounts",
+    "Platform Repair Triage", "Data Integrity Status",
+  ]);
+  const metrics = page.getByRole("region", { name: "Executive Metrics", exact: true });
+  await expect(metrics.getByRole("heading", { level: 3, name: "Domains" })).toBeVisible();
+  await expect(metrics.getByTestId("tile-impact")).toBeVisible();
+  await expect(metrics.getByTestId("tile-leading")).toBeVisible();
+  const tile = metrics.getByTestId("tile-platform");
   await expect(tile.getByTestId("score")).toHaveText(platform.score);
+  await expectScoreTarget(tile, platform.score, PLATFORM_SCORE_TARGET);
   const summary = tile.getByRole("button", { name: /Platform Score/ });
   await expect(summary).toHaveAttribute("aria-expanded", "false");
   await expect(tile.getByTestId("coverage")).toBeHidden();
@@ -75,13 +93,13 @@ test("executive view shows the scorecard's own figures", async ({ page }) => {
   await expect(tile.getByTestId("coverage")).toBeHidden();
 
   const domains = (await csv("02_scorecard.csv")).filter((r) => r.level === "domain");
-  const cards = page.getByTestId("domain-card");
+  const cards = metrics.getByRole("region", { name: "Domains", exact: true }).getByTestId("domain-card");
   await expect(cards).toHaveCount(domains.length);
   await expect(cards.getByRole("link")).toHaveText(domainOrder);
   for (const d of domains) {
     const card = cards.filter({ has: page.getByRole("link", { name: new RegExp(`^${d.domain}$`, "i") }) });
     await expect(card.getByTestId("score")).toHaveText(d.score);
-    await expect(card.getByText(d.score ? "No target" : "No score", { exact: true })).toBeVisible();
+    await expectScoreTarget(card, d.score, DOMAIN_SCORE_TARGETS.get(d.domain)!);
   }
   const accounts = cards.first();
   const accountDetails = accounts.getByRole("button", { name: "Score details for Accounts" });
@@ -127,10 +145,11 @@ test("headline disclosures use the same historical indicator and impact results 
   await impactTrigger.press("Space");
 
   const leading = page.getByTestId("tile-leading");
-  const leadingTrigger = leading.getByRole("button", { name: /Leading Indicators/ });
+  const leadingTrigger = leading.getByRole("button", { name: /^Leading Indicators Triggered/ });
   await expect(leadingTrigger).toContainText(`${breaching.length} of ${indicators.length}`);
   await leadingTrigger.press("Enter");
   await expect(leading.getByRole("listitem")).toHaveCount(indicators.length);
+  await expect(leading.getByRole("link", { name: "Pricing readiness", exact: true })).toHaveAttribute("href", "#indicator-I4");
   await expect(leading.getByRole("listitem").getByText("Recorded a breach", { exact: true })).toHaveCount(breaching.length);
   await expect(leading.getByText(dates[0], { exact: true })).toBeVisible();
   await expect(leading.getByText(dates.at(-1)!, { exact: true })).toBeVisible();
@@ -153,6 +172,7 @@ test("trend lines have axes, a limit line and a hover box for every point", asyn
   if (rows.some((r) => r.threshold !== null)) await expect(card.getByTestId("spark-limit").first()).toBeAttached();
   await expect(tip).toHaveCount(0);
 
+  await chart.scrollIntoViewIfNeeded();
   const box = (await chart.boundingBox())!;
   await page.mouse.move(box.x + 2, box.y + box.height / 2);
   await expect(tip).toContainText(rows[0].start);
@@ -170,23 +190,60 @@ test("trend lines have axes, a limit line and a hover box for every point", asyn
   await expect(tip).toContainText(rows[1].start);
 });
 
-test("indicators, KPIs and worst accounts are listed, blanks stay blanks", async ({ page }) => {
+test("the leading indicators stack beside booking alerts on wide screens", async ({ page }) => {
+  await page.goto("/executive");
+  const cardBox = async (id: string) => {
+    const card = page.getByTestId(`indicator-${id}`);
+    await expect(card).toBeVisible();
+    return (await card.boundingBox())!;
+  };
+  const first = await cardBox("I1");
+  const actions = await cardBox("I3");
+  const pricing = await cardBox("I4");
+  const booking = await cardBox("I2");
+  expect(actions.x).toBeCloseTo(first.x, 0);
+  expect(pricing.x).toBeCloseTo(first.x, 0);
+  expect(actions.y).toBeGreaterThan(first.y + first.height);
+  expect(pricing.y).toBeGreaterThan(actions.y + actions.height);
+  expect(booking.y).toBeCloseTo(first.y, 0);
+  expect(booking.x).toBeGreaterThan(first.x + first.width);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobilePricing = await cardBox("I4");
+  const mobileBooking = await cardBox("I2");
+  expect(mobileBooking.x).toBeCloseTo(mobilePricing.x, 0);
+  expect(mobileBooking.y).toBeGreaterThan(mobilePricing.y + mobilePricing.height);
+});
+
+test("leading indicators, KPIs and worst accounts are listed, blanks stay blanks", async ({ page }) => {
   const indicators = await csv("02_indicators.csv");
   await page.goto("/executive");
-  for (const i of indicators) await expect(page.getByTestId(`indicator-${i.id}`)).toBeVisible();
-  const proposed = indicators.find((i) => i.status === "proposed")!;
-  const proposedCard = page.getByTestId(`indicator-${proposed.id}`);
-  await expect(proposedCard).toContainText("Proposed");
-  await expect(proposedCard.getByText("Data needed")).toBeHidden();
-  const details = proposedCard.getByRole("button", { name: /Indicator details/ });
-  await details.press("Space");
-  await expect(proposedCard.getByText("Data needed")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Leading Indicators", exact: true })).toBeVisible();
+  for (const i of indicators.filter((i) => i.type === "Leading")) {
+    await expect(page.getByTestId(`indicator-${i.id}`)).toBeVisible();
+  }
+  for (const i of indicators.filter((i) => i.type === "Lagging")) {
+    await expect(page.getByTestId(`indicator-${i.id}`)).toHaveCount(0);
+  }
+  const booking = indicators.find((i) => i.id === "I2")!;
+  const bookingCard = page.getByTestId("indicator-I2");
+  await expect(bookingCard.getByRole("heading", { name: "Pre-cutoff booking alerts" })).toBeVisible();
+  await expect(bookingCard.getByText("trades above latency threshold (103 minutes)", { exact: true })).toBeVisible();
+  const bookingDescription = bookingCard.getByText(`${booking.threshold}. Historical replay by feed and cutoff day.`, { exact: true });
+  await expect(bookingDescription).toBeHidden();
+  await bookingCard.getByRole("button", { name: /Indicator details/ }).press("Enter");
+  await expect(bookingDescription).toBeVisible();
+  await expect(bookingCard.getByText("Feed days with alerts")).toBeVisible();
+  const pricingCard = page.getByTestId("indicator-I4");
+  await expect(pricingCard.getByRole("heading", { name: "Pricing readiness", exact: true })).toBeVisible();
+  await pricingCard.getByRole("button", { name: "Indicator details for Pricing readiness" }).press("Enter");
+  await expect(pricingCard.getByText("What it measures")).toBeVisible();
   await expect(page.getByText("not computed").first()).toBeVisible(); // KPI 7
   const accounts = await csv("02_scorecard_accounts.csv");
   const worst = accounts.find((r) => r.rank === "1")!;
   await expect(page.getByRole("link", { name: worst.account_id })).toBeVisible();
   await expect(page.locator("main")).not.toContainText("NaN");
-  await expect(page.locator("#degrading").getByTestId("worst-accounts")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Worst Accounts", exact: true }).getByTestId("worst-accounts")).toBeVisible();
   const shown = accounts.filter((a) => a.rank !== null && Number(a.rank) <= WORST_ACCOUNTS);
   const list = page.getByTestId("worst-accounts");
   await expandRankedPreview(list, "worst-account-row", shown.length);
@@ -412,7 +469,14 @@ test("drill-down: a scenario lists its keys with dollars, and one opens in the t
 test("trust: stress rates, before and after, and the sensitivity variants", async ({ page }) => {
   const rates = await csv("03_stress_rates.csv");
   await page.goto("/executive");
+  const disclosure = page.getByRole("button", { name: "Data Integrity Status", exact: true });
   const stress = page.getByTestId("stress");
+  const sens = page.getByTestId("sensitivity");
+  await expect(disclosure).toHaveAttribute("aria-expanded", "false");
+  await expect(stress).toBeHidden();
+  await expect(sens).toBeHidden();
+  await disclosure.press("Enter");
+  await expect(disclosure).toHaveAttribute("aria-expanded", "true");
   await expect(stress.getByText("Planted defects")).toBeVisible();
   const caught = rates.find((r) => r.role === "defect" && r.level === "caught")!;
   await expect(stress.getByRole("row", { name: /caught/ }).first()).toContainText(caught.cases);
@@ -420,14 +484,20 @@ test("trust: stress rates, before and after, and the sensitivity variants", asyn
   await expect(stress).not.toContainText("/made/up"); // the fixture's labels path
   await expect(stress).not.toContainText("labels path");
   await expect(stress.getByText("older run")).toHaveCount(0);
-  const sens = page.getByTestId("sensitivity");
   for (const name of ["NAV-weighted", "Weakest link", "Confirmed only"]) await expect(sens.getByText(name)).toBeVisible();
   await page.locator("#trust").scrollIntoViewIfNeeded();
   await page.screenshot({ path: "../tests/runs/dashboard_browser/shots/trust.png", fullPage: true });
   await page.locator("#trust").screenshot({ path: "../tests/runs/dashboard_browser/shots/trust-section.png" });
+  await disclosure.press("Space");
+  await expect(disclosure).toHaveAttribute("aria-expanded", "false");
+  await expect(stress).toBeHidden();
+  await disclosure.click();
+  await expect(stress).toBeVisible();
   await page.addInitScript(() => localStorage.setItem("theme", "dark")); // runs after the beforeEach one
   await page.reload();
-  await expect(page.getByTestId("stress")).toBeVisible();
+  await expect(disclosure).toHaveAttribute("aria-expanded", "false");
+  await disclosure.click();
+  await expect(stress).toBeVisible();
   await page.locator("#trust").scrollIntoViewIfNeeded();
   await page.screenshot({ path: "../tests/runs/dashboard_browser/shots/trust-dark.png", fullPage: true });
   await page.locator("#trust").screenshot({ path: "../tests/runs/dashboard_browser/shots/trust-section-dark.png" });
