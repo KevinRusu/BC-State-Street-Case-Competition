@@ -198,14 +198,27 @@ export function largestScenario(s: Scenario[]): Scenario | null {
   return splitScenarios(s).priced.find((x) => x.grossUsd !== null && x.grossUsd > 0) ?? null;
 }
 
-/** A minimum on the 0–100 domain score scale. Individual KPI targets have their own populations and directions. */
-export function domainTargetStatus(score: Num, minimum: Num): { target: Num; tone: "ok" | "warn" | "bad" | null } {
+/** Pilot minimums for the composite scores. Individual KPIs retain their own targets. */
+export const DOMAIN_SCORE_TARGETS: ReadonlyMap<string, number> = new Map([
+  ["Accounts", 99.50],
+  ["Securities", 99.50],
+  ["Trades", 98.00],
+  ["Corporate actions", 95.00],
+  ["Positions", 99.50],
+  ["Prices", 99.00],
+  ["NAV", 99.50],
+]);
+
+export const PLATFORM_SCORE_TARGET = 95;
+
+/** Compare a score on the 0–100 scale with its minimum and allow a relative shortfall of up to 5% in amber. */
+export function scoreTargetStatus(score: Num, minimum: Num): { target: Num; tone: "ok" | "warn" | "bad" | null } {
   const onScale = (value: Num): value is number =>
     value !== null && Number.isFinite(value) && value >= 0 && value <= 100;
   const target = onScale(minimum) ? minimum : null;
   if (!onScale(score) || target === null) return { target, tone: null };
   if (score >= target) return { target, tone: "ok" };
-  return { target, tone: score >= target - 1 ? "warn" : "bad" };
+  return { target, tone: score + 1e-9 >= target * 0.95 ? "warn" : "bad" };
 }
 
 /** The published breach counts cover the reporting period. They do not describe the latest observation alone. */

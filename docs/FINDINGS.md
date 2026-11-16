@@ -5,7 +5,7 @@
 `docs/DEFECT_CATALOG.md`.*
 
 - Register checksum: `c4f264d9f5ed` (built at commit `a5202a4`)
-- Run: config `reconciliation.toml`, snapshot 2026-07-10, shuffle seed 0, 1280.1 s
+- Run: config `reconciliation.toml`, snapshot 2026-07-10, shuffle seed 0, 514.0 s
 - 71 findings: 37 confirmed, 29 unresolved, 5 cleared
 - Denominators: eligible + not evaluable = population (D-027 in `docs/DECISIONS.md`).
 
@@ -99,7 +99,7 @@
 
 *From `outputs/02_scorecard.csv`, `02_kpis.csv` and `02_indicators.csv`. Rule and test rows, accounts, sensitivity and the look-back stay in the CSVs. Scores and coverage are on a 0-100 scale.*
 
-- Scorecard checksum: `11a3fa3c36d9`
+- Scorecard checksum: `d5af528b2bbd`
 
 | Level | Domain | Score | Coverage | Confirmed-only score |
 |---|---|---|---|---|
@@ -125,7 +125,7 @@
 | Indicator | Name | Status | Value | Threshold | Breaches | First breach |
 |---|---|---|---|---|---|---|
 | I1 | Unmastered security rate | computed | 0.09 % of trade rows | any occurrence (brief App. B): a trade date with one such trade is a breach | 30 | 2026-06-01 |
-| I2 | Booking latency | computed | 12 minutes | a daily median above the feed's limit in config/reconciliation.toml [timeliness.processing_latency_limit_minutes] (brief App. B: above four hours), or a week's median at least doubling_factor times the previous week's (brief App. B: a doubling week over week) | 0 |  |
+| I2 | Pre-cutoff booking alerts | computed | 5583 trades | Any trade still unbooked 103 minutes after receipt with the NAV cutoff ahead | 90 | 2026-06-01 |
 | I3 | Corporate action readiness | computed | 59.00 % of actions | below 100% once the effective date is reached (brief App. B), judged at the snapshot | 24 | 2026-06-08 |
 | I4 | Fresh, agreed price coverage | computed | 93.13 % of held securities | below KPI 5's target, at least 99% (scripts/framework.json) | 30 | 2026-06-01 |
 | I5 | Position break count | computed | 2398 keys | any break: no materiality has been agreed (open question 5 in docs/STATUS.md) | 1 | 2026-07-10 |

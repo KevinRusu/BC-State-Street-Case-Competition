@@ -2,10 +2,10 @@
 import { describe, expect, test } from "vitest";
 import type { Indicator, IndicatorSeries, RuleScore, Scenario, SeriesPoint, Stress } from "@/lib/executive-types";
 import {
-  BLANK, PAGE_SIZE, RESULTS, RESULT_TONE, RUN_FACTS, WORST_ACCOUNTS, accountHref, defaultRuleOrder, domainTargetStatus, drawable,
+  BLANK, DOMAIN_SCORE_TARGETS, PAGE_SIZE, PLATFORM_SCORE_TARGET, RESULTS, RESULT_TONE, RUN_FACTS, WORST_ACCOUNTS, accountHref, defaultRuleOrder, drawable,
   executiveHref, fmtBps, fmtCount, fmtNumber, fmtScore, fmtShare, fmtUsd, fmtUsdShort, fmtValue, impactTraceTarget, largestScenario, leadingBreaches,
   nearestIndex, noTraceReason, parsePage, parseResult, resultOf, ruleHref, scenarioHref, seriesAxis, sortRules, sparkline, splitScenarios,
-  stressState, traceHref, traceTarget,
+  scoreTargetStatus, stressState, traceHref, traceTarget,
 } from "@/lib/executive";
 
 const rule = (domain: string, id: string, score: number | null, coverage: number | null, extra: Partial<RuleScore> = {}): RuleScore => ({
@@ -284,18 +284,25 @@ describe("scenarios", () => {
   });
 });
 
-describe("domain score targets", () => {
+describe("score targets", () => {
+  test("the Executive View uses a 95 platform target and a 99.50 NAV domain target", () => {
+    expect(PLATFORM_SCORE_TARGET).toBe(95);
+    expect(DOMAIN_SCORE_TARGETS.get("NAV")).toBe(99.50);
+  });
+
   test.each([
     [99, 98, 98, "ok"],
     [98, 98, 98, "ok"],
     [97, 98, 98, "warn"],
-    [96.99, 98, 98, "bad"],
+    [93.10, 98, 98, "warn"],
+    [93.09, 98, 98, "bad"],
+    [0, 95, 95, "bad"],
     [98, null, null, null],
     [null, 98, 98, null],
     [98, 101, null, null],
     [98, Number.NaN, null, null],
   ])("score %s with minimum %s has target %s and tone %s", (score, minimum, target, tone) => {
-    expect(domainTargetStatus(score, minimum)).toEqual({ target, tone });
+    expect(scoreTargetStatus(score, minimum)).toEqual({ target, tone });
   });
 });
 

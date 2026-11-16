@@ -199,7 +199,7 @@ accounts stay in the worst N (N in config) and the rank correlation across all s
 | # | Indicator | Type | Status | Calculation | Refresh | Threshold (source) |
 |---|---|---|---|---|---|---|
 | 1 | Unmastered security rate | Leading | Computed | trades on a security absent from `securities` ÷ trades, by trade date | daily | any occurrence (App. B) |
-| 2 | Booking latency | Leading | Computed | daily median booked − received by feed (from `02_timeliness.csv`); plus week-over-week change | daily | above the feed's limit (D-065), or a doubling week over week (App. B) |
+| 2 | Pre-cutoff booking alerts | Leading | Computed | count distinct trades still unbooked when the alert delay elapses, with cutoff ahead | intraday replay by feed and cutoff day | any alert at 103 minutes after receipt (D-074) |
 | 3 | Corporate action readiness | Leading | Computed | actions supported ÷ actions assessed, by effective date (from `02_ca_readiness.csv`) | by effective date | below 100% after effective date (App. B) |
 | 4 | Fresh, agreed price coverage | Leading | Computed | snapshot-held securities with an eligible, fresh quote and no vendor flag ÷ held securities, for every price date | daily | KPI 5 target (`framework.json`) |
 | 5 | Position break count | Lagging | Computed | differing and one-sided keys book vs custodian at the snapshot, one-sided apart (App. B); with the match rate | at snapshot | any break (no materiality agreed, open question 5) |
@@ -210,9 +210,10 @@ accounts stay in the worst N (N in config) and the rank correlation across all s
 Every indicator row in the catalog also has: owner, decision it supports, what it predicts or confirms, and a gaming
 note (how an operations team could make the number look better without fixing anything, and what would show it).
 
-**Week-over-week doubling (left over from D-065):** per feed, the median processing latency of a calendar week,
-computed from the records (never a median of daily medians), against the previous week's; ≥ 2× is a breach. Weeks
-that are not complete in the release are marked partial.
+**Indicator 2 (D-074):** replay alerts using the eligible per-ID timestamps from notebook section 9b. A trade
+triggers once if the alert instant comes strictly before both booking and cutoff. The series counts alerts
+per feed and cutoff day, and the headline counts alerted trades across the release. The older feed-wide
+median remains available with its four-hour limit in the timeliness diagnostics.
 
 **Indicator 1:** the daily series of the security-existence part of `TXN_SECURITY_NOT_MASTERED`, coded in §5.10
 (at first an indicator-only exception to D-066; superseded when the user chose to code the rule).
@@ -220,10 +221,9 @@ that are not complete in the release are marked partial.
 **Look-back (retrospective, not predictive accuracy; method is Claude's call after the builder check):** for each
 computed leading indicator and the lagging problem it should precede:
 
-- the leading side's first breach date, and per key (security, account or feed) the date the leading indicator first
-  flagged that key;
+- the leading side's first breach date and the first alert per key. I2 uses the exact alert timestamp for each trade;
 - the lagging side's date: the snapshot for snapshot-only problems (positions, prices, NAV), stated as such, since
-  the release has no earlier book; the day itself for daily problems (after-cutoff trades);
+  the release has no earlier book. I2 uses the cutoff timestamp for each late booking;
 - **the evidence:** the share of the lagging problem's keys that the leading indicator flagged earlier (e.g. "k of n
   unpriced securities were already on unmastered-security trades, first seen d days before the snapshot"), with the
   earliest and median lead. A lagging key with no earlier leading flag is listed as a miss. A pair with no shared key
@@ -235,7 +235,7 @@ and the misses, not on the lead time. Pairs:
 | Leading | Lagging problem it should precede | Shared by |
 |---|---|---|
 | Unmastered security rate | positions on unmastered securities / held securities with no price at the snapshot | security_id |
-| Booking latency | trades booked after cutoff (`02_timeliness.csv`) | feed |
+| Pre-cutoff booking alerts | trades booked after cutoff | transaction_id |
 | Corporate action readiness | position breaks at the snapshot on the action's source or target security | security_id |
 | Fresh, agreed price coverage | snapshot holdings with no eligible or a flagged quote | security_id |
 

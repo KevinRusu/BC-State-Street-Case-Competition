@@ -4,7 +4,7 @@
 [PRESENTATION_OUTLINE.md](PRESENTATION_OUTLINE.md); this file fills each slide with a draft headline, what goes on
 it, and the numbers. Headlines are drafts: rewrite them in your own words.*
 
-*Every number comes from the run with register checksum `c4f264d9f5ed`, scorecard checksum `11a3fa3c36d9` and stress
+*Every number comes from the run with register checksum `c4f264d9f5ed`, scorecard checksum `d5af528b2bbd` and stress
 checksum `7a2c29dc765f` (top of [FINDINGS.md](../FINDINGS.md) and its sections). If a checksum there has changed, the
 notebook was rerun: check the numbers again before presenting. The file behind each number is named next to it.*
 

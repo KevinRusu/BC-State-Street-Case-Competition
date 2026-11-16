@@ -4,7 +4,7 @@
 // A blank in the outputs stays null (`maybe`), never 0. A table counts as present only when it has its key column: a
 // store built before this change lacks it, and a missing CSV gives a table with a single `note` column.
 import type { DuckDBConnection } from "@duckdb/node-api";
-import { PAGE_SIZE, RESULTS, RUN_FACTS, WORST_ACCOUNTS, parsePage, resultOf } from "./executive";
+import { DOMAIN_SCORE_TARGETS, PAGE_SIZE, RESULTS, RUN_FACTS, WORST_ACCOUNTS, parsePage, resultOf } from "./executive";
 import type {
   AccountScore, DomainScore, ExecutiveData, ImpactPage, ImpactRecord, Indicator, IndicatorSeries, Kpi, Lookback,
   OutcomeRecord, Part, RecordFilter, RecordPage, Result, RuleScore, Scenario, ScoreTrio, Sensitivity, Stress, TestScore,
@@ -284,7 +284,8 @@ async function readIndicators(con: DuckDBConnection): Promise<Indicator[]> {
   return (await rows(con, "SELECT * FROM indicators ORDER BY rowid")).map((r) => {
     const id = text(r.id);
     return {
-      id, name: text(r.indicator), type: text(r.type), status: text(r.status), threshold: text(r.threshold),
+      id, name: id === "I4" ? "Pricing readiness" : text(r.indicator), type: text(r.type),
+      status: text(r.status), threshold: text(r.threshold),
       owner: text(r.owner), refresh: text(r.refresh), inputsNeeded: text(r.inputs_needed), value: maybe(r.value),
       unit: text(r.unit), breaches: maybe(r.breaches), firstBreach: text(r.first_breach), series: series.get(id) ?? [],
       lookback: lookback.filter((l) => text(l.leading) === id).map((l): Lookback => ({
@@ -337,7 +338,10 @@ export async function getExecutive(): Promise<ExecutiveData> {
       data.unresolvedCredit = maybe(info?.unresolved_credit);
       data.platform = platform ? trio(platform) : null;
       data.domains = (await rows(con, "SELECT * FROM scorecard WHERE level = 'domain' ORDER BY rowid")).map(
-        (r): DomainScore => ({ domain: text(r.domain), owner: text(r.owner), target: maybe(r.target), ...trio(r) }));
+        (r): DomainScore => {
+          const domain = text(r.domain);
+          return { domain, owner: text(r.owner), target: maybe(r.target) ?? DOMAIN_SCORE_TARGETS.get(domain) ?? null, ...trio(r) };
+        });
       data.rules = await readRules(con);
     }
     if (await has("indicators", "indicators", "id")) data.indicators = await readIndicators(con);

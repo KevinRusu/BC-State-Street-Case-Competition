@@ -126,30 +126,43 @@ have no matching step and are disabled. Changing records restores the normal fin
 
 `/executive` shows the platform's state using the deliverable outputs loaded into the store.
 
-**Headline tiles.** Each card opens to reveal its supporting details.
+**Executive Metrics.** The three headline cards and the Domains subsection form one group. Each headline
+card opens to reveal its supporting details.
 
-- Platform score from `scorecard` (`outputs/02_scorecard.csv`). Its details show coverage, the confirmed-only
-  comparison and the credit applied to unresolved-only cases.
+- Platform score, with coverage, the confirmed-only comparison and the credit applied to unresolved-only cases in its details, from `scorecard`
+  (`outputs/02_scorecard.csv`). The bar marks the platform target of 95.00.
 - Largest impact scenario: the priced scenario with the largest gross dollar figure, with its share of rows priced
   and its evidence status, from `severity` (`outputs/02_severity.csv`). It is one scenario, never a total.
-- Leading indicators: how many of the computed leading indicators recorded a breach during the reporting period.
+- Leading Indicators Triggered shows how many computed leading indicators triggered during the reporting period.
+  The pre-cutoff booking indicator replays trade-level alerts and plots the daily count for each feed.
   Open the card for the dates and the indicator list. The count comes from `indicators` and the dates come from
   `indicator_series`.
 
-**Platform Degradation**
-
 - Domains: a compact card per domain on a common 0–100 scale. Coverage, confirmed-only score and owner are in its
-  details. A domain's name opens the triage list filtered to that domain. The current scorecard supplies no
-  comparable domain targets, so the cards show a neutral status. KPI targets are in the KPI table.
-- Indicators: a card per indicator with a larger trend chart when a series is available. Each chart shows its unit,
+  details. A domain's name opens the triage list filtered to that domain. The bars mark the minimum targets, using
+  the pilot defaults when the scorecard has no targets, including 99.50 for NAV. The platform and domain tags and bars use green when the
+  score meets its target, amber when it is up to 5% below the target, and red when it is more than 5% below.
+  KPI targets are in the KPI table.
+
+**Leading Indicators**
+
+- Three shorter cards stack beside pre-cutoff booking alerts when space allows.
+  Pricing readiness is the Executive View label for fresh, agreed price coverage. The booking alert threshold
+  and replay description are in Indicator details. Each chart shows its unit,
   the values at the top and bottom of its range, the first and last dates, and a dashed line at the threshold. The
   range always includes the threshold, so a line far from its limit looks flat (D-072). Hover over a chart, or focus
   it and use the arrow keys, to see a point's date, value, limit and whether it breached. The details contain the
   thresholds, recorded breaches, owner, look-back, or inputs needed. Sources are `indicators`, `indicator_series` and
   `indicator_lookback` (`outputs/02_indicators.csv`, `outputs/02_indicator_series.csv`,
   `outputs/02_indicator_lookback.csv`).
-- KPIs by office: from `kpis` (`outputs/02_kpis.csv`); a row's formula is its tooltip.
-- Worst accounts: the five lowest-ranked accounts by default, with their score, coverage and confirmed-only score, and each domain's
+
+**KPIs by Office**
+
+- From `kpis` (`outputs/02_kpis.csv`). Hover over a row for its formula.
+
+**Worst Accounts**
+
+- The five lowest-ranked accounts by default, with their score, coverage and confirmed-only score, and each domain's
   score with its coverage under it (an account's domain scores have no confirmed-only score), from
   `scorecard_accounts` (`outputs/02_scorecard_accounts.csv`). Expand the list for the rest of the loaded ranking.
   A lookup opens any account by its ID.
@@ -163,6 +176,8 @@ have no matching step and are disabled. Changing records restores the normal fin
   `impact_detail` (`outputs/02_impact_detail.csv`).
 
 **Data Integrity Status**
+
+Select the section heading to open the stress test and sensitivity results. The section starts collapsed.
 
 - Stress test: the planted-defect, look-alike and priority-flip rates, the before and after measures and the run
   facts, from `stress_rates`, `stress_impact` and `stress_run` (`outputs/03_stress_rates.csv`,

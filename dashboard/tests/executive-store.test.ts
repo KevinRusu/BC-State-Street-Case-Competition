@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { DuckDBInstance, type DuckDBConnection, type DuckDBValue } from "@duckdb/node-api";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { PAGE_SIZE, RESULTS, RUN_FACTS, WORST_ACCOUNTS, parseResult, stressState } from "@/lib/executive";
+import { DOMAIN_SCORE_TARGETS, PAGE_SIZE, RESULTS, RUN_FACTS, WORST_ACCOUNTS, parseResult, stressState } from "@/lib/executive";
 import { getAccount, getExecutive, getRule, getScenario, maybe } from "@/lib/executive-store";
 import type { ExecutiveData, OutcomeRecord, RecordFilter, Result } from "@/lib/executive-types";
 import { storePath } from "@/lib/store";
@@ -105,7 +105,7 @@ describe("scorecard", () => {
     expect(exec.domains.map((d) => d.domain)).toEqual(domains.map((r) => r.domain));
     for (const r of domains) {
       expect(exec.domains.find((d) => d.domain === r.domain), r.domain!).toEqual({
-        domain: r.domain, owner: r.owner ?? "", target: n(r.target), ...trio(r),
+        domain: r.domain, owner: r.owner ?? "", target: n(r.target) ?? DOMAIN_SCORE_TARGETS.get(r.domain!) ?? null, ...trio(r),
       });
     }
 
@@ -126,14 +126,14 @@ describe("scorecard", () => {
     expect(exec.missing).toEqual([]);
   });
 
-  test("a domain target comes from its scorecard row", async () => {
+  test("a published domain target takes precedence over its pilot target", async () => {
     const file = await copyStore("domain-target.duckdb", async (con) => {
       await con.run("ALTER TABLE scorecard ADD COLUMN target DOUBLE");
       await con.run("UPDATE scorecard SET target = 98 WHERE level = 'domain' AND domain = 'Accounts'");
     });
     const { domains } = await onStore(file, getExecutive);
     expect(domains.find((d) => d.domain === "Accounts")?.target).toBe(98);
-    expect(domains.find((d) => d.domain === "Prices")?.target).toBeNull();
+    expect(domains.find((d) => d.domain === "Prices")?.target).toBe(99);
   });
 
   test("a rule has its plain name, what it tests and its on-fail action", async () => {
@@ -437,7 +437,8 @@ describe("indicators and KPIs", () => {
     expect(exec.indicators.map((i) => i.id)).toEqual(rows.map((r) => r.id));
     for (const r of rows) {
       expect(exec.indicators.find((i) => i.id === r.id), r.id!).toMatchObject({
-        name: r.indicator, type: r.type, status: r.status, value: n(r.value), unit: r.unit ?? "",
+        name: r.id === "I4" ? "Pricing readiness" : r.indicator,
+        type: r.type, status: r.status, value: n(r.value), unit: r.unit ?? "",
         breaches: n(r.breaches), firstBreach: r.first_breach ?? "", inputsNeeded: r.inputs_needed ?? "",
       });
     }

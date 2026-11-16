@@ -1065,3 +1065,17 @@ build in §8); plan: `docs/superpowers/plans/2026-11-11-executive-view.md`.
 - **Rerun:** `config/scorecard.toml` sets the credit. The notebook uses it for both the platform and account rollups and
   records it in the run metadata. Coverage, the confirmed-only comparison and the KPI calculations retain their
   existing definitions.
+
+### D-074 · 16 Nov · Replay a trade-level booking alert before cutoff
+
+- **Decision:** the Executive View counts a trade once if it is still unbooked at receipt plus the configured
+  delay and its NAV cutoff is still ahead. The alert instant must come strictly before booking and cutoff.
+  The chart groups the historical replay by feed and cutoff day. The indicator triggers whenever the count
+  is positive.
+- **Why:** the feed median describes typical processing speed. Long waits on a small share of trades can
+  cross the cutoff while the median remains low. The daily median and the case brief's four-hour limit
+  support feed diagnostics in `02_timeliness.csv`.
+- **Calibration:** the 103-minute delay maximized the harmonic mean of precision and recall over whole-minute
+  candidates on the first 20 trading days. The final 10 days served as a time-ordered check.
+  The notebook derives the alert count and lead time from the recorded receipt, booking and cutoff timestamps.
+  The dashboard displays the historical replay.

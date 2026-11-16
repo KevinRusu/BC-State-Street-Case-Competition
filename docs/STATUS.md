@@ -1,11 +1,16 @@
 # Status
 
-Last updated: 2026-11-16 (half-credit for unresolved scorecard cases, D-073)
+Last updated: 2026-11-16 (pre-cutoff booking alerts, D-074)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
 
 ## Where we are
+
+- **Pre-cutoff booking alerts (16 Nov):** the Executive View replays an alert for a trade still unbooked
+  103 minutes after receipt with time left before cutoff. It counts alerts by feed and cutoff day and reports the
+  trade-level look-back in minutes. The Leading Indicators Triggered tile counts computed indicators that triggered
+  during the reporting period. The feed median and four-hour threshold remain available in the timeliness diagnostics.
 
 - **Scorecard policy (16 Nov):** the main score gives half-credit to unresolved-only failures. The Executive View
   shows the credit used in the run along with coverage and the confirmed-only comparison. See [FINDINGS.md](FINDINGS.md#scorecard)
