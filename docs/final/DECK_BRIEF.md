@@ -4,8 +4,8 @@
 [PRESENTATION_OUTLINE.md](PRESENTATION_OUTLINE.md); this file fills each slide with a draft headline, what goes on
 it, and the numbers. Headlines are drafts: rewrite them in your own words.*
 
-*Every number comes from the run with register checksum `c4f264d9f5ed`, scorecard checksum `d2fb0fd5dce1` and stress
-checksum `9883cfbb5ccd` (top of [FINDINGS.md](../FINDINGS.md) and its sections). If a checksum there has changed, the
+*Every number comes from the run with register checksum `c4f264d9f5ed`, scorecard checksum `11a3fa3c36d9` and stress
+checksum `7a2c29dc765f` (top of [FINDINGS.md](../FINDINGS.md) and its sections). If a checksum there has changed, the
 notebook was rerun: check the numbers again before presenting. The file behind each number is named next to it.*
 
 ## Instructions for Claude in PowerPoint
@@ -116,13 +116,13 @@ Paste this section along with the slides you want built.
     rows; the rest have no usable price.
   - Master data spreads further: **15** securities that were never set up sit under **1,118** holdings in **1,116**
     accounts and **446** funds, with no price at all.
-  - Platform score: **81.6 out of 100**. Only **1** of our 6 measured KPIs meets its target.
+  - Platform score: **88.50 out of 100**. Only **1** of our 6 measured KPIs meets its target.
 - **Say:** this is exposure, not a loss. Scenarios overlap, so we never add them up. The custodian match alone
   scores 99.6%, which is why the problem stays hidden.
 - **Numbers from:** `outputs/02_severity.csv`, scenario "Negative quantities: wrong-sign scenario"
   (distinct_accounts 652, affected_funds 358, gross_delta_usd_valued_subset 415,436,373, max_fund_gross_bps 957.6,
   valuation_coverage 0.635) and "Missing security master / spin-off target" (1,118 rows, 1,116 accounts, 446 funds,
-  valued rows 0); FINDINGS scorecard (platform 81.62; KPI 2 is the only computed KPI met; KPI 4 = 99.60%).
+  valued rows 0); FINDINGS scorecard (platform 88.50; KPI 2 is the only computed KPI met; KPI 4 = 99.60%).
 
 ### Slide 6: Our answer
 
@@ -143,7 +143,7 @@ Paste this section along with the slides you want built.
 One divider slide ("Live demo"), then hidden backup screenshots of each step.
 
 1. **Executive view:** platform and domain scores, KPIs by office, what to fix first. Point at the Corporate
-   actions domain (score 0) and the custodian KPI.
+   actions domain (score 36.50) and the custodian KPI.
 2. **Drill into one rule:** negative trade quantity → its records.
 3. **Trace a record:** `TXN100052151`, the slide 3 trade, end to end: trade, pipeline, book, custodian, fund.
 4. **Data map:** where the trade check sits, at the first handoff, and who owns it.

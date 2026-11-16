@@ -54,6 +54,13 @@ export function HeadlineTiles({ data }: { data: ExecutiveData }) {
             <>
               <div data-testid="coverage"><Metric label="Coverage" value={fmtScore(data.platform?.coverage ?? null)} /></div>
               <div data-testid="confirmed-only"><Metric label="Confirmed-only score" value={fmtScore(data.platform?.confirmedOnly ?? null)} /></div>
+              {data.unresolvedCredit !== null && (
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Unresolved-only cases receive {
+                    new Intl.NumberFormat("en", { style: "percent", maximumFractionDigits: 2 }).format(data.unresolvedCredit)
+                  } credit in the main score. Confirmed defects receive zero credit.
+                </p>
+              )}
             </>
           )}
         </HeadlineCard>

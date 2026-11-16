@@ -124,8 +124,9 @@ has no score and 0% coverage.
   of one test counts once. This outcome table is also what the account scores (§5.4) and step 4's drill-down read.
   Its totals must reconcile with the register: for each counted line, its failing units equal the line's `affected`
   (asserted), and each test's population equals the population of its lines.
-- **Test pass rate** = passed ÷ evaluable. **Test coverage** = evaluable ÷ population.
-- **Rule score** = average of its tests' pass rates (equal weights in config); **rule coverage** = average of its
+- **Test score** = (passed + unresolved-only failures × unresolved credit) ÷ evaluable, scaled to 0–100.
+  The credit is 0.5 under D-073. **Test coverage** = evaluable ÷ population.
+- **Rule score** = average of its test scores (equal weights in config); **rule coverage** = average of its
   tests' coverage.
 - **Domain score** = Σ wᵣ · rule scoreᵣ ÷ Σ wᵣ over the domain's rules that have at least one evaluable unit.
   **Domain coverage** = Σ wᵣ · coverageᵣ ÷ Σ wᵣ over *all* the domain's rules (a rule with nothing evaluable adds 0).
@@ -137,15 +138,16 @@ has no score and 0% coverage.
 
 ### 5.3 Evidence status
 
-- Confirmed and unresolved findings both count as **fails**. Cleared findings count as **passes**.
-- Beside every score: the **confirmed-only** score (unresolved counted as passes), so each score is a range from
-  worst case (main) to best case.
+- Confirmed and unresolved findings both retain their failure labels and counts. In the main score, confirmed
+  failures earn zero and unresolved-only failures earn half-credit (D-073). Cleared findings get full credit.
+- The **confirmed-only** comparison applies the existing policy: only confirmed failures lose credit, and any
+  independent reason a unit cannot be evaluated still applies.
 - Lines that RULES.md says are "reported beside" a measure (e.g. holdings priced only by a fallback vendor, flat
   price runs) are not fails. Where RULES.md "Missing data" says a case is "reported separately" (e.g. a holding on
   only one side for custodian agreement), it is not evaluable for that measure: it lowers coverage, never the score.
 - Which register line feeds which domain, rule and test, and with what role, is a table in config that a judge can
   read and change. A line not in the table makes the run fail (no silent drop). Roles:
-  - **fail:** its units fail the test (main score; in the confirmed-only score only if the line is confirmed);
+  - **fail:** its units are flagged as confirmed or unresolved failures, with scoring credit as defined above;
   - **cleared:** its units pass;
   - **beside:** reported next to the test, no effect on it;
   - **not evaluable:** its units leave the test's evaluable count (lower coverage, never the score);
@@ -177,8 +179,8 @@ has no score and 0% coverage.
   one unit per action and holder key (next bullet).
 - **Corporate actions inherited (Claude's call; superseded during the build, see §8):** holders are the candidate holders `02_ca_readiness.csv` already
   computes (source security on the ex date). An action whose `verdict` is quarantined is a fail in both scores; an
-  action that only carries an unresolved flag (extra terms, ex date after effective date) is a fail in the main score
-  and a pass in the confirmed-only score, consistent with §5.3. Every action's effective date is before the snapshot
+  action that only carries an unresolved flag (extra terms, ex date after effective date) gets partial credit in the
+  main score and full credit in the confirmed-only score, consistent with §5.3. Every action's effective date is before the snapshot
   in this release; an action effective after the snapshot would not be inherited.
 
 ### 5.5 Sensitivity check
@@ -186,7 +188,7 @@ has no score and 0% coverage.
 Three variants, each reported against the main score:
 
 1. **NAV-proximity weights:** domains closer to the NAV weigh more (Positions, Prices, NAV), values in config.
-2. **Weakest link:** domain score = its worst rule's pass rate; platform = worst domain.
+2. **Weakest link:** domain score = its lowest rule score. The platform score is the lowest domain score.
 3. **Confirmed-only bound** (§5.3).
 
 For each variant: platform and domain scores and their change from main; for accounts, how many of the N worst
@@ -362,7 +364,7 @@ transactions carry `cusip` and `currency`.
 - **The evidence status decides fail or cleared (Task 2).** On a line mapped as `fail` or `cleared`, a register status
   of `cleared` makes it cleared and any other status makes it fail; the run prints any line where this differs from
   the config role. Today no line differs. A line whose evidence changes (e.g. "Closed position not reported" turning
-  unresolved on other data) then counts as a fail without a config edit (§5.3: unresolved counts as a fail).
+  unresolved on other data) then counts as an unresolved failure without a config edit. Its score credit follows §5.3.
 - **Feed-day units (Task 2).** The feed-day unit is the feed and day (`FEED YYYY-MM-DD`), not the timeliness row, so a
   feed-day judged on both feed and processing latency is one unit, and the population is the register's 90.
 - **Copies of one transaction_id are separate transaction-row units (Task 2).** On `transaction row` tests every row is

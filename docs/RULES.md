@@ -1,6 +1,6 @@
 # Rules: the detailed rules under our 7 checks
 
-Last updated: 2026-11-10 (scorecard and the two rules behind KPI 1, D-069)
+Last updated: 2026-11-16 (scorecard credit, D-073)
 
 *Built 12 Oct 2026 from the old spine workbook (`Spine_Checkin1_v0.3.xlsx`, in git history); rule gaps added 16 Oct (D-036 in `docs/DECISIONS.md`). Thresholds live in `config/*.toml`; which rules have run, and what they found, is in `docs/FINDINGS.md`.*
 
@@ -124,7 +124,9 @@ cannot test; the scorecard only adds up what the rules decide.
 - **What is scored:** every register line is mapped to one test of one rule in one domain (the seven checks above),
   with a role: fail, cleared, beside, not evaluable or summary. The mapping, the weights and the sensitivity settings
   are in `config/scorecard.toml`; a register line the mapping does not know stops the run.
-- **How:** formulas, weights, aggregation and the sensitivity variants are in
+- **How:** the test score is 100 times (passes + 0.5 × unresolved-only failures) divided by evaluable units.
+  Confirmed failures receive zero credit. Coverage and the confirmed-only comparison use their existing calculations.
+  Formulas, weights, aggregation and the sensitivity variants are in
   `docs/superpowers/specs/2026-11-10-scorecard-design.md` §5 (decisions taken while building: §8). Results:
   `outputs/02_scorecard.csv` (platform, domain, rule, test), `outputs/02_scorecard_accounts.csv` (one row per
   account) and `outputs/02_scorecard_sensitivity.csv`; the records behind each score are in

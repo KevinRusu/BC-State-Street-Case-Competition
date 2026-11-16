@@ -327,11 +327,14 @@ export async function getExecutive(): Promise<ExecutiveData> {
       return ok;
     };
     const data: ExecutiveData = {
+      unresolvedCredit: null,
       platform: null, domains: [], rules: [], indicators: [], kpis: [],
       worst: { rows: [], scored: 0, tiedBeyond: 0 }, scenarios: [], sensitivity: [], stress: null, missing,
     };
     if (await has("scorecard", "scorecard", "level")) {
       const [platform] = await rows(con, "SELECT * FROM scorecard WHERE level = 'platform' LIMIT 1");
+      const [info] = await rows(con, "SELECT * FROM store_info LIMIT 1");
+      data.unresolvedCredit = maybe(info?.unresolved_credit);
       data.platform = platform ? trio(platform) : null;
       data.domains = (await rows(con, "SELECT * FROM scorecard WHERE level = 'domain' ORDER BY rowid")).map(
         (r): DomainScore => ({ domain: text(r.domain), owner: text(r.owner), target: maybe(r.target), ...trio(r) }));

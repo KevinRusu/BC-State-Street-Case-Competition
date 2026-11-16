@@ -97,9 +97,9 @@ def scorecard_lines(folder=OUTPUTS):
               'them as fails of `ACC.exists`.',
               '- I4 and KPI 5 count a flagged vendor quote that another vendor backs as not agreed (a strict reading), '
               'while `PRC.vendors` counts a backed quote as cleared.',
-              '- The Corporate actions domain score, its confirmed-only score and I3 measure different things: a confirmed '
-              'or unresolved finding on an action fails it in the domain score; only a confirmed finding fails it in the '
-              'confirmed-only score; only quarantine fails it in I3.']
+              '- The Corporate actions domain awards partial credit for unresolved-only cases at the configured rate. '
+              'The confirmed-only score gives those cases full credit. I3 measures readiness and treats quarantined '
+              'actions as unready.']
     return lines
 
 

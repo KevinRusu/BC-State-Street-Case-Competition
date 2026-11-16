@@ -781,7 +781,13 @@ def main():
         write_rows(con, 'column_dictionary', [dict(table_name=r['table'], column_name=r['column'],
                                                    intended_type=r['intended_type'], description=r['description'])
                                               for r in csv.DictReader(stream)])
+    run_info_path = OUTPUTS / '02_run_info.csv'
+    run_info = {}
+    if run_info_path.is_file():
+        with run_info_path.open(encoding='utf-8', newline='') as stream:
+            run_info = {row['item']: row['value'] for row in csv.DictReader(stream)}
     write_rows(con, 'store_info', [dict(
+        unresolved_credit=run_info.get('unresolved_credit'),
         built_at=datetime.now().isoformat(timespec='seconds'), snapshot_date=snapshot,
         manifest=MANIFEST_PATH.relative_to(ROOT).as_posix() if MANIFEST_PATH.is_relative_to(ROOT) else str(MANIFEST_PATH),
         manifest_checksum=checksum(MANIFEST_PATH),
