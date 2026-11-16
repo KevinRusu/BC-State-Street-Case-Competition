@@ -4,8 +4,8 @@
 `notebooks/deliverable.ipynb`, then the script. Full write-ups of the classes we take forward are in
 `docs/DEFECT_CATALOG.md`.*
 
-- Register checksum: `c4f264d9f5ed` (built at commit `443970f`)
-- Run: config `reconciliation.toml`, snapshot 2026-07-10, shuffle seed 0, 199.9 s
+- Register checksum: `c4f264d9f5ed` (built at commit `a5202a4`)
+- Run: config `reconciliation.toml`, snapshot 2026-07-10, shuffle seed 0, 1280.1 s
 - 71 findings: 37 confirmed, 29 unresolved, 5 cleared
 - Denominators: eligible + not evaluable = population (D-027 in `docs/DECISIONS.md`).
 
@@ -99,17 +99,17 @@
 
 *From `outputs/02_scorecard.csv`, `02_kpis.csv` and `02_indicators.csv`. Rule and test rows, accounts, sensitivity and the look-back stay in the CSVs. Scores and coverage are on a 0-100 scale.*
 
-- Scorecard checksum: `d2fb0fd5dce1`
+- Scorecard checksum: `11a3fa3c36d9`
 
 | Level | Domain | Score | Coverage | Confirmed-only score |
 |---|---|---|---|---|
-| Platform |  | 81.62 | 99.82 | 95.38 |
+| Platform |  | 88.50 | 99.82 | 95.38 |
 | Domain | Accounts | 99.78 | 99.98 | 99.78 |
 | Domain | Securities | 99.72 | 99.92 | 99.72 |
-| Domain | Trades | 80.53 | 99.94 | 97.25 |
-| Domain | Corporate actions | 0.00 | 100.00 | 73.00 |
-| Domain | Positions | 99.09 | 99.64 | 100.00 |
-| Domain | Prices | 94.22 | 99.24 | 99.90 |
+| Domain | Trades | 88.89 | 99.94 | 97.25 |
+| Domain | Corporate actions | 36.50 | 100.00 | 73.00 |
+| Domain | Positions | 99.54 | 99.64 | 100.00 |
+| Domain | Prices | 97.06 | 99.24 | 99.90 |
 | Domain | NAV | 98.00 | 100.00 | 98.00 |
 
 | KPI | Name | Value | Target | Met | Status |
@@ -137,14 +137,14 @@ Where the views count differently:
 
 - KPI 1 reports trades on an unknown account separately (not evaluable), while the Accounts domain counts them as fails of `ACC.exists`.
 - I4 and KPI 5 count a flagged vendor quote that another vendor backs as not agreed (a strict reading), while `PRC.vendors` counts a backed quote as cleared.
-- The Corporate actions domain score, its confirmed-only score and I3 measure different things: a confirmed or unresolved finding on an action fails it in the domain score; only a confirmed finding fails it in the confirmed-only score; only quarantine fails it in I3.
+- The Corporate actions domain awards partial credit for unresolved-only cases at the configured rate. The confirmed-only score gives those cases full credit. I3 measures readiness and treats quarantined actions as unready.
 
 ## Stress test
 
 *From `outputs/03_stress_rates.csv`, `outputs/03_stress_impact.csv`, `outputs/03_stress_cases.csv`, `outputs/03_stress_changes.csv`, `outputs/03_stress_members.csv`, `outputs/03_stress_unexplained.csv`, `outputs/03_stress_run.csv`. Per-case rows, the member changes, the unexplained-change list and every fund stay in the CSVs.*
 
-- Stress checksum: `9883cfbb5ccd`
-- Run: config `config/reconciliation.toml`, labels sha256 `c768055d64f3`, seed 20261111, finished at 2026-11-11T18:24:46Z
+- Stress checksum: `7a2c29dc765f`
+- Run: config `config/reconciliation.toml`, labels sha256 `94a22aac51a4`, seed 20261111, finished at 2026-11-16T21:14:12Z
 
 | Role | Level | Cases | Share | Drawn | Wanted |
 |---|---|---|---|---|---|
@@ -171,8 +171,8 @@ Unexplained changes: 0 on untouched securities (false positive), 0 unattributabl
 
 | Deliverable measure | Before | After |
 |---|---|---|
-| platform score | 81.62 | 81.58 |
-| Prices domain score | 94.22 | 93.97 |
+| platform score | 88.50 | 88.46 |
+| Prices domain score | 97.06 | 96.81 |
 | KPI 5 value | 93.13 | 91.63 |
 | I4 value | 93.13 | 91.63 |
 | scale flag: financial_rows (upper bound) | 767 | 8022 |

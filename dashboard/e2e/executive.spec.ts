@@ -70,6 +70,7 @@ test("executive view shows the scorecard's own figures", async ({ page }) => {
   await summary.press("Enter");
   await expect(tile.getByTestId("coverage")).toContainText(platform.coverage);
   await expect(tile.getByTestId("confirmed-only")).toContainText(platform.confirmed_only_score);
+  await expect(tile.getByText("Unresolved-only cases receive 50% credit", { exact: false })).toBeVisible();
   await summary.press("Space");
   await expect(tile.getByTestId("coverage")).toBeHidden();
 
@@ -312,11 +313,15 @@ test("fix first: a rule with several tests names the test on each what-failed li
 });
 
 test("drill-down: a rule lists its records and one opens in the trace", async ({ page }) => {
-  const outcomes = (await csv("02_score_outcomes.csv")).filter((r) => r.rule === "TXN_ONE_REVERSAL_PER_ORIGINAL");
+  const rule = "TXN_ONE_REVERSAL_PER_ORIGINAL";
+  const outcomes = (await csv("02_score_outcomes.csv")).filter((r) => r.rule === rule);
+  const rules = (await csv("02_scorecard.csv")).filter((r) => r.level === "rule");
   await page.goto("/executive");
-  await page.getByTestId("rule-row").first().getByRole("link").first().click();
+  await expandRankedPreview(page.locator("#fix-first"), "rule-row", rules.length);
+  const row = page.getByTestId("rule-row").filter({ has: page.getByText(rule, { exact: true }) });
+  await row.getByRole("link").first().click();
   await expect(page).toHaveURL(/\/executive\/rule\?/);
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("TXN_ONE_REVERSAL_PER_ORIGINAL");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(rule);
   await expect(page.getByTestId("record-row")).toHaveCount(outcomes.length);
   await page.screenshot({ path: "../tests/runs/dashboard_browser/shots/rule-page.png", fullPage: true });
   await page.addInitScript(() => localStorage.setItem("theme", "dark")); // runs after the beforeEach "light"

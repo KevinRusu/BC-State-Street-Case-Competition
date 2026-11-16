@@ -128,8 +128,8 @@ have no matching step and are disabled. Changing records restores the normal fin
 
 **Headline tiles.** Each card opens to reveal its supporting details.
 
-- Platform score, with its coverage and its confirmed-only score beside it, from `scorecard`
-  (`outputs/02_scorecard.csv`).
+- Platform score from `scorecard` (`outputs/02_scorecard.csv`). Its details show coverage, the confirmed-only
+  comparison and the credit applied to unresolved-only cases.
 - Largest impact scenario: the priced scenario with the largest gross dollar figure, with its share of rows priced
   and its evidence status, from `severity` (`outputs/02_severity.csv`). It is one scenario, never a total.
 - Leading indicators: how many of the computed leading indicators recorded a breach during the reporting period.

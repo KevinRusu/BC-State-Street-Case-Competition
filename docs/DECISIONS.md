@@ -1054,3 +1054,14 @@ build in §8); plan: `docs/superpowers/plans/2026-11-11-executive-view.md`.
   swing and a red dot gave no reason. With the threshold inside the range, the distance to the limit is visible: a
   series far below its limit draws as a nearly flat line, and a series that breaches throughout sits on the wrong side
   of the dashed line. The data comes unchanged from `indicator_series`.
+
+### D-073 · 16 Nov · Half-credit for unresolved scorecard cases
+
+- **Decision:** the main score gives one point to a pass or a cleared case, half a point to an unresolved-only
+  failure, and zero to a confirmed failure. Within a test, a confirmed failure takes precedence over an unresolved
+  one. Divide the earned points by evaluable units and apply the existing test, rule and domain weights.
+- **Why:** an unresolved finding identifies an exception for review. Half-credit reflects that uncertainty in the
+  headline score while the confirmed and unresolved counts still show the work to investigate.
+- **Rerun:** `config/scorecard.toml` sets the credit. The notebook uses it for both the platform and account rollups and
+  records it in the run metadata. Coverage, the confirmed-only comparison and the KPI calculations retain their
+  existing definitions.

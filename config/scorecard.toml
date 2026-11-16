@@ -2,6 +2,9 @@
 # Change a value here and rerun the notebook; no weight, role or mapping below is repeated in the code.
 # Another file can be used for a run with the SCORECARD_CONFIG environment variable (relative to the repo root).
 
+[scoring]
+unresolved_credit = 0.5             # fraction of a pass for a unit with only unresolved failures
+
 # Domain weights for the main score: equal (spec §5.2). A rule over a few records and one over every trade row count
 # the same.
 [weights.domains]

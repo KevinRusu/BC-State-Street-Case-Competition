@@ -95,6 +95,7 @@ export type Stress = { rates: StressRate[]; measures: StressMeasure[]; run: Reco
 export type Part = "scorecard" | "indicators" | "kpis" | "accounts" | "impact" | "sensitivity" | "stress";
 
 export type ExecutiveData = {
+  unresolvedCredit: Num;
   platform: ScoreTrio | null; domains: DomainScore[]; rules: RuleScore[]; indicators: Indicator[]; kpis: Kpi[];
   worst: WorstAccounts; scenarios: Scenario[]; sensitivity: Sensitivity[]; stress: Stress | null; missing: Part[];
 };

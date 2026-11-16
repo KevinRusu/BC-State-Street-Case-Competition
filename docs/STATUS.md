@@ -1,11 +1,15 @@
 # Status
 
-Last updated: 2026-11-12 (executive view charts get axes and hover)
+Last updated: 2026-11-16 (half-credit for unresolved scorecard cases, D-073)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
 
 ## Where we are
+
+- **Scorecard policy (16 Nov):** the main score gives half-credit to unresolved-only failures. The Executive View
+  shows the credit used in the run along with coverage and the confirmed-only comparison. See [FINDINGS.md](FINDINGS.md#scorecard)
+  for the refreshed platform and domain scores.
 
 - **Final deck outline (12 Nov):** agreed in [docs/final/PRESENTATION_OUTLINE.md](final/PRESENTATION_OUTLINE.md),
   replacing the 30 Oct draft. Order: 6 intro slides, a live dashboard demo (about 4 minutes), 8 technical slides;
@@ -93,8 +97,8 @@ Last updated: 2026-11-12 (executive view charts get axes and hover)
     new live domain-weight run), `tests/store_test.sh`, dashboard `npm test` and `npm run test:e2e`, the Python unit
     tests and `check_docs.py`. An independent DuckDB recount on the raw files matches the new KPI 1 lines and KPI 1's
     numerator. Peak memory is unchanged; the full run takes longer (doc debt below).
-  - **For the slides (team):** the Corporate actions domain scores zero, because every action carries a finding and
-    unresolved findings count as fails; its confirmed-only score shows how much of that is open questions. The
+  - **For the slides (team):** every corporate action carries a finding. Its main score gives half-credit to unresolved-only
+    cases, and its confirmed-only score shows the effect of counting only confirmed failures. The
     corporate-action look-back is near complete by construction and is not evidence of predictive reach. Read the
     numbers from FINDINGS.md.
   - **Reviewed:** a whole-branch review found one Critical and four Important issues (fixed, then re-reviewed). Next: step 3 (stress test).
