@@ -85,13 +85,12 @@ test("the data map prioritizes the canvas and places the details underneath", as
   expect(summaryBox!.x).toBeGreaterThan(mapBox!.x + mapBox!.width);
   expect(summaryBox!.y).toBeCloseTo(mapBox!.y, 0);
   expect(detailsBox!.y).toBeGreaterThan(mapBox!.y + mapBox!.height);
-  const [confirmed, unresolved, cleared] = await Promise.all(
-    ["Confirmed", "Unresolved", "Cleared"].map((title) => summary.getByText(title, { exact: true }).boundingBox()),
+  // Real problems above false alarms, top to bottom, while the summary sits beside the map.
+  const rows = await Promise.all(
+    ["Flagged by our checks", "Real problems", "Confirmed", "Unresolved", "False alarms ruled out"]
+      .map((title) => summary.getByText(title, { exact: true }).boundingBox()),
   );
-  expect(unresolved!.x).toBeCloseTo(confirmed!.x, 0);
-  expect(cleared!.x).toBeCloseTo(confirmed!.x, 0);
-  expect(unresolved!.y).toBeGreaterThan(confirmed!.y);
-  expect(cleared!.y).toBeGreaterThan(unresolved!.y);
+  for (let i = 1; i < rows.length; i++) expect(rows[i]!.y).toBeGreaterThan(rows[i - 1]!.y);
 
   await page.setViewportSize({ width: 1280, height: 720 });
   await expect.poll(async () => {
@@ -106,6 +105,54 @@ test("the data map prioritizes the canvas and places the details underneath", as
   await details.getByRole("button", { name: "Back to map" }).click();
   await expect(map).toBeInViewport();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(391);
+});
+
+test("the finding summary separates real problems from false alarms", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 }); // a laptop or projector: the summary is narrow and short
+  await page.goto("/");
+  const summary = page.getByRole("complementary", { name: "Finding summary" });
+  const number = async (id: string) => Number(await summary.getByTestId(id).textContent());
+  const [flagged, problems, confirmed, unresolved, cleared] = await Promise.all(
+    ["summary-flagged", "summary-problems", "summary-confirmed", "summary-unresolved", "summary-cleared"].map(number),
+  );
+  expect(problems).toBe(confirmed + unresolved);
+  expect(flagged).toBe(problems + cleared);
+  await expect(summary.getByText("looked wrong, turned out fine (cleared)", { exact: true })).toBeVisible();
+
+  const show = summary.getByRole("button", { name: "Show which" });
+  if (cleared === 0) {
+    await expect(show).toHaveCount(0);
+    return;
+  }
+  await expect(show).toHaveAttribute("aria-expanded", "false");
+  const map = page.getByRole("region", { name: "Data map", exact: true });
+  const mapHeight = (await map.boundingBox())!.height;
+  await show.focus();
+  await page.keyboard.press("Enter");
+  const toggle = summary.getByRole("button", { name: "Hide list" });
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(summary.getByTestId("summary-cleared-list").locator("li")).toHaveCount(cleared);
+  // Beside the map, a long list scrolls inside the summary instead of stretching the map.
+  expect((await map.boundingBox())!.height).toBeCloseTo(mapHeight, 0);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(summary.getByTestId("summary-cleared-list")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(391);
+
+  // Under the map (phone, tablet) the open list neither stretches the real-problems card nor gets squeezed beside it.
+  const problemsCard = summary.getByTestId("summary-problems-card");
+  for (const width of [390, 900]) {
+    await page.setViewportSize({ width, height: 844 });
+    await toggle.click();
+    await expect(summary.getByRole("button", { name: "Show which" })).toBeVisible();
+    const closed = (await problemsCard.boundingBox())!;
+    await summary.getByRole("button", { name: "Show which" }).click();
+    await expect(summary.getByTestId("summary-cleared-list")).toBeVisible();
+    expect((await problemsCard.boundingBox())!.height).toBeCloseTo(closed.height, 0);
+    if (width === 390) {
+      expect((await summary.getByTestId("summary-cleared-list").boundingBox())!.width)
+        .toBeGreaterThan(closed.width * 0.8);
+    }
+  }
 });
 
 test("the map panel opens with the stages and folds the rest", async ({ page }) => {

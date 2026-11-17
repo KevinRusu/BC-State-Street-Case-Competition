@@ -92,7 +92,7 @@ export function HeadlineTiles({ data }: { data: ExecutiveData }) {
         </HeadlineCard>
         <HeadlineCard
           id="tile-leading"
-          title="Leading Indicators Triggered"
+          title="Early Warning Signs Triggered"
           value={missingIndicators ? BLANK : `${fmtCount(leading.breaching)} of ${fmtCount(leading.computed)}`}
           caption={!missingIndicators && leading.computed > 0 && "During the reporting period"}
         >

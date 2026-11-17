@@ -1079,3 +1079,17 @@ build in §8); plan: `docs/superpowers/plans/2026-11-11-executive-view.md`.
   candidates on the first 20 trading days. The final 10 days served as a time-ordered check.
   The notebook derives the alert count and lead time from the recorded receipt, booking and cutoff timestamps.
   The dashboard displays the historical replay.
+
+### D-075 · 17 Nov · Clearer wording for a first-time viewer, after our professor's feedback
+
+- **Decision:** the Data Map summary shows two groups instead of three equal cards: "Real problems" (confirmed,
+  unresolved) and "False alarms ruled out" (cleared, in a quieter style, with the cleared findings listed on
+  request). On the Executive view every section opens with one plain line saying what it is for, "Leading
+  Indicators" becomes "Early Warning Signs (Leading Indicators)" and "Platform Repair Triage" becomes "What to Fix
+  First". No number, check or score changed.
+- **Why:** our professor found the three cards hard to follow and suggested putting cleared under confirmed,
+  reading it as "harder to confirm". Cleared means a flag we ruled out as a false alarm (`docs/RULES.md`, "Evidence
+  status for every finding"), so it sits beside the real problems, never under confirmed: that would count false
+  alarms as proven defects. We keep cleared visible because the Working Guide rewards cleared flags (§7,
+  "Over-flagging"). "Triage" was an unfamiliar word; "What to fix first" is the Chief Data Officer's own question
+  (brief §2). Design: `docs/superpowers/specs/2026-11-17-professor-feedback-design.md`.

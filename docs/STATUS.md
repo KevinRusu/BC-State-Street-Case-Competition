@@ -1,11 +1,20 @@
 # Status
 
-Last updated: 2026-11-17 (Next.js 16.4.6 security update)
+Last updated: 2026-11-17 (professor feedback on the dashboard)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
 
 ## Where we are
+
+- **Professor feedback (17 Nov):** branch `professor-feedback`, not yet committed (D-075). The Data Map summary now
+  shows "Real problems" (confirmed, unresolved) apart from "False alarms ruled out" (cleared), with the cleared
+  findings behind **Show which**. Every Executive view section opens with one plain line saying what it is for;
+  "Leading Indicators" is now "Early Warning Signs (Leading Indicators)" and "Platform Repair Triage" is now "What
+  to Fix First". No number changed. Design: `docs/superpowers/specs/2026-11-17-professor-feedback-design.md`.
+  - **For the team (slides):** make the same changes in the deck. Show the Data Map slide's findings as real problems
+    (confirmed, unresolved) and false alarms ruled out (cleared), never cleared under confirmed: cleared means a flag
+    we ruled out. Use the two new section names wherever the deck names them.
 
 - **Next.js security update (17 Nov):** merged in PR #21. The dashboard moved from Next.js 16.4.2 to 16.4.6
   because a published security advisory affects 16.4.2. The update also sets `experimental.agentUpgrade` to
@@ -19,7 +28,7 @@ Last updated: 2026-11-17 (Next.js 16.4.6 security update)
 
 - **Pre-cutoff booking alerts (16 Nov):** the Executive View replays an alert for a trade still unbooked
   103 minutes after receipt with time left before cutoff. It counts alerts by feed and cutoff day and reports the
-  trade-level look-back in minutes. The Leading Indicators Triggered tile counts computed indicators that triggered
+  trade-level look-back in minutes. The Early Warning Signs Triggered tile counts computed indicators that triggered
   during the reporting period. The feed median and four-hour threshold remain available in the timeliness diagnostics.
 
 - **Scorecard policy (16 Nov):** the main score gives half-credit to unresolved-only failures. The Executive View
