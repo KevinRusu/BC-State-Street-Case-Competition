@@ -4,8 +4,8 @@
 `notebooks/deliverable.ipynb`, then the script. Full write-ups of the classes we take forward are in
 `docs/DEFECT_CATALOG.md`.*
 
-- Register checksum: `c4f264d9f5ed` (built at commit `a5202a4`)
-- Run: config `reconciliation.toml`, snapshot 2026-07-10, shuffle seed 0, 514.0 s
+- Register checksum: `c4f264d9f5ed` (built at commit `8221a43`)
+- Run: config `reconciliation.toml`, snapshot 2026-07-10, shuffle seed 0, 198.7 s
 - 71 findings: 37 confirmed, 29 unresolved, 5 cleared
 - Denominators: eligible + not evaluable = population (D-027 in `docs/DECISIONS.md`).
 
@@ -143,8 +143,8 @@ Where the views count differently:
 
 *From `outputs/03_stress_rates.csv`, `outputs/03_stress_impact.csv`, `outputs/03_stress_cases.csv`, `outputs/03_stress_changes.csv`, `outputs/03_stress_members.csv`, `outputs/03_stress_unexplained.csv`, `outputs/03_stress_run.csv`. Per-case rows, the member changes, the unexplained-change list and every fund stay in the CSVs.*
 
-- Stress checksum: `7a2c29dc765f`
-- Run: config `config/reconciliation.toml`, labels sha256 `94a22aac51a4`, seed 20261111, finished at 2026-11-16T21:14:12Z
+- Stress checksum: `9883cfbb5ccd`
+- Run: config `config/reconciliation.toml`, labels sha256 `c768055d64f3`, seed 20261111, finished at 2026-11-11T18:24:46Z
 
 | Role | Level | Cases | Share | Drawn | Wanted |
 |---|---|---|---|---|---|
@@ -171,8 +171,8 @@ Unexplained changes: 0 on untouched securities (false positive), 0 unattributabl
 
 | Deliverable measure | Before | After |
 |---|---|---|
-| platform score | 88.50 | 88.46 |
-| Prices domain score | 97.06 | 96.81 |
+| platform score | 81.62 | 81.58 |
+| Prices domain score | 94.22 | 93.97 |
 | KPI 5 value | 93.13 | 91.63 |
 | I4 value | 93.13 | 91.63 |
 | scale flag: financial_rows (upper bound) | 767 | 8022 |
