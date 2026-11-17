@@ -1,11 +1,21 @@
 # Status
 
-Last updated: 2026-11-16 (pre-cutoff booking alerts, D-074)
+Last updated: 2026-11-17 (Next.js 16.4.6 security update)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
 
 ## Where we are
+
+- **Next.js security update (17 Nov):** merged in PR #21. The dashboard moved from Next.js 16.4.2 to 16.4.6
+  because a published security advisory affects 16.4.2. The update also sets `experimental.agentUpgrade` to
+  `"security"` in `dashboard/next.config.ts`.
+  - **Everyone who runs the dashboard:** after you pull main, run `npm install` inside `dashboard/`. Until you
+    do, your copy keeps running 16.4.2 and nothing warns you. `npx next --version` should print 16.4.6.
+  - **From now on:** run `npm install` in `dashboard/` again whenever a pull changes `dashboard/package.json` or
+    `dashboard/package-lock.json`. `node_modules/` is not in git, so each copy of the repo updates its own.
+  - **If `npm run build` fails on `/_global-error`** with "Cannot read properties of null (reading 'useContext')",
+    check whether your shell sets `NODE_ENV=development`. Unset it and build again.
 
 - **Pre-cutoff booking alerts (16 Nov):** the Executive View replays an alert for a trade still unbooked
   103 minutes after receipt with time left before cutoff. It counts alerts by feed and cutoff day and reports the

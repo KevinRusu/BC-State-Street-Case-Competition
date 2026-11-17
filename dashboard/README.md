@@ -16,7 +16,7 @@ uv sync                                   # once: Python environment (the store 
 tests/run_notebook.sh                     # the deliverable notebook -> outputs/02_*.csv (the register the app shows)
 uv run python scripts/build_store.py      # data + register -> outputs/store.duckdb (~15 s, ~400 MB)
 cd dashboard
-npm install                               # once
+npm install                               # first time, and after any pull that changes package.json or package-lock.json
 npx next telemetry disable                # once: Next.js sends no usage data
 npm run dev                               # http://127.0.0.1:3000
 ```
