@@ -72,8 +72,8 @@ test("executive view shows the scorecard's own figures", async ({ page }) => {
   await page.goto("/executive");
   await expect(page.getByRole("heading", { level: 1, name: "Executive view" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 2 })).toHaveText([
-    "Executive Metrics", "Leading Indicators", "KPIs by Office", "Worst Accounts",
-    "Platform Repair Triage", "Data Integrity Status",
+    "Executive Metrics", "Early Warning Signs (Leading Indicators)", "KPIs by Office", "Worst Accounts",
+    "What to Fix First", "Data Integrity Status",
   ]);
   const metrics = page.getByRole("region", { name: "Executive Metrics", exact: true });
   await expect(metrics.getByRole("heading", { level: 3, name: "Domains" })).toBeVisible();
@@ -145,7 +145,7 @@ test("headline disclosures use the same historical indicator and impact results 
   await impactTrigger.press("Space");
 
   const leading = page.getByTestId("tile-leading");
-  const leadingTrigger = leading.getByRole("button", { name: /^Leading Indicators Triggered/ });
+  const leadingTrigger = leading.getByRole("button", { name: /^Early Warning Signs Triggered/ });
   await expect(leadingTrigger).toContainText(`${breaching.length} of ${indicators.length}`);
   await leadingTrigger.press("Enter");
   await expect(leading.getByRole("listitem")).toHaveCount(indicators.length);
@@ -215,10 +215,28 @@ test("the leading indicators stack beside booking alerts on wide screens", async
   expect(mobileBooking.y).toBeGreaterThan(mobilePricing.y + mobilePricing.height);
 });
 
+test("every executive section says what it is for", async ({ page }) => {
+  await page.goto("/executive");
+  const intros: [string, string][] = [
+    ["executive-metrics", "How healthy our data is overall and in each data area, scored against its target."],
+    ["leading-indicators", "Signals that move before a problem reaches client accounts or the reconciliation. A triggered sign means: act now, before it becomes a break."],
+    ["office-kpis", "How each office (front, middle and back) is doing against its target."],
+    ["worst-accounts", "The client accounts with the lowest data quality scores: where errors are most likely to reach a client."],
+    ["fix-first", "Where repair work pays off most: the checks with the lowest scores, or the problems with the largest dollar impact."],
+    ["trust", "Can these numbers be trusted? The results of our stress test and our sensitivity check."],
+  ];
+  for (const [id, text] of intros) {
+    const intro = page.locator(`#${id}-intro`);
+    await expect(intro).toHaveText(text);
+    await expect(intro).toBeVisible(); // the Data Integrity Status section is still closed here
+    await expect(page.locator(`section#${id}`)).toHaveAttribute("aria-describedby", `${id}-intro`);
+  }
+});
+
 test("leading indicators, KPIs and worst accounts are listed, blanks stay blanks", async ({ page }) => {
   const indicators = await csv("02_indicators.csv");
   await page.goto("/executive");
-  await expect(page.getByRole("heading", { level: 2, name: "Leading Indicators", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Early Warning Signs (Leading Indicators)", exact: true })).toBeVisible();
   for (const i of indicators.filter((i) => i.type === "Leading")) {
     await expect(page.getByTestId(`indicator-${i.id}`)).toBeVisible();
   }

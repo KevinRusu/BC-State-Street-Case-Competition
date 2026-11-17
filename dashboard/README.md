@@ -44,6 +44,8 @@ outputs/02_defect_register.csv ───────┘
   their meaning and colour (one job per colour: brand blue `#001AFF` for our checks and selection, green / amber /
   red / grey for data health only; tokens in `app/globals.css`).
 - Pages: `/` shows the Data Map with the finding summary stacked to the right on wide screens and the details below.
+  The summary splits what our checks flagged into real problems (confirmed, unresolved) and false alarms ruled out
+  (cleared); **Show which** lists the cleared findings (D-075).
   Select a table or connection and use **View details** when you want to move to its information below. **Back to map**
   returns to the canvas. The header buttons toggle
   the menu and the details. `/trace?id=…` follows a record in a timeline beside its map, with examples from
@@ -126,7 +128,8 @@ have no matching step and are disabled. Changing records restores the normal fin
 
 ## Executive view
 
-`/executive` shows the platform's state using the deliverable outputs loaded into the store.
+`/executive` shows the platform's state using the deliverable outputs loaded into the store. Every section opens
+with one plain line saying what it is for; the line shows even while a section is closed (D-075).
 
 **Executive Metrics.** The three headline cards and the Domains subsection form one group. Each headline
 card opens to reveal its supporting details.
@@ -135,7 +138,7 @@ card opens to reveal its supporting details.
   (`outputs/02_scorecard.csv`). The bar marks the platform target of 95.00.
 - Largest impact scenario: the priced scenario with the largest gross dollar figure, with its share of rows priced
   and its evidence status, from `severity` (`outputs/02_severity.csv`). It is one scenario, never a total.
-- Leading Indicators Triggered shows how many computed leading indicators triggered during the reporting period.
+- Early Warning Signs Triggered shows how many computed leading indicators triggered during the reporting period.
   The pre-cutoff booking indicator replays trade-level alerts and plots the daily count for each feed.
   Open the card for the dates and the indicator list. The count comes from `indicators` and the dates come from
   `indicator_series`.
@@ -146,7 +149,7 @@ card opens to reveal its supporting details.
   score meets its target, amber when it is up to 5% below the target, and red when it is more than 5% below.
   KPI targets are in the KPI table.
 
-**Leading Indicators**
+**Early Warning Signs (Leading Indicators)**
 
 - Three shorter cards stack beside pre-cutoff booking alerts when space allows.
   Pricing readiness is the Executive View label for fresh, agreed price coverage. The booking alert threshold
@@ -169,7 +172,7 @@ card opens to reveal its supporting details.
   `scorecard_accounts` (`outputs/02_scorecard_accounts.csv`). Expand the list for the rest of the loaded ranking.
   A lookup opens any account by its ID.
 
-**Platform Repair Triage**
+**What to Fix First**
 
 - Rules and impact scenarios, ranked by score or by dollars (the switch is the `by` address parameter). Each view
   shows five rows with a control for revealing the rest. Scenario descriptions open on demand. A rule shows
