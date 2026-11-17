@@ -31,8 +31,12 @@ test.afterEach(async ({ page }) => {
 test("data map supports table details, lookup connections, and panel controls", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "How data moves through the platform" })).toBeVisible();
+  const map = page.getByRole("region", { name: "Data map", exact: true });
+  const before = await map.boundingBox();
   await node(page, "transactions").click();
-  await expect(page.getByRole("heading", { name: "Transactions", exact: true })).toBeVisible();
+  expect(await map.boundingBox()).toEqual(before);
+  await page.getByRole("button", { name: "View details", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Transactions", exact: true })).toBeInViewport();
   await page.getByRole("button", { name: "Who owns this" }).click();
   await expect(page.getByText("FIXTURE_OMS", { exact: true }).first()).toBeVisible();
   await expect(page.locator('.react-flow__edge[data-id="position_account"]')).toHaveCount(0);
@@ -44,6 +48,64 @@ test("data map supports table details, lookup connections, and panel controls", 
   await expect(page.getByRole("heading", { name: "Transactions", exact: true })).not.toBeVisible();
   await page.getByRole("button", { name: "Show the panel" }).click();
   await expect(page.getByRole("heading", { name: "Transactions", exact: true })).toBeVisible();
+});
+
+test("the transaction connections keep their findings clear of the table cards", async ({ page }) => {
+  await page.goto("/");
+  const badge = (id: string) => page.locator(`[data-edge-tag="${id}"]`);
+  const accountCheck = badge("account_check");
+  await expect(accountCheck).toBeVisible();
+  await expect(badge("booking")).toBeVisible();
+  await expect(badge("correction_link")).toBeVisible();
+  const [accounts, transactions, pipeline, accountLabel, bookingLabel, correctionLabel] = await Promise.all([
+    node(page, "accounts"), node(page, "transactions"), node(page, "pipeline_events"),
+    accountCheck, badge("booking"), badge("correction_link"),
+  ].map(async (locator) => (await locator.boundingBox())!));
+  expect(accountLabel.y).toBeGreaterThan(accounts.y + accounts.height);
+  expect(accountLabel.x + accountLabel.width).toBeLessThan(transactions.x);
+  expect(correctionLabel.x + correctionLabel.width / 2).toBeCloseTo(transactions.x + transactions.width / 2, 0);
+  expect(correctionLabel.y + correctionLabel.height).toBeLessThan(transactions.y);
+  expect(bookingLabel.y).toBeGreaterThan(transactions.y + transactions.height);
+  expect(bookingLabel.y + bookingLabel.height).toBeLessThan(pipeline.y);
+  await accountCheck.click();
+  await page.getByRole("button", { name: "View details", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Account check", exact: true })).toBeInViewport();
+});
+
+test("the data map prioritizes the canvas and places the details underneath", async ({ page }) => {
+  await page.goto("/");
+  const map = page.getByRole("region", { name: "Data map", exact: true });
+  const summary = page.getByRole("complementary", { name: "Finding summary" });
+  const details = page.getByRole("region", { name: "Map details" });
+  await expect(map).toBeVisible();
+  const [mapBox, summaryBox, detailsBox] = await Promise.all([
+    map.boundingBox(), summary.boundingBox(), details.boundingBox(),
+  ]);
+  expect(mapBox!.width).toBeGreaterThan(summaryBox!.width * 4);
+  expect(summaryBox!.x).toBeGreaterThan(mapBox!.x + mapBox!.width);
+  expect(summaryBox!.y).toBeCloseTo(mapBox!.y, 0);
+  expect(detailsBox!.y).toBeGreaterThan(mapBox!.y + mapBox!.height);
+  const [confirmed, unresolved, cleared] = await Promise.all(
+    ["Confirmed", "Unresolved", "Cleared"].map((title) => summary.getByText(title, { exact: true }).boundingBox()),
+  );
+  expect(unresolved!.x).toBeCloseTo(confirmed!.x, 0);
+  expect(cleared!.x).toBeCloseTo(confirmed!.x, 0);
+  expect(unresolved!.y).toBeGreaterThan(confirmed!.y);
+  expect(cleared!.y).toBeGreaterThan(unresolved!.y);
+
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expect.poll(async () => {
+    const box = (await map.boundingBox())!;
+    return box.y + box.height;
+  }).toBeLessThanOrEqual(720);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(async () => (await summary.boundingBox())!.y - (await map.boundingBox())!.y)
+    .toBeGreaterThan((await map.boundingBox())!.height);
+  await page.getByRole("button", { name: "View details", exact: true }).click();
+  await expect(details.getByRole("heading", { name: "How data moves, and where it breaks" })).toBeInViewport();
+  await details.getByRole("button", { name: "Back to map" }).click();
+  await expect(map).toBeInViewport();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(391);
 });
 
 test("the map panel opens with the stages and folds the rest", async ({ page }) => {
@@ -66,11 +128,13 @@ test("the map panel opens with the stages and folds the rest", async ({ page }) 
   const negative = panel.locator("li:not(:has(li))", { hasText: plain.findings["Negative trade quantity"] });
   await expect(negative).toBeVisible();
   await expect(negative.getByRole("link", { name: "Trace an example" })).toHaveAttribute("href", "/trace?id=FXT03");
-  // Picked from far down the panel, the place still opens at its heading.
+  // From a finding below the map, show the selected table and return to its details.
   await page.setViewportSize({ width: 1550, height: 600 });
   await negative.getByRole("button", { name: "Show on map" }).scrollIntoViewIfNeeded();
-  expect(await panel.evaluate((el) => el.parentElement!.scrollTop)).toBeGreaterThan(0);
+  expect(await page.locator("[data-map-layout]").evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
   await negative.getByRole("button", { name: "Show on map" }).click();
+  await expect(node(page, "transactions")).toBeInViewport();
+  await page.getByRole("button", { name: "View details", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Transactions", exact: true })).toBeInViewport();
   // The place's plain sentence comes first, and what we found there starts open.
   await expect(panel.getByText(plain.nodes.transactions, { exact: true })).toBeVisible();
@@ -228,7 +292,7 @@ test("theme and menu toggles remain usable", async ({ page }) => {
 
 test("the State Street logo shows in the menu and moves to the top bar when the menu is hidden", async ({ page }) => {
   await page.goto("/");
-  const sidebar = page.locator("aside").first(); // the data map also has a right-hand details panel
+  const sidebar = page.locator("aside").first(); // the Data Map also has a finding summary
   // getByRole skips display:none, so only the colour variant that suits the theme is ever counted.
   await expect(page.getByRole("img", { name: "State Street" })).toHaveCount(1);
   await expect(sidebar.getByRole("img", { name: "State Street" })).toBeVisible();

@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef } from "react";
 import { ArrowRight, ChevronDown, Info } from "lucide-react";
 import { CheckBadge, Dot, FindingDots, Metric, Pill, RegisterStatus, Section, SourceChip } from "@/components/common";
 import { RulesList } from "@/components/rules-list";
@@ -12,17 +11,12 @@ import { countsTone, stageLines, type StageLine } from "@/lib/plain";
 import { JOIN_STATUS, REGISTER_STATUS, fmt, toneText } from "@/lib/status";
 import type { JoinSide, MapData, MapEdge, MapNode, RegisterLine, Status } from "@/lib/types";
 
-type Props = { data: MapData; selection: Selection; onSelect: (selection: Selection) => void };
+type Props = { data: MapData; selection: Selection; onSelect: (selection: Selection, showOnMap?: boolean) => void };
 
-/** The map's side panel: plain words first, technical detail one click deeper (folded). */
+/** Map details: plain words first, with technical details folded. */
 export function DetailsPanel({ data, selection, onSelect }: Props) {
-  // A new selection starts at its heading, even when it was picked from far down the panel ("Show on map").
-  const root = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    root.current?.parentElement?.scrollTo({ top: 0 });
-  }, [selection?.kind, selection?.id]);
   return (
-    <div ref={root} data-map-panel>
+    <div data-map-panel>
       {/* Keyed by id: each place opens with its folds as the brief sets them, not as the last place left them. */}
       {selection?.kind === "node" ? (
         <NodeDetails key={selection.id} data={data} id={selection.id} onSelect={onSelect} />
@@ -79,7 +73,7 @@ function FindingRow({ line, onSelect, here }: { line: RegisterLine; onSelect: Pr
       {(showOnMap || example) && (
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
           {showOnMap && (
-            <button type="button" className={linkStyle} onClick={() => kind && onSelect({ kind, id })}>
+            <button type="button" className={linkStyle} onClick={() => kind && onSelect({ kind, id }, true)}>
               Show on map
             </button>
           )}

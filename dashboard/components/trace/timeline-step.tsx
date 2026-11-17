@@ -14,9 +14,8 @@ import { cn } from "@/lib/utils";
 const EXPECTED = { one: "expected one", one_or_more: "expected at least one", any: "any number" };
 
 /**
- * One step of a trace on the timeline, as one line: a ring in the colour of what it found, the step's name and a
- * short word for its link. Steps with a finding start open and say it in plain words; the raw rows (as text) sit
- * behind one more click.
+ * The numbered timeline shows each step's name and link status. Steps with a finding start open with
+ * a plain-language explanation and a separate control to inspect the raw rows.
  */
 export function TimelineStep({ hop, findings, step, place, last, query, plain, open, onOpenChange }: {
   hop: Hop; findings: RegisterMark[]; step: number; place: string; last: boolean; query: string; plain: PlainText;
@@ -33,33 +32,35 @@ export function TimelineStep({ hop, findings, step, place, last, query, plain, o
     { text: hop.status === "not_reached" ? "" : `${fmt(hop.total)} ${hop.total === 1 ? "row" : "rows"}, ${EXPECTED[hop.expected]}` },
   ].filter((fact) => fact.text);
   return (
-    <li id={`trace-step-${hop.id}`} data-hop-table={hop.table} className="relative flex scroll-mt-4 gap-3.5 pb-1.5">
+    <li id={`trace-step-${hop.id}`} data-hop-table={hop.table} className="relative flex scroll-mt-4 gap-2 pb-2">
       {!last && <span className="absolute top-7 -bottom-1 left-[11px] w-0.5 bg-border" />}
       <span
-        className="relative z-10 mt-1.5 flex size-6 shrink-0 items-center justify-center rounded-full border-2 bg-background text-[11px] font-bold"
+        className="relative z-10 mt-2 flex size-6 shrink-0 items-center justify-center rounded-full border-2 bg-background text-xs font-bold"
         style={{ borderColor: color, color, ...(hop.status === "not_reached" ? { borderStyle: "dashed" } : {}) }}
       >
         {step}
       </span>
-      <div className={cn("min-w-0 flex-1 overflow-hidden rounded-xl", (open || hop.status === "missing") && "bg-block")}>
+      <div className={cn("min-w-0 flex-1 overflow-hidden rounded-lg border border-border/80", (open || hop.status === "missing") && "bg-block")}>
         <button
           type="button"
           id={`trace-step-${hop.id}-toggle`}
           aria-controls={`trace-step-${hop.id}-details`}
           aria-expanded={open}
           onClick={() => onOpenChange(!open)}
-          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left hover:bg-block"
+          className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-2 px-2.5 py-2 text-left hover:bg-block focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
         >
-          <span className="min-w-0 truncate font-semibold" title={hop.table}>{hop.title}</span>
-          <Dot tone={meta.tone} />
-          <span title={meta.label} className="shrink-0 text-xs" style={{ color: toneText(meta.tone) }}>
-            {meta.short}
+          <span className="min-w-0 space-y-0.5">
+            <span className="block text-sm leading-snug font-semibold break-words" title={hop.table}>{hop.title}</span>
+            <span className="flex items-center gap-1.5 text-xs" style={{ color: toneText(meta.tone) }}>
+              <Dot tone={meta.tone} />
+              <span title={meta.label}>{meta.short}</span>
+            </span>
           </span>
-          <ChevronDown className={cn("ml-auto size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
+          <ChevronDown aria-hidden="true" className={cn("mt-0.5 size-4 text-muted-foreground transition-transform", open && "rotate-180")} />
         </button>
         <div id={`trace-step-${hop.id}-details`} hidden={!open}>
           {open && (
-            <div className="space-y-2.5 px-3 pb-3">
+            <div className="space-y-2.5 px-2.5 pb-3">
               <p className="text-xs leading-relaxed break-words text-muted-foreground">
                 {facts.map((fact, index) => (
                   <span key={index}>
@@ -73,10 +74,10 @@ export function TimelineStep({ hop, findings, step, place, last, query, plain, o
                   {findings.map((finding) => {
                     const evidence = exampleEvidence(hop, finding);
                     return (
-                      <div key={`${finding.line}-${finding.recordId}`} className="space-y-1.5 rounded-lg border bg-card p-3">
-                        <div className="flex items-start gap-2 text-sm">
+                      <div key={`${finding.line}-${finding.recordId}`} className="space-y-1.5 rounded-lg border bg-card p-2.5">
+                        <div className="flex flex-wrap items-start gap-x-2 gap-y-1 text-sm">
                           <RegisterStatus status={finding.status} />
-                          <span>{findingText(finding, query, plain)}</span>
+                          <span className="min-w-0 flex-1 basis-32 break-words">{findingText(finding, query, plain)}</span>
                         </div>
                         {evidence.length > 0 && (
                           <div className="space-y-0.5">

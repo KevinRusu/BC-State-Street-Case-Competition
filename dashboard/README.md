@@ -43,12 +43,14 @@ outputs/02_defect_register.csv ───────┘
   real request, so nothing from the store is prerendered or cached. `lib/status.ts` is the one place statuses get
   their meaning and colour (one job per colour: brand blue `#001AFF` for our checks and selection, green / amber /
   red / grey for data health only; tokens in `app/globals.css`).
-- Pages: `/` (data map: summary cards, the grid, and a side panel; click a table or an arrow) and `/trace?id=…`
-  (follow one record: its steps as a timeline beside the map; the "Pick an example" list comes from
-  `outputs/02_trace.csv` and the register's examples). Two header buttons hide the menu and the panel.
+- Pages: `/` shows the Data Map with the finding summary stacked to the right on wide screens and the details below.
+  Select a table or connection and use **View details** when you want to move to its information below. **Back to map**
+  returns to the canvas. The header buttons toggle
+  the menu and the details. `/trace?id=…` follows a record in a timeline beside its map, with examples from
+  `outputs/02_trace.csv` and the register.
 - **Calm layout (D-058).** The map panel starts as a stage overview (one line per stage, in map order) with folded
   sections; clicking a place shows its plain sentence and finding counts first, then "What we found", "Who owns
-  this", "Raw key counts (technical)" and "Columns". The Trace page shows a plain headline, one-line steps (only
+  this", "Raw key counts (technical)" and "Columns". The Trace page shows a plain headline, a numbered timeline (only
   steps with a finding open by default) and a "Technical details" link for rule IDs, register lines and the caveat.
 - Stack: Next.js 16 (App Router, Cache Components), React Flow (`@xyflow/react`), DuckDB (`@duckdb/node-api`, same
   version as the Python package so it reads the file), shadcn/ui on Tailwind. This Next.js version differs from
@@ -102,10 +104,10 @@ Choosing another example from the picker resets the search draft and the timelin
 record. The headline shows the record's own findings before indirect ones; everything technical is behind "Technical
 details".
 
-The desktop trace workspace keeps the picker and map on the left and the selected-record summary above the steps on
-the right (D-061). The map fills the remaining viewport height; the steps scroll independently. Clicking a map place
-jumps within that evidence pane. Manual lookup is folded under "Find an ID" beside the picker. On narrow screens the
-panels stack and the page scrolls. Long record IDs and link summaries wrap within the details column.
+The desktop trace workspace puts the picker above the map in the left three-quarters of the workspace. The record
+summary and numbered steps sit on the right and scroll independently. The map and picker stay in place when a
+different example loads. Selecting a traced box jumps within the steps pane. Manual lookup is folded under
+"Find an ID" beside the picker. On narrow screens the panels stack and the page scrolls.
 
 Both maps stop zooming out at the centred whole-grid view. Zoom in to pan around; Fit View restores the default.
 Resizing the window or toggling a menu/panel recomputes the fit and its zoom-out limit.
