@@ -14,10 +14,10 @@ const CARDS = [
 export function SummaryCards({ register }: { register: RegisterLine[] }) {
   const counts = totals(register);
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <aside aria-label="Finding summary" className="grid grid-cols-1 gap-3 @min-[22rem]:grid-cols-3 @min-[52rem]:grid-cols-1">
       {CARDS.map(({ status, label, meaning }) => (
-        <div key={status} className="rounded-2xl bg-block px-4 py-3">
-          <div className="flex items-center gap-2 text-sm">
+        <div key={status} className="min-w-0 rounded-xl border bg-block px-3 py-3 sm:px-4">
+          <div className="flex items-center gap-1.5 text-xs sm:text-sm">
             <Dot tone={REGISTER_STATUS[status]} />
             {label}
           </div>
@@ -25,6 +25,6 @@ export function SummaryCards({ register }: { register: RegisterLine[] }) {
           <div className="text-xs text-muted-foreground">{meaning}</div>
         </div>
       ))}
-    </div>
+    </aside>
   );
 }

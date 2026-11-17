@@ -177,6 +177,20 @@
     @apply font-sans;
   }
 }
+/* Keep the native trace picker popup on the same palette as its options. */
+.trace-story-picker {
+  color-scheme: light;
+}
+
+.dark .trace-story-picker {
+  color-scheme: dark;
+}
+
+.trace-story-picker :is(optgroup, option) {
+  color: var(--foreground);
+  background-color: var(--background);
+}
+
 /* React Flow: let the theme drive its colours. */
 .react-flow {
   --xy-background-color: var(--canvas);

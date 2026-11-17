@@ -93,9 +93,15 @@ for (const route of ["/", "/trace?id=FXT03"]) {
 for (const size of [{ width: 1280, height: 720 }, { width: 1366, height: 768 }, { width: 1920, height: 1080 }]) {
   test(`trace picker, map, summary and steps fit at ${size.width} × ${size.height}`, async ({ page }) => {
     await page.setViewportSize(size);
-    await page.goto("/trace?id=FXT03");
+    await page.goto("/trace");
     const picker = page.getByRole("combobox", { name: "Pick an example" });
-    await expect(picker).toHaveValue("FXT03");
+    await expect(picker).toHaveValue("");
+    const canvas = page.locator("[data-trace-map]");
+    const rail = page.locator("[data-trace-details]");
+    const summaryRegion = page.getByRole("region", { name: "Selected record" });
+    const initialMap = await canvas.boundingBox();
+    const initialPicker = await picker.boundingBox();
+    const initialRail = await rail.boundingBox();
     const ids = await picker.locator("option:not([disabled])").evaluateAll((options) => options.map((o) => (o as HTMLOptionElement).value));
     expect(ids.length).toBeGreaterThan(3);
     // Every available fixture story, including account/security keys and corporate actions.
@@ -104,14 +110,21 @@ for (const size of [{ width: 1280, height: 720 }, { width: 1366, height: 768 }, 
       const summary = page.locator("[data-trace-summary]");
       await expect(summary).toContainText(id);
       await expectOfficeLayout(page);
-      const map = (await page.locator("[data-trace-map]").boundingBox())!;
-      const details = (await summary.boundingBox())!;
+      const map = (await canvas.boundingBox())!;
+      const railBox = (await rail.boundingBox())!;
+      const details = (await summaryRegion.boundingBox())!;
       const steps = (await page.locator("[data-trace-steps]").boundingBox())!;
-      expect(details.x, id).toBeGreaterThan(map.x + map.width);
-      expect(details.y, id).toBeLessThan(map.y);
-      expect(map.y + map.height, id).toBeLessThanOrEqual(size.height);
+      expect(railBox.x, id).toBeGreaterThan(map.x + map.width);
+      expect(railBox.width / (map.width + railBox.width), id).toBeCloseTo(0.25, 2);
+      expect(details.x, id).toBeCloseTo(railBox.x, 0);
+      expect(steps.x, id).toBeGreaterThanOrEqual(railBox.x);
+      expect(steps.y, id).toBeGreaterThan(details.y + details.height);
+      expect(steps.y, id).toBeLessThan(map.y + map.height);
       expect(steps.height, id).toBeGreaterThan(200);
       expect(steps.y + steps.height, id).toBeLessThanOrEqual(size.height);
+      expect(map, id).toEqual(initialMap);
+      expect(await picker.boundingBox(), id).toEqual(initialPicker);
+      expect(railBox, id).toEqual(initialRail);
       expect(await page.locator("[data-trace-layout]").evaluate((el) => el.scrollHeight - el.clientHeight), id).toBeLessThanOrEqual(1);
       expect(await page.evaluate(() => document.documentElement.scrollWidth), id).toBeLessThanOrEqual(size.width);
     }
@@ -122,6 +135,24 @@ for (const size of [{ width: 1280, height: 720 }, { width: 1366, height: 768 }, 
 test("the data map keeps the shared transaction box balanced and all other boxes inside their office", async ({ page }) => {
   await page.goto("/");
   await expectOfficeLayout(page);
+});
+
+test("the trace example menu has matching text and background colours in both themes", async ({ page }) => {
+  await page.goto("/trace");
+  const picker = page.getByRole("combobox", { name: "Pick an example" });
+  const option = picker.locator("optgroup option").first();
+  const checkPalette = async (scheme: string, foreground: string, background: string) => {
+    await expect(picker).toHaveCSS("color-scheme", scheme);
+    await picker.click();
+    await expect.poll(() => picker.evaluate((el) => el.matches(":open"))).toBe(true);
+    await expect(option).toHaveCSS("color", foreground);
+    await expect(option).toHaveCSS("background-color", background);
+    await page.keyboard.press("Escape");
+    await expect.poll(() => picker.evaluate((el) => el.matches(":open"))).toBe(false);
+  };
+  await checkPalette("light", "rgb(26, 26, 26)", "rgb(255, 255, 255)");
+  await page.getByRole("button", { name: "Switch light or dark theme" }).click();
+  await checkPalette("dark", "rgb(242, 243, 245)", "rgb(15, 17, 21)");
 });
 
 test("map selection scrolls the evidence pane while the map and record stay in place", async ({ page }) => {

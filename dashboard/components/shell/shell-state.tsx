@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState } from "react";
 
-// Whether the left menu and the right panel are open: two header buttons hide them so the map can fill the screen.
+// The header toggles the left menu and the Data Map details.
 type Shell = { menuOpen: boolean; panelOpen: boolean; toggleMenu: () => void; togglePanel: () => void };
 
 const ShellContext = createContext<Shell>({ menuOpen: true, panelOpen: true, toggleMenu: () => {}, togglePanel: () => {} });

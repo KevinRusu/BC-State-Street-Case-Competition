@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import { ChevronDown, Loader2, Search, SearchX } from "lucide-react";
 import { Dot, Pill, RegisterStatus } from "@/components/common";
 import { Graph, type TraceHighlight, type TraceStepControl } from "@/components/flow/graph";
@@ -18,7 +18,8 @@ import { TimelineStep } from "./timeline-step";
 type Props = { map: MapData; demos: DemoTrace[]; query: string; trace: TraceResult | null };
 type FoundTrace = Extract<TraceResult, { found: true }>;
 
-const go = (router: ReturnType<typeof useRouter>, id: string) => router.push(`/trace?id=${encodeURIComponent(id.trim())}`);
+const go = (router: ReturnType<typeof useRouter>, id: string) =>
+  router.push(`/trace?id=${encodeURIComponent(id.trim())}`, { scroll: false });
 
 /** The search box. Keyed by the record, so a draft typed but not submitted is gone after the next record opens. */
 function TraceSearch({ query }: { query: string }) {
@@ -49,40 +50,46 @@ function TraceSearch({ query }: { query: string }) {
 }
 
 /** One "Pick an example" menu, the stories grouped by register stage. It rests on its placeholder whenever the
- * record on screen is not a story, so it never names the wrong one. Keyed by the record, like the search box. */
+ * record on screen is not a story. Keep the control mounted across selections so keyboard focus stays on it. */
 function StoryPicker({ demos, query, plain }: { demos: DemoTrace[]; query: string; plain: PlainText }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const groups = useMemo(() => storyGroups(demos, plain), [demos, plain]);
   const current = demos.some((d) => d.recordId === query) ? query : "";
+  const [selected, choose] = useOptimistic(current);
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-2">
-      <div className="relative min-w-0 flex-1">
-        <select
-          aria-label="Pick an example"
-          defaultValue={current}
-          onChange={(event) => {
-            const id = event.target.value;
-            if (id) startTransition(() => go(router, id));
-          }}
-          className="h-8 w-full min-w-0 cursor-pointer appearance-none truncate rounded-lg border border-input bg-background py-1 pr-8 pl-2.5 text-sm transition-colors outline-none hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
-        >
-          <option value="" disabled>
-            Pick an example
-          </option>
-          {groups.map((group) => (
-            <optgroup key={group.stage} label={group.label || "Other examples"}>
-              {group.stories.map((story) => (
-                <option key={story.recordId} value={story.recordId}>
-                  {story.label} · {story.recordId}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-        <ChevronDown className="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-      </div>
-      {pending && <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" aria-label="Opening the example" />}
+    <div className="relative min-w-0 flex-1">
+      <select
+        aria-label="Pick an example"
+        aria-busy={pending}
+        value={selected}
+        onChange={(event) => {
+          const id = event.target.value;
+          if (id) startTransition(() => {
+            choose(id);
+            go(router, id);
+          });
+        }}
+        className="trace-story-picker h-8 w-full min-w-0 cursor-pointer appearance-none truncate rounded-lg border border-input bg-background py-1 pr-8 pl-2.5 text-sm text-foreground transition-colors outline-none hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+      >
+        <option value="" disabled>
+          Pick an example
+        </option>
+        {groups.map((group) => (
+          <optgroup key={group.stage} label={group.label || "Other examples"}>
+            {group.stories.map((story) => (
+              <option key={story.recordId} value={story.recordId}>
+                {story.label} · {story.recordId}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+      {pending ? (
+        <Loader2 aria-hidden className="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+      ) : (
+        <ChevronDown aria-hidden className="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+      )}
     </div>
   );
 }
@@ -118,18 +125,18 @@ export function TraceView({ map, demos, query, trace }: Props) {
   }
 
   return (
-    <div data-trace-layout className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 lg:grid lg:grid-cols-[minmax(0,1.35fr)_minmax(340px,1fr)] lg:overflow-hidden">
-      <section className="flex min-w-0 shrink-0 flex-col gap-3 lg:min-h-0" aria-label="Record picker and map">
+    <div data-trace-layout className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4 lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(15.5rem,1fr)] lg:grid-rows-[auto_minmax(0,1fr)] lg:overflow-hidden">
+      <section className="flex min-w-0 shrink-0 flex-col gap-2 lg:col-start-1 lg:row-start-1 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3" aria-label="Record picker">
         <div>
           <h1 className="text-lg font-semibold">Trace a record</h1>
           <p className="text-sm text-muted-foreground">
-            Follow a record from capture to NAV. Click a traced box to open or close its steps.
+            Select a record, then pick a map box to open its steps.
           </p>
         </div>
-        <Collapsible>
+        <Collapsible className="min-w-0 lg:w-full lg:max-w-lg lg:justify-self-end">
           <div className="flex min-w-0 items-center gap-2">
             {/* Use the resolved ID so a padded URL still selects its story. */}
-            {demos.length > 0 && <StoryPicker key={query} demos={demos} query={trace?.query ?? query} plain={map.plain} />}
+            {demos.length > 0 && <StoryPicker demos={demos} query={trace?.query ?? query} plain={map.plain} />}
             <CollapsibleTrigger render={<Button variant="ghost" size="sm" className="shrink-0" />}>
               <Search className="size-3.5" /> Find an ID
             </CollapsibleTrigger>
@@ -138,43 +145,54 @@ export function TraceView({ map, demos, query, trace }: Props) {
             <TraceSearch key={query} query={query} />
           </CollapsibleContent>
         </Collapsible>
-        <Card data-trace-map className="h-[420px] shrink-0 overflow-hidden p-0 lg:h-auto lg:min-h-0 lg:flex-1">
-          <Graph
-            data={map}
-            showLookups={false}
-            animate={false}
-            trace={highlight}
-            traceSteps={traceSteps}
-            onSelect={(selection) => {
-              if (!selection) return;
-              const candidates = trace?.found ? trace.hops.filter((h) => selection.kind === "node"
-                ? h.table === selection.id : h.edge === selection.id) : [];
-              const hop = candidates.find((h) => highlight?.findings.hops[h.id]?.length) ?? candidates[0];
-              if (selection.kind === "node" && candidates.length) {
-                const open = !candidates.some(isStepOpen);
-                setStepState((previous) => ({ query, open: {
-                  ...previous.open, ...Object.fromEntries(candidates.map((h) => [h.id, open])),
-                } }));
-              }
-              // Wait for expanded/collapsed content to lay out before scrolling the evidence pane.
-              requestAnimationFrame(() => {
-                const target = hop && document.getElementById(`trace-step-${hop.id}`);
-                if (!target || !steps.current) return;
-                if (window.matchMedia("(min-width: 1024px)").matches) {
-                  steps.current.scrollTo({
-                    top: target.getBoundingClientRect().top - steps.current.getBoundingClientRect().top + steps.current.scrollTop,
-                    behavior: "smooth",
-                  });
-                } else target.scrollIntoView({ behavior: "smooth", block: "start" });
-              });
-            }}
-          />
-        </Card>
       </section>
 
-      <section data-trace-details className="flex min-w-0 shrink-0 flex-col gap-3 lg:min-h-0" aria-label="Selected record and steps">
-        <div className="shrink-0 lg:max-h-[45%] lg:overflow-y-auto lg:overscroll-contain">
-          {trace?.found && <TraceSummary key={query} trace={trace} plain={map.plain} allMembers={map.info.memberSource === "members"} />}
+      <Card data-trace-map className="h-[clamp(17rem,65vw,26rem)] min-w-0 shrink-0 overflow-hidden p-0 lg:col-start-1 lg:row-start-2 lg:h-auto lg:min-h-0">
+        <Graph
+          data={map}
+          showLookups={false}
+          animate={false}
+          trace={highlight}
+          traceSteps={traceSteps}
+          onSelect={(selection) => {
+            if (!selection) return;
+            const candidates = trace?.found ? trace.hops.filter((h) => selection.kind === "node"
+              ? h.table === selection.id : h.edge === selection.id) : [];
+            const hop = candidates.find((h) => highlight?.findings.hops[h.id]?.length) ?? candidates[0];
+            if (selection.kind === "node" && candidates.length) {
+              const open = !candidates.some(isStepOpen);
+              setStepState((previous) => ({ query, open: {
+                ...previous.open, ...Object.fromEntries(candidates.map((h) => [h.id, open])),
+              } }));
+            }
+            // Wait for expanded/collapsed content to lay out before scrolling the evidence pane.
+            requestAnimationFrame(() => {
+              const target = hop && document.getElementById(`trace-step-${hop.id}`);
+              if (!target || !steps.current) return;
+              if (window.matchMedia("(min-width: 1024px)").matches) {
+                steps.current.scrollTo({
+                  top: target.getBoundingClientRect().top - steps.current.getBoundingClientRect().top + steps.current.scrollTop,
+                  behavior: "smooth",
+                });
+              } else target.scrollIntoView({ behavior: "smooth", block: "start" });
+            });
+          }}
+        />
+      </Card>
+
+      <aside
+        data-trace-details
+        aria-label="Record summary and steps"
+        className="flex min-w-0 shrink-0 flex-col gap-3 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:min-h-0"
+      >
+        <div
+          key={query}
+          role="region"
+          aria-label="Selected record"
+          tabIndex={trace ? 0 : undefined}
+          className="min-w-0 shrink-0 empty:hidden lg:max-h-[43%] lg:overflow-y-auto lg:overscroll-contain"
+        >
+          {trace?.found && <TraceSummary trace={trace} plain={map.plain} allMembers={map.info.memberSource === "members"} />}
           {trace && !trace.found && (
             <Card className="bg-block ring-0">
               <CardContent className="flex items-start gap-3 py-1 text-sm">
@@ -187,13 +205,14 @@ export function TraceView({ map, demos, query, trace }: Props) {
             </Card>
           )}
         </div>
-        {trace?.found ? (
-          <>
-            <div className="flex items-baseline justify-between gap-2">
-              <h2 id="trace-steps-heading" className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">The steps</h2>
-              <span className="text-xs text-muted-foreground">{trace.hops.length} steps · expand for evidence</span>
-            </div>
-            <div ref={steps} key={query} data-trace-steps role="region" tabIndex={0} aria-labelledby="trace-steps-heading" className="rounded-lg pr-1 focus-visible:outline-2 focus-visible:outline-ring lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain">
+
+        <section className="flex min-w-0 flex-col overflow-hidden rounded-xl border bg-card lg:min-h-0 lg:flex-1">
+          <div className="flex shrink-0 items-center justify-between gap-2 border-b bg-block px-3 py-2.5">
+            <h2 id="trace-steps-heading" className="text-sm font-semibold">The steps</h2>
+            {trace?.found && <span className="rounded-full border bg-background px-2 py-0.5 text-xs tabular-nums text-muted-foreground">{trace.hops.length} steps</span>}
+          </div>
+          {trace?.found ? (
+            <div ref={steps} key={query} data-trace-steps role="region" tabIndex={0} aria-labelledby="trace-steps-heading" className="px-2.5 pt-2.5 pb-1 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:[scrollbar-gutter:stable]">
               <ol>
                 {trace.hops.map((hop, index) => (
                   <TimelineStep
@@ -211,13 +230,13 @@ export function TraceView({ map, demos, query, trace }: Props) {
                 ))}
               </ol>
             </div>
-          </>
-        ) : (
-          <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
-            Pick an example or use Find an ID. The selected record and its steps appear here, with raw evidence one click deeper.
-          </p>
-        )}
-      </section>
+          ) : (
+            <p className="p-3 text-sm text-muted-foreground">
+              Pick an example or use Find an ID to see the steps.
+            </p>
+          )}
+        </section>
+      </aside>
     </div>
   );
 }

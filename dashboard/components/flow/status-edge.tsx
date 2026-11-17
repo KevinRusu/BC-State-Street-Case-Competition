@@ -31,6 +31,13 @@ const offset = (side: MapEdge["tagSide"], gap: number) =>
     below: `translate(-50%, ${gap}px)`,
   })[side];
 
+// Place the population badges in the open space around Transactions.
+const TRANSACTION_TAG_OFFSETS: Partial<Record<string, string>> = {
+  account_check: "translate(calc(-100% - 14px), 19px)", // below Accounts and left of the check number
+  correction_link: "translate(-50%, calc(-100% - 6px))", // centred above the loop
+  booking: "translate(12px, -75%)", // clear the Pipeline events finding badge
+};
+
 /**
  * A join on the map, coloured by the health of its raw keys (or by the trace hop it carries). A handoff carries its
  * check number in brand blue; a small tag holds the findings that count on it and the key problem, if any.
@@ -53,6 +60,8 @@ export function StatusEdge(props: EdgeProps<StatusEdgeType>) {
   }
   const width = WIDTH[edge.kind] + (selected || traceStatus ? 1.5 : 0);
   const showTag = inTrace ? Boolean(findingSummary(traceFindings)) : tagShown(edge.kind, counts, issue, false);
+  const tagOffset = (!inTrace ? TRANSACTION_TAG_OFFSETS[edge.id] : undefined)
+    ?? offset(edge.tagSide, edge.handoff === null ? 4 : 14);
   const select = () => onSelect?.(edge.id);
 
   return (
@@ -88,10 +97,11 @@ export function StatusEdge(props: EdgeProps<StatusEdgeType>) {
           {showTag && (
             <button
               type="button"
+              data-edge-tag={edge.id}
               onClick={select}
               title={edge.label}
               className="absolute flex h-[18px] cursor-pointer items-center gap-1.5 rounded-full bg-card px-2 whitespace-nowrap shadow-[0_1px_3px_rgba(16,24,40,0.16)] ring-1 ring-black/5 dark:ring-white/10"
-              style={{ transform: offset(edge.tagSide, edge.handoff === null ? 4 : 14) }}
+              style={{ transform: tagOffset }}
             >
               <FindingDots counts={counts} className="text-[10.5px]" />
               {issue && (
