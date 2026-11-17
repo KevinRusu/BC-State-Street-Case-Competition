@@ -6,8 +6,25 @@
 
 ## Setup
 
-Requires [uv](https://docs.astral.sh/uv/) (`brew install uv`). Graphviz is needed only to rebuild the diagrams (`brew install graphviz`).
+Requires [uv](https://docs.astral.sh/uv/). Graphviz is needed only to rebuild the diagrams.
 To run the dashboard you also need [Node.js](https://nodejs.org/) 20.9 or newer.
+
+**macOS.** Skip any step for a tool you already have (check with `brew --version`, `uv --version`, `node --version`).
+Node.js must be 20.9 or newer; if yours is older, upgrade it with `brew upgrade node`.
+
+```bash
+# 1. Homebrew: skip if `brew --version` works
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# 2. The tools: install only the ones you are missing
+brew install uv        # required
+brew install node      # only to run the dashboard
+brew install graphviz  # only to rebuild the diagrams
+```
+
+Open a new Terminal window afterwards. The `.sh` scripts (`tests/run_notebook.sh` and the others) run directly in
+Terminal, for example `bash tests/run_notebook.sh`. Then continue with the `uv sync` steps below. If you don't use
+Homebrew, `uv` and Node.js also have their own installers on their websites.
 
 **Windows.** In PowerShell, install Git for Windows (it brings Git Bash), uv and Node.js LTS:
 
@@ -22,13 +39,14 @@ in Git Bash, for example `bash tests/run_notebook.sh`; every `uv` and `npm` comm
 `.sh` script fails with `\r: command not found`, git checked it out with Windows line endings; run
 `git checkout HEAD -- "tests/*.sh"` once (`.gitattributes` keeps `.sh` files on Unix line endings from now on).
 
-To run the dashboard, follow [dashboard/README.md](dashboard/README.md#run-it) after `uv sync`.
-
 ```bash
 uv sync                       # creates .venv with Python 3.12 + all dependencies
 uv run nbstripout --install   # once per clone: strips notebook outputs when you commit
 uv run jupyter lab            # or open a notebook in VS Code and pick the .venv kernel
 ```
+
+To run the dashboard, follow [dashboard/README.md](dashboard/README.md#run-it) after `uv sync`. It needs `npm install`
+inside `dashboard/` the first time, and again after any pull that changes `package.json` or `package-lock.json`.
 
 Run notebooks in place in `notebooks/`. Your local file keeps its outputs; nbstripout removes them from what goes into Git, so data rows never reach the repo and diffs stay small. Keep one copy of each notebook (no executed duplicates).
 
@@ -68,7 +86,7 @@ docs/
   SANKEY_GUIDE.md, UPSET_GUIDE.md   how to build and read the Sankey and UpSet views
   Framework.xlsx   the Check-in 1 framework tables (built by scripts/make_framework_xlsx.py)
   figures/         generated diagrams (built by scripts/)
-  checkins/        what we handed in at each check-in (checkin1/, checkin2/); history, not edited afterwards
+  checkins/        what we handed in at each check-in, one folder each; history, not edited afterwards
   final/           the final hand-in
 AI_Logs/           exported AI chats (gitignored; needed for the final hand-in)
 load_data.ipynb    provided loader/integrity checker; must stay beside manifest.csv
@@ -93,8 +111,8 @@ Run from the repo root. The notebook tests run the committed notebooks headless,
 - `tests/fixture_test.sh` (~25 s): runs the deliverable notebook on the made-up data in `tests/fixtures/small/` under
   the default config, shuffled rows, `holding_date = "settlement"`, a trace flag no key carries, an edge copy of the
   fixture and the R3 reading, and checks the outcomes the fixture was built to contain.
-- `tests/robustness_test.sh` (~5 min): runs the release with rows shuffled under several seeds and with one
-  threshold changed, and checks that only what should move does. About 4 GB RAM per run; it leaves the default
+- `tests/robustness_test.sh` (~25 min): runs the release with rows shuffled under several seeds and with one
+  threshold changed, and checks that only what should move does. About 9 GB RAM; it leaves the default
   run in `outputs/`.
 - `tests/stress_test.sh` (~7 min): the stress test (D-070). Runs the deliverable on the release and on a copy under
   `tests/runs/` with 100x snapshot prices injected into a seeded sample of held equities (defects, look-alikes and
