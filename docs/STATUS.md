@@ -1,11 +1,59 @@
 # Status
 
-Last updated: 2026-11-18 (first deploy to Google Cloud Run)
+Last updated: 2026-11-18 (compact executive overview and reordered indicator modules)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
 
 ## Where we are
+
+- **Indicator module order (18 Nov, D-081, PR #26):** Pricing readiness now leads the left stack, followed by
+  action readiness and Unmastered security rate. Booking alerts keeps its wide/narrow placement. The headline
+  LI matrix and every analytical value are unchanged.
+  - **Final PR validation:** dashboard unit checks (175), Python regression checks (106), full browser suite (60),
+    store contracts, production builds, TypeScript, full source ESLint, documentation freshness and Git
+    whitespace checks pass. ESLint excludes the generated hosting-build directory, consistent with other builds.
+
+- **Compact executive overview (18 Nov, local, D-080):** reduced headline/card padding, number sizing and section
+  gaps; each LI code and short name shares one line. Headline and domain score figures are centered. Domain
+  target/attainment stacking, disclosure behavior, target policy and source data are unchanged.
+  - **Validated:** all Executive View browser checks (22) and the production test build pass, including overview
+    fit at 1440x900 and 1366x768, centered figures, single-line LI labels and mobile overflow. TypeScript,
+    changed-file ESLint and documentation freshness checks pass. The verified data store is reused.
+
+- **KPI target alignment (18 Nov, local, D-079):** the existing domain targets and 5% near-target ruling stay
+  unchanged. Related office KPI targets follow those domain minimums, through `scripts/framework.json` and
+  `config/scorecard.toml`; the lagging NAV indicator's target follows KPI 6. Duplicate-rate and proposed release
+  targets stay distinct. Both sections use Met target / Near target / Missed target; proposed values remain
+  unassessed. Domain cards always stack target, attainment and bar. Formulas and defect/release rules are unchanged.
+  - **Validated:** full-data notebook and generated findings refreshed; scorecards, defect register and financial
+    impact CSVs are byte-identical to the prior run. Measured KPI values, formulas and counts are unchanged.
+    Dashboard unit checks (175), all browser checks (59, including layout at three widths), store contracts,
+    isolated production builds, TypeScript, changed-file ESLint and the documentation freshness check pass.
+
+- **Fix Priority ranks (18 Nov, local):** numbered rule priorities use lowest quality score first; the dollar view
+  defaults to largest modeled single-fund NAV impact first. The renamed NAV impact column precedes Gross USD.
+  By dollar impact is now the first and default tab; quality score is second, with explicit links for domain
+  drill-downs. Ranks recalculate from the selected column, direction and filtered population; Rank restores the
+  default criterion. Missing selected values and unpriced exposure stay unranked. Gross-USD headline selection
+  and analytical outputs are unchanged. Policy: D-077, refined by D-078.
+  - **PR validation:** dashboard unit checks (165), all browser checks (57, including 19 Executive View checks),
+    the store contract checks and isolated production builds, TypeScript, changed-file ESLint and the Git
+    whitespace check pass. Branch: "dashboard-executive-priorities", PR #26. The earlier trace-menu failure
+    did not recur in this full run. The earlier stress-summary freshness issue was cleared by the D-079 regeneration.
+
+- **Executive View section label (18 Nov, local):** renamed "What to Fix First" to "Fix Priority". The existing
+  section anchor, filters and ranking behavior are unchanged.
+
+- **Early warning headline cue (18 Nov, local):** the closed Executive View headline shows a compact LI1-LI4
+  status matrix. Warning triangle = triggered during the reporting period; check circle = not triggered;
+  question circle = unavailable. Existing I1-I4 IDs and saved counts are unchanged. The key always includes
+  Triggered and Not triggered. The Largest Impact Scenario now shows a solid/hatched priced/unpriced row-coverage
+  bar with both counts before expansion. This is row coverage, not a percentage of financial exposure; unavailable
+  counts remain unavailable. Scenario ranking and analytical outputs are unchanged.
+  - **Checked:** TypeScript, dashboard unit checks and the focused headline-disclosure browser test pass. The
+    earlier documentation freshness issue was cleared when D-079 regenerated `FINDINGS.md` from the saved
+    `outputs/03_stress_*.csv`; the stress results themselves were unchanged.
 
 - **Hosted dashboard (17–18 Nov):** merged in PR #24 (D-076). The dashboard runs on Google Cloud Run behind one shared
   password, deployed with `deploy/deploy.sh` (code and store together, live check, rollback). Project and region are in

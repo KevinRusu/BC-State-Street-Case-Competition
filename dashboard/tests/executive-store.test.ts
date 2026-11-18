@@ -466,7 +466,7 @@ describe("indicators and KPIs", () => {
     const rows = await csv("02_kpis.csv");
     expect(exec.kpis).toEqual(rows.map((r) => ({
       n: r.n, office: r.office, kpi: r.kpi, formula: r.formula ?? "", unit: r.unit ?? "", owner: r.owner ?? "",
-      target: r.target ?? "", value: n(r.value), met: r.met ?? "", status: r.status ?? "",
+      target: r.target ?? "", value: n(r.value), numerator: n(r.numerator), denominator: n(r.denominator), met: r.met ?? "", status: r.status ?? "",
     })));
   });
 

@@ -1119,3 +1119,64 @@ build in §8); plan: `docs/superpowers/plans/2026-11-11-executive-view.md`.
   npm 11 and the Node 22 image ships npm 10. Takedown after judging (date in `deploy/README.md`).
 - **Design and plan:** `docs/superpowers/specs/2026-11-17-cloud-run-hosting-design.md`,
   `docs/superpowers/plans/2026-11-17-cloud-run-hosting.md`. How to use it: `deploy/README.md`.
+
+### D-077 · 18 Nov · Show explicit Fix Priority ranks and order financial triage by NAV impact
+
+- **Decision (user requested):** number the rule list in its existing lowest-score-first order, within the selected
+  domain or all domains. Coverage, domain and rule ID retain the existing deterministic tie-breaks. Unscored rules
+  are unranked. Give financial scenarios ordinal priorities by highest absolute single-fund modeled NAV effect
+  first; gross USD then scenario name break ties. Missing NAV effect stays unranked; unpriced scenarios retain
+  their separate unknown-exposure group. Ranks stay attached to their rows when other headers re-sort the list.
+- **Presentation:** rename Largest fund effect to NAV impact and put it before Gross USD. Its basis remains
+  `max_abs_fund_net_bps_valued_subset` from `outputs/02_severity.csv`: the maximum absolute net modeled fund change
+  divided by that fund's net assets, in basis points, on valued rows. The header explains this definition.
+- **Why:** fund-relative sensitivity highlights concentration without substituting a combined or costed remediation
+  score. Gross USD and valuation coverage remain visible for context. Unknown exposure is not low exposure;
+  these are conditional scenarios, not verified NAV losses. Scenario amounts overlap and are never summed.
+- **Boundary:** this changes presentation order and display ranks only. Analytical CSVs, scoring policy, severity
+  calculations and the headline's largest-gross-USD selection are unchanged. No materiality threshold is added.
+
+### D-078 · 18 Nov · Rank the selected Fix Priority order and default to dollar impact
+
+- **Decision (user requested, refines D-077):** keep the Rank column in place and recalculate its ordinal numbers
+  from the selected sort column and direction, within the filtered population. Number before preview slicing,
+  so expanding the list preserves its order and ranks. Ties retain the existing deterministic tie-breakers.
+- **Missing values:** no rank when the selected criterion is unavailable; a known zero is ranked. A priced
+  scenario with no NAV denominator can rank by known gross dollars. Unpriced scenarios remain in their separate
+  unranked review group under every criterion. Ranks describe the selected order, not an immutable risk rating.
+- **Navigation:** By dollar impact is first and defaults on an unqualified Executive View URL. By quality score
+  is second and explicitly linked by `by=score`; domain-card drill-downs still open their filtered rule list.
+  The Rank header restores each list's original default criterion (NAV descending or quality score ascending).
+- **Boundary:** no analytical data, formula, scoring treatment or headline selection changes. No deployment.
+
+### D-079 · 18 Nov · Align office KPI targets to the existing domain policy and stack domain attainment
+
+- **Decision (user requested):** keep every domain target unchanged. Align office KPI 1 to the existing
+  Accounts/Securities minimum, KPI 2 to Trades, KPI 4 to Positions, KPI 5 to Prices and KPI 6 to NAV. Change the
+  KPI target text in `scripts/framework.json` and its numeric policy in `config/scorecard.toml`, then regenerate
+  outputs. The lagging NAV indicator follows the revised KPI 6 threshold. The duplicate-rate ceiling and proposed
+  release KPI retain their separate targets; neither is a composite pass-rate score.
+- **Rulings:** preserve the domain policy's relative 5% warning band and apply it to office KPI misses. Green
+  Met target, amber Near target, red Missed target; unavailable or proposed values remain unassessed. Saved
+  pass/fail decisions stay authoritative; the warning band uses exact saved numerator/denominator counts and
+  mirrors the direction for lower-is-better ceilings. Near target still means the target was missed.
+- **Interpretation:** aligning targets does not equate the formulas or populations. Composite scores retain
+  their configured unresolved credit. Domain and KPI values, defect checks and NAV release gates do not change.
+- **Layout (user requested):** every domain card puts target above attainment, then the score bar, with space
+  reserved for unavailable states too. Short shared labels keep the same alignment as available width changes.
+
+### D-080 · 18 Nov · Compact the executive overview and center its figures
+
+- **Decision (user requested):** reduce vertical padding, headline number size and overview gaps; keep LI1-LI4
+  beside their short names on one line in the existing matrix. Center the three headline figures and seven
+  domain score figures inside their cards. Retain stacked domain target and attainment and full-width bars.
+- **Responsive behavior:** preserve three headline cards and the centered three/four domain rows at desktop
+  widths, with existing wrapping on smaller screens. Captions, legends and disclosures remain available.
+- **Boundary:** presentation only; target/attainment policy, scores, scenario selection and analytical data do
+  not change. The existing freshly rebuilt store is reused; no research recomputation is needed for spacing.
+
+### D-081 · 18 Nov · Swap pricing readiness and unmastered-security modules
+
+- **Decision (user requested):** the leading-indicator stack is Pricing readiness, Corporate action readiness,
+  then Unmastered security rate. Booking alerts stays alongside the stack on wide screens and follows it on
+  narrow screens. Indicator IDs, LI1-LI4 matrix order, values, thresholds and historical breach counts are unchanged.

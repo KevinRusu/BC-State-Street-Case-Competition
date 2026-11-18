@@ -139,7 +139,15 @@ card opens to reveal its supporting details.
   (`outputs/02_scorecard.csv`). The bar marks the platform target of 95.00.
 - Largest impact scenario: the priced scenario with the largest gross dollar figure, with its share of rows priced
   and its evidence status, from `severity` (`outputs/02_severity.csv`). It is one scenario, never a total.
+  A valuation-coverage bar stays visible before expansion: solid = priced rows, hatched = unpriced rows, with
+  both counts shown. It describes row coverage, not a share of dollar exposure. Unavailable counts show an
+  unavailable message instead of an inferred zero.
 - Early Warning Signs Triggered shows how many computed leading indicators triggered during the reporting period.
+  A 2-by-2 LI1-LI4 matrix is visible before expansion: warning triangle = triggered, check circle = not triggered,
+  question circle = unavailable. The LI labels map to the existing I1-I4 checks; statuses use the same saved
+  reporting-period breach counts as the headline, not only the latest observation. Missing or uncomputed checks
+  remain unavailable rather than appearing to pass.
+  The key always includes both Triggered and Not triggered; Unavailable is added when that state occurs.
   The pre-cutoff booking indicator replays trade-level alerts and plots the daily count for each feed.
   Open the card for the dates and the indicator list. The count comes from `indicators` and the dates come from
   `indicator_series`.
@@ -148,11 +156,14 @@ card opens to reveal its supporting details.
   details. A domain's name opens the triage list filtered to that domain. The bars mark the minimum targets, using
   the pilot defaults when the scorecard has no targets, including 99.50 for NAV. The platform and domain tags and bars use green when the
   score meets its target, amber when it is up to 5% below the target, and red when it is more than 5% below.
-  KPI targets are in the KPI table.
+  These domain targets are unchanged. The related office KPI targets now follow them (D-079).
+  Every domain card stacks target, attainment and bar vertically at all widths, including unavailable states.
+  The opening overview uses compact card padding and gaps, single-line LI labels, and centered headline/domain
+  figures so the collapsed overview fits a desktop viewport. Smaller screens retain responsive wrapping.
 
 **Early Warning Signs (Leading Indicators)**
 
-- Three shorter cards stack beside pre-cutoff booking alerts when space allows.
+- Pricing readiness, corporate action readiness and Unmastered security rate stack in that order beside pre-cutoff booking alerts when space allows.
   Pricing readiness is the Executive View label for fresh, agreed price coverage. The booking alert threshold
   and replay description are in Indicator details. Each chart shows its unit,
   the values at the top and bottom of its range, the first and last dates, and a dashed line at the threshold. The
@@ -164,7 +175,15 @@ card opens to reveal its supporting details.
 
 **KPIs by Office**
 
-- From `kpis` (`outputs/02_kpis.csv`). Hover over a row for its formula.
+- From `kpis` (`outputs/02_kpis.csv`). Hover over a row for its formula. Targets follow the existing domain
+  minimums: KPI 1 Accounts/Securities, KPI 2 Trades, KPI 4 Positions, KPI 5 Prices, KPI 6 NAV. The duplicate-rate
+  ceiling and proposed release KPI retain their distinct targets. Source policy: `scripts/framework.json` and
+  `config/scorecard.toml`; rerun the notebook and store after a target change.
+  Both sections use Met target, Near target (a miss by up to 5% of the threshold), or Missed target.
+  KPI attainment preserves the saved pass/fail decision and uses exact numerator/denominator counts for the
+  warning band, mirrored for lower-is-better ceilings. Proposed or unavailable values stay Not assessed.
+  Formulas, metric values and defect/release rules are unchanged; target alignment does not make a composite
+  domain score equivalent to an individual KPI.
 
 **Worst Accounts**
 
@@ -173,9 +192,19 @@ card opens to reveal its supporting details.
   `scorecard_accounts` (`outputs/02_scorecard_accounts.csv`). Expand the list for the rest of the loaded ranking.
   A lookup opens any account by its ID.
 
-**What to Fix First**
+**Fix Priority**
 
-- Rules and impact scenarios, ranked by score or by dollars (the switch is the `by` address parameter). Each view
+- By dollar impact is the first and default tab; By quality score is second. Explicit `by=score` links select
+  quality scores, including domain-card drill-downs. Rules initially use lowest quality score first within the
+  selected domain (or all domains), with existing deterministic coverage/domain/rule tie-breakers.
+  The dollar view defaults to highest modeled NAV impact first, with that column immediately before Gross USD.
+  NAV impact is the largest absolute net scenario effect on one fund in basis points, based on priced rows;
+  it is not a verified NAV loss. Gross USD and scenario name break ties in the default order. Rank numbers
+  are recalculated from the selected column, direction and filtered population before the five-row preview.
+  For example, Gross USD descending gives the largest dollar scenario rank 1. A missing value in the selected
+  column remains unranked; a known zero is ranked. Unpriced exposure stays in its separate unranked group.
+  Select Rank to restore the default priority criterion.
+  The headline still uses the largest gross-USD scenario. Each view
   shows five rows with a control for revealing the rest. Scenario descriptions open on demand. A rule shows
   its plain name from `scripts/plain_language.json` (here and on the rule page); its units come from
   `score_outcomes` (`outputs/02_score_outcomes.csv`). Scenarios come from `severity` and their keys from

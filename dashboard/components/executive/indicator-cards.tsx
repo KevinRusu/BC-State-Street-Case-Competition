@@ -91,7 +91,9 @@ function IndicatorCard({ indicator: i }: { indicator: Indicator }) {
 export function IndicatorCards({ indicators }: { indicators: Indicator[] }) {
   const leading = indicators.filter((indicator) => indicator.type === "Leading");
   const booking = leading.find((indicator) => indicator.id === "I2");
-  const stacked = leading.filter((indicator) => indicator.id !== "I2");
+  const stackOrder: Record<string, number> = { I4: 0, I3: 1, I1: 2 };
+  const stacked = leading.filter((indicator) => indicator.id !== "I2")
+    .sort((a, b) => (stackOrder[a.id] ?? 3) - (stackOrder[b.id] ?? 3));
 
   return (
     <div className="@container">

@@ -2,7 +2,7 @@
 // test's state and sparkline geometry. No I/O and no React: every number the page shows goes through here.
 // Formats never use the machine's locale, and a blank (null) never becomes a number.
 import type {
-  ImpactRecord, Indicator, IndicatorSeries, Num, RecordFilter, Result, RuleScore, Scenario, SeriesPoint, Stress,
+  ImpactRecord, Indicator, IndicatorSeries, Kpi, Num, RecordFilter, Result, RuleScore, Scenario, SeriesPoint, Stress,
 } from "./executive-types";
 import type { Tone } from "./status";
 
@@ -157,6 +157,14 @@ export function defaultRuleOrder(rules: RuleScore[]): RuleScore[] {
   return [...rules].sort(defaultCompare);
 }
 
+/** Number the already sorted, filtered rules; a missing value in the selected column is unranked. */
+export function rulePriorityRanks(orderedRules: RuleScore[], by: RuleSort = "score"): Map<RuleScore, number> {
+  return new Map(orderedRules.filter((r) => {
+    const value = r[by];
+    return typeof value === "string" ? value.trim() !== "" : !isBlank(value);
+  }).map((r, index) => [r, index + 1]));
+}
+
 export type RuleSort = "name" | "domain" | "score" | "coverage" | "confirmedOnly" | "owner";
 
 /**
@@ -198,7 +206,24 @@ export function largestScenario(s: Scenario[]): Scenario | null {
   return splitScenarios(s).priced.find((x) => x.grossUsd !== null && x.grossUsd > 0) ?? null;
 }
 
-/** Pilot minimums for the composite scores. Individual KPIs retain their own targets. */
+/** Fund-relative triage only. The headline still selects the largest gross-USD scenario. */
+export function navImpactOrder(scenarios: Scenario[]): Scenario[] {
+  const magnitude = (value: Num): Num => isBlank(value) ? null : -Math.abs(value);
+  return [...scenarios].sort((a, b) =>
+    numberAsc(magnitude(a.maxFundNetBps), magnitude(b.maxFundNetBps))
+    || numberAsc(magnitude(a.grossUsd), magnitude(b.grossUsd))
+    || text(a.scenario, b.scenario));
+}
+
+export type ScenarioSort = "grossUsd" | "signedUsd" | "maxFundNetBps" | "valuationCoverage" | "distinctAccounts" | "affectedFunds";
+
+/** Number the already sorted priced scenarios; unknown selected values and unpriced exposure stay unranked. */
+export function scenarioPriorityRanks(orderedScenarios: Scenario[], by: ScenarioSort = "maxFundNetBps"): Map<Scenario, number> {
+  return new Map(orderedScenarios.filter((s) => s.financialRows !== null && s.financialRows > 0
+    && !isBlank(s.grossUsd) && !isBlank(s[by])).map((s, index) => [s, index + 1]));
+}
+
+/** Domain pilot minimums. Related office KPI targets are aligned to these in the saved KPI policy (D-079). */
 export const DOMAIN_SCORE_TARGETS: ReadonlyMap<string, number> = new Map([
   ["Accounts", 99.50],
   ["Securities", 99.50],
@@ -219,6 +244,25 @@ export function scoreTargetStatus(score: Num, minimum: Num): { target: Num; tone
   if (!onScale(score) || target === null) return { target, tone: null };
   if (score >= target) return { target, tone: "ok" };
   return { target, tone: score + 1e-9 >= target * 0.95 ? "warn" : "bad" };
+}
+
+/** Preserve the saved KPI pass/fail decision and add the same relative 5% warning band as domain scores. */
+export function kpiAttainmentTone(kpi: Pick<Kpi, "value" | "met" | "status" | "target" | "numerator" | "denominator">): "ok" | "warn" | "bad" | null {
+  if (!["computed", "simulated"].includes(kpi.status.trim().toLowerCase())
+    || kpi.value === null || !Number.isFinite(kpi.value)) return null;
+  const met = kpi.met.trim().toLowerCase();
+  if (met === "yes") return "ok";
+  if (met !== "no") return null;
+  const parsed = /^(at least\s*|at most\s*|>=\s*|<=\s*|≥\s*|≤\s*)?([0-9]+(?:\.[0-9]+)?)\s*%$/i.exec(kpi.target.trim());
+  if (!parsed) return "bad";
+  const target = Number(parsed[2]);
+  if (target < 0 || target > 100) return "bad";
+  const value = kpi.numerator !== null && kpi.denominator !== null && kpi.denominator > 0
+    ? 100 * kpi.numerator / kpi.denominator : kpi.value;
+  if (!Number.isFinite(value)) return "bad";
+  if (/at most|<=|≤/i.test(parsed[1] ?? "")) return value <= target * 1.05 + 1e-9 ? "warn" : "bad";
+  const tone = scoreTargetStatus(value, target).tone;
+  return tone === "ok" || tone === "warn" ? "warn" : "bad";
 }
 
 /** The published breach counts cover the reporting period. They do not describe the latest observation alone. */
@@ -368,8 +412,8 @@ export function scenarioHref(name: string, filter?: { priced?: "yes" | "no"; pag
   return href("/executive/scenario", [["name", name], ["priced", filter?.priced], ["page", filter?.page]]);
 }
 
-/** The executive page; score is the default order and is left out. A domain filter jumps to the fix-first list. */
+/** The executive page defaults to dollars. A domain drill-down explicitly opens its quality-score list. */
 export function executiveHref(q: { by?: "score" | "dollars"; domain?: string }): string {
-  const base = href("/executive", [["by", q.by === "dollars" ? "dollars" : undefined], ["domain", q.domain]]);
+  const base = href("/executive", [["by", q.by ?? (q.domain ? "score" : undefined)], ["domain", q.domain]]);
   return q.domain ? `${base}#fix-first` : base;
 }

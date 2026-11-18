@@ -55,7 +55,7 @@ export type Indicator = {
 
 export type Kpi = {
   n: string; office: string; kpi: string; formula: string; unit: string; owner: string; target: string;
-  value: Num; met: string; status: string;
+  value: Num; numerator: Num; denominator: Num; met: string; status: string;
 };
 
 /** An account's per-domain scores carry coverage only (spec §5.2). */

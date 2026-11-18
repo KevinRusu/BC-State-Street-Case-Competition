@@ -40,7 +40,7 @@ function ExecutiveSection({ id, title, intro, collapsible = false, children }: {
       id={id}
       aria-labelledby={headingId}
       aria-describedby={introId}
-      className="relative scroll-mt-6 space-y-4 border-t border-muted-foreground/40 pt-5 before:pointer-events-none before:absolute before:-top-px before:left-0 before:h-0.5 before:w-10 before:rounded-full before:bg-brand-line/90 md:space-y-5 md:pt-6"
+      className={`relative scroll-mt-6 border-t border-muted-foreground/40 before:pointer-events-none before:absolute before:-top-px before:left-0 before:h-0.5 before:w-10 before:rounded-full before:bg-brand-line/90 ${id === "executive-metrics" ? "space-y-3 pt-3" : "space-y-4 pt-5 md:space-y-5 md:pt-6"}`}
     >
       {collapsible ? (
         <Collapsible defaultOpen={false}>
@@ -73,21 +73,21 @@ function ExecutiveSection({ id, title, intro, collapsible = false, children }: {
 async function ExecutiveContent({ searchParams }: Props) {
   const q = await searchParams;
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-  const by = one(q.by) === "dollars" ? "dollars" : "score";
+  const by = one(q.by) === "score" ? "score" : "dollars";
   const domain = one(q.domain) || undefined;
   const result = await loadExecutive();
   if (!result.ok) return <StoreMissing file={result.file} />;
   const data = result.data;
   const missing = (p: (typeof data.missing)[number]) => data.missing.includes(p);
   return (
-    <PageFrame spacing="space-y-6 md:space-y-8">
+    <PageFrame spacing="space-y-5 md:space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Executive view</h1>
       <ExecutiveSection
         id="executive-metrics" title="Executive Metrics"
         intro="How healthy our data is overall and in each data area, scored against its target."
       >
         <HeadlineTiles data={data} />
-        <section id="degrading" aria-labelledby="domains-heading" className="scroll-mt-6 space-y-3 border-t pt-4">
+        <section id="degrading" aria-labelledby="domains-heading" className="scroll-mt-6 space-y-1.5 border-t pt-2">
           <h3 id="domains-heading" className="text-base font-semibold tracking-tight md:text-lg">Domains</h3>
           {missing("scorecard") ? <PartMissing part="scorecard" /> : <DomainScores domains={data.domains} />}
         </section>
@@ -113,8 +113,8 @@ async function ExecutiveContent({ searchParams }: Props) {
         </div>
       </ExecutiveSection>
       <ExecutiveSection
-        id="fix-first" title="What to Fix First"
-        intro="Where repair work pays off most: the checks with the lowest scores, or the problems with the largest dollar impact."
+        id="fix-first" title="Fix Priority"
+        intro="Where repair work pays off most: the checks with the lowest scores, or the scenarios with the largest modeled NAV impact."
       >
         <FixFirst
           rules={data.rules} scenarios={data.scenarios} by={by} domain={domain}

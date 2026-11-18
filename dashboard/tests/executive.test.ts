@@ -4,8 +4,8 @@ import type { Indicator, IndicatorSeries, RuleScore, Scenario, SeriesPoint, Stre
 import {
   BLANK, DOMAIN_SCORE_TARGETS, PAGE_SIZE, PLATFORM_SCORE_TARGET, RESULTS, RESULT_TONE, RUN_FACTS, WORST_ACCOUNTS, accountHref, defaultRuleOrder, drawable,
   executiveHref, fmtBps, fmtCount, fmtNumber, fmtScore, fmtShare, fmtUsd, fmtUsdShort, fmtValue, impactTraceTarget, largestScenario, leadingBreaches,
-  nearestIndex, noTraceReason, parsePage, parseResult, resultOf, ruleHref, scenarioHref, seriesAxis, sortRules, sparkline, splitScenarios,
-  scoreTargetStatus, stressState, traceHref, traceTarget,
+  navImpactOrder, nearestIndex, noTraceReason, parsePage, parseResult, resultOf, ruleHref, rulePriorityRanks, scenarioHref, scenarioPriorityRanks, seriesAxis, sortRules, sparkline, splitScenarios,
+  scoreTargetStatus, kpiAttainmentTone, stressState, traceHref, traceTarget,
 } from "@/lib/executive";
 
 const rule = (domain: string, id: string, score: number | null, coverage: number | null, extra: Partial<RuleScore> = {}): RuleScore => ({
@@ -95,7 +95,7 @@ test("links round-trip names with : / and spaces", () => {
   expect(new URL(scenarioHref(name), "http://x").searchParams.get("name")).toBe(name);
   expect(new URL(ruleHref("Corporate actions", "CA_TERMS_COMPLETE"), "http://x").searchParams.get("domain")).toBe("Corporate actions");
   expect(new URL(traceHref("A1/S1"), "http://x").searchParams.get("id")).toBe("A1/S1");
-  expect(executiveHref({ domain: "Trades" })).toBe("/executive?domain=Trades#fix-first");
+  expect(executiveHref({ domain: "Trades" })).toBe("/executive?by=score&domain=Trades#fix-first");
 });
 test("page and result parameters are clamped, not trusted", () => {
   expect(parsePage("0", 5)).toBe(1);
@@ -225,6 +225,23 @@ describe("rule orders", () => {
     defaultRuleOrder(rules);
     expect(ids(rules)).toEqual(before);
   });
+  test("ranks follow the selected order and filter, excluding missing selected values", () => {
+    const ranks = rulePriorityRanks(defaultRuleOrder(rules));
+    expect(ranks.get(rules[4])).toBe(1);
+    expect(ranks.get(rules[2])).toBe(2);
+    expect(ranks.get(rules[5])).toBe(3);
+    expect(ranks.has(rules[0])).toBe(false);
+    const resorted = sortRules(rules, "score", "desc");
+    expect(rulePriorityRanks(resorted).get(resorted[0])).toBe(1);
+    const coverageOrder = sortRules(rules, "coverage", "desc");
+    const coverageRanks = rulePriorityRanks(coverageOrder, "coverage");
+    expect(coverageRanks.get(rules[0])).toBe(2); // no score, but a known coverage
+    expect(coverageRanks.has(rules[3])).toBe(false); // missing coverage
+    const accounts = defaultRuleOrder(rules.filter((r) => r.domain === "Accounts"));
+    expect([...rulePriorityRanks(accounts).values()]).toEqual([1, 2]);
+    const alphabetic = sortRules(rules, "name", "asc");
+    expect([...rulePriorityRanks(alphabetic, "name").keys()]).toEqual(alphabetic);
+  });
   test("a blank number is last in both directions", () => {
     const asc = ids(sortRules(rules, "score", "asc"));
     const desc = ids(sortRules(rules, "score", "desc"));
@@ -282,6 +299,35 @@ describe("scenarios", () => {
     expect(largestScenario([scenario("priced zero", 5, 0), scenario("unknown", 5, null)])).toBeNull();
     expect(largestScenario([])).toBeNull();
   });
+  test("financial priority follows fund-relative NAV effect while the headline still follows gross dollars", () => {
+    const highNav = { ...scenario("small-dollar high-NAV", 1, 10), maxFundNetBps: 75 };
+    const highGross = { ...scenario("large-dollar low-NAV", 1, 9000), maxFundNetBps: 4 };
+    const zero = { ...scenario("zero effect", 1, 0), maxFundNetBps: 0 };
+    const unknown = scenario("NAV unknown", 1, 200);
+    const input = [highGross, unknown, zero, highNav];
+    expect(names(navImpactOrder(input))).toEqual([highNav.scenario, highGross.scenario, zero.scenario, unknown.scenario]);
+    expect(largestScenario(input)).toBe(highGross);
+    const ranks = scenarioPriorityRanks(navImpactOrder(input));
+    expect(ranks.get(highNav)).toBe(1);
+    expect(ranks.get(highGross)).toBe(2);
+    expect(ranks.get(zero)).toBe(3);
+    expect(ranks.has(unknown)).toBe(false);
+    const grossOrder = splitScenarios(input).priced;
+    const grossRanks = scenarioPriorityRanks(grossOrder, "grossUsd");
+    expect(grossRanks.get(highGross)).toBe(1);
+    expect(grossRanks.get(unknown)).toBe(2); // missing NAV does not prevent ranking known dollars
+    expect(grossRanks.get(zero)).toBe(4);
+    const ascendingRanks = scenarioPriorityRanks([...grossOrder].reverse(), "grossUsd");
+    expect(ascendingRanks.get(zero)).toBe(1);
+    expect(scenarioPriorityRanks([scenario("unpriced", 1, null, 20)], "distinctAccounts").size).toBe(0);
+    expect(input[0]).toBe(highGross);
+  });
+  test("equal NAV impacts use gross USD then name as deterministic tie-breakers", () => {
+    const a = { ...scenario("a", 1, 20), maxFundNetBps: 10 };
+    const b = { ...scenario("b", 1, 20), maxFundNetBps: 10 };
+    const c = { ...scenario("c", 1, 40), maxFundNetBps: 10 };
+    expect(names(navImpactOrder([b, a, c]))).toEqual(["c", "a", "b"]);
+  });
 });
 
 describe("score targets", () => {
@@ -303,6 +349,30 @@ describe("score targets", () => {
     [98, Number.NaN, null, null],
   ])("score %s with minimum %s has target %s and tone %s", (score, minimum, target, tone) => {
     expect(scoreTargetStatus(score, minimum)).toEqual({ target, tone });
+  });
+});
+
+describe("KPI attainment aligned with domain rulings", () => {
+  const sample = { target: "at least 99.5%", numerator: null, denominator: null, value: 98, met: "no", status: "computed" };
+  test("NAV retains the domain target and its warning band", () => {
+    expect(kpiAttainmentTone(sample)).toBe(scoreTargetStatus(98, DOMAIN_SCORE_TARGETS.get("NAV")!).tone);
+    expect(kpiAttainmentTone(sample)).toBe("warn");
+  });
+  test.each([
+    [{ value: 99.5, met: "yes" }, "ok"],
+    [{ value: 90 }, "bad"],
+    [{ value: null }, null],
+    [{ status: "proposed" }, null],
+    [{ met: "" }, null],
+    [{ value: 0.0104, target: "at most 0.01%" }, "warn"],
+    [{ value: 0.3, target: "at most 0.01%" }, "bad"],
+    [{ value: 0, target: "at most 0.01%", met: "yes" }, "ok"],
+  ])("ruling for %j is %s", (extra, tone) => {
+    expect(kpiAttainmentTone({ ...sample, ...extra })).toBe(tone);
+  });
+  test("the warning boundary uses exact counts, not a rate rounded toward the bad side", () => {
+    expect(kpiAttainmentTone({ ...sample, value: 94.52, numerator: 94525, denominator: 100000 })).toBe("warn");
+    expect(kpiAttainmentTone({ ...sample, value: 94.52, numerator: 94524, denominator: 100000 })).toBe("bad");
   });
 });
 
@@ -456,9 +526,9 @@ describe("link builders", () => {
     expect(scenarioHref("S", { page: 2, priced: "no" })).toBe("/executive/scenario?name=S&priced=no&page=2");
     expect(scenarioHref("S", { page: 1 })).toBe("/executive/scenario?name=S");
   });
-  test("the executive page: score is the default order, a domain jumps to the fix-first list", () => {
+  test("the executive page defaults to dollars, with explicit score and domain links", () => {
     expect(executiveHref({})).toBe("/executive");
-    expect(executiveHref({ by: "score" })).toBe("/executive");
+    expect(executiveHref({ by: "score" })).toBe("/executive?by=score");
     expect(executiveHref({ by: "dollars" })).toBe("/executive?by=dollars");
     expect(executiveHref({ by: "dollars", domain: "Corporate actions" })).toBe("/executive?by=dollars&domain=Corporate+actions#fix-first");
   });
