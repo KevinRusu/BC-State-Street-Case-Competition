@@ -1164,3 +1164,13 @@ build in §8); plan: `docs/superpowers/plans/2026-11-11-executive-view.md`.
   their configured unresolved credit. Domain and KPI values, defect checks and NAV release gates do not change.
 - **Layout (user requested):** every domain card puts target above attainment, then the score bar, with space
   reserved for unavailable states too. Short shared labels keep the same alignment as available width changes.
+
+### D-080 · 18 Nov · Compact the executive overview and center its figures
+
+- **Decision (user requested):** reduce vertical padding, headline number size and overview gaps; keep LI1-LI4
+  beside their short names on one line in the existing matrix. Center the three headline figures and seven
+  domain score figures inside their cards. Retain stacked domain target and attainment and full-width bars.
+- **Responsive behavior:** preserve three headline cards and the centered three/four domain rows at desktop
+  widths, with existing wrapping on smaller screens. Captions, legends and disclosures remain available.
+- **Boundary:** presentation only; target/attainment policy, scores, scenario selection and analytical data do
+  not change. The existing freshly rebuilt store is reused; no research recomputation is needed for spacing.

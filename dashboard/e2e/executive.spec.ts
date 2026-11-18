@@ -177,6 +177,37 @@ test("domain targets and attainment stay stacked and aligned at different widths
   await page.locator("#degrading").screenshot({ path: `${SHOTS}/domain-target-alignment.png` });
 });
 
+test("the executive metrics overview fits a desktop view and centers its figures", async ({ page }) => {
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 1366, height: 768 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/executive");
+    const overview = page.locator("#executive-metrics");
+    await expect(overview.getByTestId("domain-card")).toHaveCount(7);
+    await expect(overview.getByTestId("domain-card").last()).toBeVisible();
+    const box = (await overview.boundingBox())!;
+    const frame = (await page.getByTestId("page-frame").boundingBox())!;
+    expect(box.height, `overview height at ${viewport.width}x${viewport.height}`).toBeLessThanOrEqual(frame.height - 16);
+    await overview.scrollIntoViewIfNeeded();
+    const centered = await overview.locator('[data-testid="headline-value"], [data-testid="domain-card"] > [data-testid="score"]').evaluateAll((values) => values.map((value) => {
+      const card = value.closest('[data-testid="domain-card"], [data-testid^="tile-"]')!.getBoundingClientRect();
+      const range = document.createRange();
+      range.selectNodeContents(value);
+      const text = range.getBoundingClientRect();
+      return Math.abs((text.left + text.right) / 2 - (card.left + card.right) / 2);
+    }));
+    expect(centered).toHaveLength(10);
+    for (const offset of centered) expect(offset).toBeLessThanOrEqual(2);
+    for (const id of ["I1", "I2", "I3", "I4"]) {
+      const cell = overview.getByTestId(`trigger-${id}`);
+      const code = (await cell.getByTestId("trigger-code").boundingBox())!;
+      const name = (await cell.getByTestId("trigger-name").boundingBox())!;
+      expect(Math.abs(code.y - name.y)).toBeLessThanOrEqual(1);
+      expect(name.x).toBeGreaterThan(code.x + code.width);
+    }
+    await overview.screenshot({ path: `${SHOTS}/compact-metrics-${viewport.width}.png` });
+  }
+});
+
 test("headline disclosures use the same historical indicator and impact results as the outputs", async ({ page }) => {
   const indicators = (await csv("02_indicators.csv")).filter((i) => i.type === "Leading" && i.status === "computed");
   const breaching = indicators.filter((i) => Number(i.breaches) > 0);

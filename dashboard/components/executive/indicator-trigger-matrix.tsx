@@ -41,13 +41,13 @@ export function IndicatorTriggerMatrix({ entries }: { entries: ReturnType<typeof
               title={description}
               data-testid={`trigger-${id}`}
               data-state={state}
-              className="flex min-w-0 items-center justify-between gap-2 rounded-lg border bg-background px-2.5 py-2"
+              className="flex min-w-0 items-center justify-between gap-1.5 rounded-lg border bg-background px-2 py-1.5"
             >
-              <span className="min-w-0">
-                <span className="block text-[11px] leading-4 font-semibold tracking-wide">{label}</span>
-                <span className="block truncate text-[10px] leading-4 text-muted-foreground">{name}</span>
+              <span className="flex min-w-0 items-baseline gap-1.5">
+                <span data-testid="trigger-code" className="shrink-0 text-[10px] leading-4 font-semibold tracking-wide">{label}</span>
+                <span data-testid="trigger-name" className="truncate text-[10px] leading-4 text-muted-foreground">{name}</span>
               </span>
-              <Icon aria-hidden className="size-4 shrink-0" style={{ color: toneText(tone) }} />
+              <Icon aria-hidden className="size-3.5 shrink-0" style={{ color: toneText(tone) }} />
             </div>
           );
         })}

@@ -158,6 +158,8 @@ card opens to reveal its supporting details.
   score meets its target, amber when it is up to 5% below the target, and red when it is more than 5% below.
   These domain targets are unchanged. The related office KPI targets now follow them (D-079).
   Every domain card stacks target, attainment and bar vertically at all widths, including unavailable states.
+  The opening overview uses compact card padding and gaps, single-line LI labels, and centered headline/domain
+  figures so the collapsed overview fits a desktop viewport. Smaller screens retain responsive wrapping.
 
 **Early Warning Signs (Leading Indicators)**
 

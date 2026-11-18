@@ -18,24 +18,24 @@ function HeadlineCard({ id, title, value, summary, caption, children }: {
       <Collapsible data-testid={id} className="rounded-2xl border bg-block">
         <CollapsibleTrigger
           aria-describedby={caption ? captionId : undefined}
-          className="group flex min-h-28 w-full flex-col items-start justify-between gap-3 rounded-2xl px-5 py-4 text-left hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring @min-[44rem]:min-h-36"
+          className="group flex min-h-24 w-full flex-col items-start justify-between gap-2 rounded-2xl px-4 py-2 text-left hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
-          <span className="flex w-full items-center justify-between gap-2 text-sm font-semibold">
+          <span className="flex w-full items-center justify-between gap-2 text-[13px] leading-5 font-semibold">
             {title}
-            <span className="grid size-7 shrink-0 place-items-center rounded-full border bg-background text-brand-line">
+            <span className="grid size-6 shrink-0 place-items-center rounded-full border bg-background text-brand-line">
               <ChevronDown aria-hidden className="size-4 transition-transform group-data-[panel-open]:rotate-180 motion-reduce:transition-none" />
             </span>
           </span>
-          <span className="font-sans text-[clamp(2.625rem,6cqi,3.75rem)] leading-none font-semibold tracking-[-0.055em] tabular-nums">
+          <span data-testid="headline-value" className="w-full text-center font-sans text-[clamp(2.25rem,4.25cqi,2.75rem)] leading-none font-semibold tracking-[-0.055em] tabular-nums">
             {value}
           </span>
         </CollapsibleTrigger>
-        {summary && <div className="px-5 pb-4">{summary}</div>}
+        {summary && <div className="px-4 pb-3">{summary}</div>}
         <CollapsibleContent className="space-y-2 border-t px-5 py-4">
           {children}
         </CollapsibleContent>
       </Collapsible>
-      {caption && <div id={captionId} className="mt-2 px-1 text-xs leading-relaxed text-muted-foreground">{caption}</div>}
+      {caption && <div id={captionId} className="mt-1.5 px-1 text-[11px] leading-4 text-muted-foreground">{caption}</div>}
     </div>
   );
 }
@@ -48,7 +48,7 @@ export function HeadlineTiles({ data }: { data: ExecutiveData }) {
   const missingIndicators = data.missing.includes("indicators");
   return (
     <div className="@container">
-      <div className="grid items-start gap-4 @min-[44rem]:grid-cols-3">
+      <div className="grid items-start gap-3 @min-[44rem]:grid-cols-3">
         <HeadlineCard
           id="tile-platform"
           title="Platform Score"

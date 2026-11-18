@@ -7,8 +7,8 @@ export function ScoreTarget({ score, minimum, stacked = false }: { score: Num; m
   const { tone, target } = scoreTargetStatus(score, minimum);
   const hasScore = score !== null && Number.isFinite(score) && score >= 0 && score <= 100;
   return (
-    <div className="space-y-2">
-      <div className={stacked ? "flex flex-col items-start gap-1.5" : "flex flex-wrap items-center justify-between gap-x-2 gap-y-1"}>
+    <div className={stacked ? "space-y-1" : "space-y-2"}>
+      <div className={stacked ? "flex flex-col items-start gap-0.5" : "flex flex-wrap items-center justify-between gap-x-2 gap-y-1"}>
         <span data-testid="score-target-minimum" className="text-xs text-muted-foreground tabular-nums">
           {target !== null ? `Target ${fmtScore(target)}` : "Target unavailable"}
         </span>

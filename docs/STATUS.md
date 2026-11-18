@@ -1,11 +1,18 @@
 # Status
 
-Last updated: 2026-11-18 (office KPI targets aligned to existing domains; stacked domain layout)
+Last updated: 2026-11-18 (compact executive overview and centered figures)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
 
 ## Where we are
+
+- **Compact executive overview (18 Nov, local, D-080):** reduced headline/card padding, number sizing and section
+  gaps; each LI code and short name shares one line. Headline and domain score figures are centered. Domain
+  target/attainment stacking, disclosure behavior, target policy and source data are unchanged.
+  - **Validated:** all Executive View browser checks (22) and the production test build pass, including overview
+    fit at 1440x900 and 1366x768, centered figures, single-line LI labels and mobile overflow. TypeScript,
+    changed-file ESLint and documentation freshness checks pass. The verified data store is reused.
 
 - **KPI target alignment (18 Nov, local, D-079):** the existing domain targets and 5% near-target ruling stay
   unchanged. Related office KPI targets follow those domain minimums, through `scripts/framework.json` and
