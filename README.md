@@ -2,7 +2,7 @@
 
 4th Annual Fall into BC Case Competition. Competition materials and the original package README are in [reference/](reference/README.md).
 
-> **Confidential data.** The dataset may not be shared through public repositories, dashboards or AI links. Keep this repo **private**: `data/` is committed, so making it public would expose the data, and deleting it afterwards would not remove it from git history.
+> **Confidential data.** The dataset may not be shared through public repositories, dashboards or AI links. The one approved exception is the hosted dashboard behind a shared password ([deploy/README.md](deploy/README.md), D-076). Keep this repo **private**: `data/` is committed, so making it public would expose the data, and deleting it afterwards would not remove it from git history.
 
 ## Setup
 
@@ -70,7 +70,8 @@ notebooks/         edit the .ipynb directly (D-037)
                                   deliverable also checks that it reproduces them
     02_quantity_mismatches.ipynb  an alternative detector, pending the team's decision (docs/DETECTOR_DIFFERENCES.md)
     checkin1_evidence.ipynb       the numbers behind the Check-in 1 report
-dashboard/         local Next.js app over outputs/store.duckdb (see dashboard/README.md); never deploy it
+dashboard/         local Next.js app over outputs/store.duckdb (see dashboard/README.md)
+deploy/            hosting the dashboard on Google Cloud Run behind a password (see deploy/README.md)
 web/               the offline Sankey and UpSet views (built by scripts/build_sankey.py, build_upset.py)
 scripts/           build figures, the framework workbook and docs/FINDINGS.md; check the docs
                    (build_slides.py and add_journeys.py were one-off fillers for the Check-in 1 deck)

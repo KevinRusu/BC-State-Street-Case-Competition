@@ -30,7 +30,9 @@
     ".next/dev/types/**/*.ts",
     ".next-tests/types/**/*.ts",
     "**/*.mts",
-    ".next-tests/dev/types/**/*.ts"
+    ".next-tests/dev/types/**/*.ts",
+    ".next-hosting/types/**/*.ts",
+    ".next-hosting/dev/types/**/*.ts"
   ],
   "exclude": ["node_modules"]
 }

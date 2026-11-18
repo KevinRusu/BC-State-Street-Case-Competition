@@ -1,12 +1,15 @@
 import { Database, TriangleAlert } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { loadStoreInfo } from "@/lib/data";
+import { liveCommit } from "@/lib/hosting";
 
 /** Which run the app shows: the store's build time and the register checksum (same as docs/FINDINGS.md). When the
- * register on disk has changed since the build, say so in plain sight: the page would show an older run. */
+ * register on disk has changed since the build, say so in plain sight: the page would show an older run. On the
+ * hosted site it also names the commit the build was made from; locally that line is absent. */
 export async function StoreBadge() {
   const loaded = await loadStoreInfo();
   if (!loaded.ok) return <span className="text-xs text-status-bad">no store built</span>;
+  const commit = liveCommit(); // after the request-time read above, so never fixed at build
   const info = loaded.data;
   const stale = info.registerState === "stale";
   const unverified = info.registerState === "missing" && Boolean(info.registerChecksum);
@@ -18,6 +21,9 @@ export async function StoreBadge() {
         }
       >
         <Database className="size-3.5" />
+        {commit && (
+          <span className="sr-only font-mono sm:not-sr-only" data-testid="live-commit">{`live ${commit}`}</span>
+        )}
         <span className="sr-only lg:not-sr-only">store {info.builtAt.replace("T", " ")}</span>
         <span className="sr-only font-mono sm:not-sr-only">register {info.registerChecksum || "none"}</span>
         {stale && (

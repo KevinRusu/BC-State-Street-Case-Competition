@@ -1093,3 +1093,29 @@ build in §8); plan: `docs/superpowers/plans/2026-11-11-executive-view.md`.
   alarms as proven defects. We keep cleared visible because the Working Guide rewards cleared flags (§7,
   "Over-flagging"). "Triage" was an unfamiliar word; "What to fix first" is the Chief Data Officer's own question
   (brief §2). Design: `docs/superpowers/specs/2026-11-17-professor-feedback-design.md`.
+
+### D-076 · 17 Nov · Host the dashboard and its data on Google Cloud Run, behind one shared password
+
+- **Decision:** the dashboard is also hosted, as one container on Google Cloud Run holding the app, `outputs/store.duckdb`
+  and `outputs/02_defect_register.csv`, deployed only with `deploy/deploy.sh` from `main`. One shared password for the
+  judges and the team (HTTP Basic), kept in Google Secret Manager and checked twice: in `dashboard/proxy.ts` before any
+  page runs and in `dashboard/lib/data.ts` before any store read. The container requires it and refuses everyone if it
+  is missing; locally nothing changes. At most one running copy, none when idle; every resource in the one region in
+  `config/hosting.toml`; the upload is an allow-list (`.gcloudignore`, checked by `deploy/check-upload.sh`), so `data/`
+  and every other output stay on the laptop. Every deploy ends with `deploy/check-live.sh` and rolls back on failure.
+  The local dashboard stays the official deliverable and the demo backup. This supersedes "never deployed" in D-054.
+- **Why:** we received written approval to host the dashboard and its data, including the record-level raw tables,
+  with no limit on where they are stored (approver and date: to fill from the email). It amends brief §5 ("Do not
+  publish the competition data through a public dashboard") for us; the password keeps the data to the people we
+  give it to. Cloud Run runs the app exactly as it runs locally (no query changes), ships code and data as one
+  version, stays inside Google's monthly free allowance at our traffic, and is the way banks ship internal apps.
+- **Instead of:** Vercel + MotherDuck (store and stale-badge rework, data shipped separately from code, DuckDB 1.5.6
+  support unconfirmed, Hobby pauses the site for weeks at a limit); a small VM (most upkeep, nothing records how it
+  was built); Supabase (rewrite of every DuckDB query, 500 MB free limit); AWS Fargate (no lasting free allowance,
+  App Runner closed to new customers); Cloudflare in front (needs a domain, sees the data); automatic deploys on push
+  (the store is not in git, so code and data would drift).
+- **Costs and limits:** the billing account is already a paid account (no trial credit), so anything above the free
+  allowance is charged; the one-copy cap bounds it. The build installs npm 11.6.2 because the lockfile is written by
+  npm 11 and the Node 22 image ships npm 10. Takedown after judging (date in `deploy/README.md`).
+- **Design and plan:** `docs/superpowers/specs/2026-11-17-cloud-run-hosting-design.md`,
+  `docs/superpowers/plans/2026-11-17-cloud-run-hosting.md`. How to use it: `deploy/README.md`.

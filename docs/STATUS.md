@@ -1,13 +1,30 @@
 # Status
 
-Last updated: 2026-11-17 (professor feedback on the dashboard)
+Last updated: 2026-11-17 (hosting the dashboard on Google Cloud Run)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
 
 ## Where we are
 
-- **Professor feedback (17 Nov):** branch `professor-feedback`, not yet committed (D-075). The Data Map summary now
+- **Hosted dashboard (17 Nov):** branch `cloud-run-hosting`, not yet committed (D-076). The dashboard can now run on
+  Google Cloud Run behind one shared password, deployed with `deploy/deploy.sh` (code and store together, live check,
+  rollback). Built and tested locally, including the real container on Docker; not yet deployed. How to use it:
+  [deploy/README.md](../deploy/README.md). Local use is unchanged.
+  - **Next (the owner):** create a separate Google Cloud project, set the budget alert, fill `config/hosting.toml`
+    (project, region), merge to `main`, run `deploy/deploy.sh setup` then `deploy/deploy.sh`; then size the memory
+    from the first real run.
+  - **Still to fill:** who approved the hosting and when (D-076), and the takedown date (`deploy/README.md`).
+  - **Watch at the first real deploy** (only a real deploy can show these): Google may answer 400 to the live check's
+    odd-path probes (accepted); the build keeps its logs in a regional bucket the build account must be able to create
+    (fix in `deploy/README.md`, "When something goes wrong"); if a first deploy fails and closes the site, and the next
+    deploy fails too, the rollback reopens that broken version, so close it by hand.
+  - **Known, not ours:** e2e `trace-layout.spec.ts:140` (the trace example menu stays open after Escape) fails on `main`
+    too (checked 18 Nov on an untouched copy); the other e2e tests pass.
+  - **For the team:** the link and the password come from the owner in two separate messages; never put the password
+    in the deck, the report or the repo.
+
+- **Professor feedback (17 Nov):** merged in PR #23 (D-075). The Data Map summary now
   shows "Real problems" (confirmed, unresolved) apart from "False alarms ruled out" (cleared), with the cleared
   findings behind **Show which**. Every Executive view section opens with one plain line saying what it is for;
   "Leading Indicators" is now "Early Warning Signs (Leading Indicators)" and "Platform Repair Triage" is now "What
@@ -377,6 +394,8 @@ What worked, what did not, and what a Windows teammate should know:
 
 Docs known to disagree with a higher source. Fix, then remove the line.
 
+- Brief §5 says "Do not publish the competition data through a public dashboard"; we host it behind a password with
+  written approval (D-076). Keep until the approval details are filled into D-076.
 - `docs/figures/01_control_map.png` (`scripts/fig_control_map.py`) still shows the Check-in 1 bands; the dashboard map
   uses the office × stage grid (D-055). Redraw it for the final deck if the team wants one picture.
 - `notebooks/additional/01_explore_tables.ipynb` mentions numbers "from PROJECT_SUMMARY section 5". That is history (the file

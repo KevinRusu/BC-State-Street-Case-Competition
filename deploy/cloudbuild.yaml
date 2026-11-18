@@ -1,0 +1,26 @@
+# Cloud Build: one docker build of deploy/Dockerfile from the uploaded allow-list (.gcloudignore), pushed as _IMAGE.
+# deploy/deploy.sh passes both substitutions:
+#   gcloud builds submit --config deploy/cloudbuild.yaml --substitutions _IMAGE=<image>,_COMMIT=<short commit> .
+steps:
+  - name: gcr.io/cloud-builders/docker
+    env:
+      - DOCKER_BUILDKIT=1
+    args:
+      - build
+      - -f
+      - deploy/Dockerfile
+      - --build-arg
+      - DASHBOARD_COMMIT=$_COMMIT
+      - -t
+      - $_IMAGE
+      - .
+images:
+  - $_IMAGE
+# A stuck build stops after 30 minutes. Build logs go to a bucket in our project and region
+# (gs://<project number>-<region>-cloudbuild-logs), not to Google's shared multi-region logs bucket.
+timeout: 1800s
+options:
+  defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
+substitutions:
+  _IMAGE: ""
+  _COMMIT: ""
