@@ -87,14 +87,36 @@ disallow=0
 status_is "$code" 200 && tr -d '\r' < "$TMP/body" | grep -qx 'Disallow: /' && disallow=1
 check "$disallow" "/robots.txt with password: 200 with Disallow: / (got $code)"
 
+# refused <with|without> <path> <allowed codes...>: prints "1 <what happened>" when the path is refused, else "0 ...".
+# Google's front end tidies a raw /../ or /%2e%2e/ itself: it may answer 400, or redirect (302) to the tidied path on the
+# same site (seen on the first deploy, 18 Nov). A redirect is followed once, only on this site, and the address it
+# points to must be refused too; a redirect anywhere else fails.
+refused() {
+  local how=$1 path=$2 code location target code2; shift 2
+  code=$(fetch "$how" "$path")
+  case $code in
+    301|302|307|308)
+      location=$(grep -i '^location:' "$TMP/headers" | head -n 1 | sed 's/^[Ll][Oo][Cc][Aa][Tt][Ii][Oo][Nn]:[[:space:]]*//')
+      case $location in
+        "$URL"/*) target=${location#"$URL"} ;;
+        /*) target=$location ;;
+        *) echo "0 got $code to another site"; return ;;
+      esac
+      code2=$(fetch "$how" "$target")
+      if status_is "$code2" "$@"; then echo "1 got $code to $target, then $code2"; else echo "0 got $code to $target, then $code2"; fi ;;
+    *)
+      if status_is "$code" "$@"; then echo "1 got $code"; else echo "0 got $code"; fi ;;
+  esac
+}
+
 # The store and the register: never a 200 by any address. Google's front end may answer a raw /../ or /%2e%2e/ with 400
 # before the request reaches the container, so 400 and 404 count as refused here too, with or without the password.
 for path in /store.duckdb /outputs/store.duckdb /../outputs/store.duckdb /%2e%2e/outputs/store.duckdb \
   /_next/static/../../outputs/store.duckdb /outputs/02_defect_register.csv; do
-  code=$(fetch without "$path")
-  check "$(status_is "$code" 400 401 404 && echo 1 || echo 0)" "$path without password: 400, 401 or 404 (got $code)"
-  code=$(fetch with "$path")
-  check "$(status_is "$code" 400 404 && echo 1 || echo 0)" "$path with password: 400 or 404 (got $code)"
+  result=$(refused without "$path" 400 401 404)
+  check "${result%% *}" "$path without password: 400, 401 or 404 (${result#* })"
+  result=$(refused with "$path" 400 404)
+  check "${result%% *}" "$path with password: 400 or 404 (${result#* })"
 done
 
 if [ "$FAILED" = 0 ]; then echo "live check: all passed"; else echo "live check: FAILED"; exit 1; fi
