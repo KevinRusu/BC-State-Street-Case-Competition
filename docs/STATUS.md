@@ -1,11 +1,18 @@
 # Status
 
-Last updated: 2026-11-18 (compact executive overview and centered figures)
+Last updated: 2026-11-18 (compact executive overview and reordered indicator modules)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
 
 ## Where we are
+
+- **Indicator module order (18 Nov, D-081, PR #26):** Pricing readiness now leads the left stack, followed by
+  action readiness and Unmastered security rate. Booking alerts keeps its wide/narrow placement. The headline
+  LI matrix and every analytical value are unchanged.
+  - **Final PR validation:** dashboard unit checks (175), Python regression checks (106), full browser suite (60),
+    store contracts, production builds, TypeScript, full source ESLint, documentation freshness and Git
+    whitespace checks pass. ESLint excludes the generated hosting-build directory, consistent with other builds.
 
 - **Compact executive overview (18 Nov, local, D-080):** reduced headline/card padding, number sizing and section
   gaps; each LI code and short name shares one line. Headline and domain score figures are centered. Domain

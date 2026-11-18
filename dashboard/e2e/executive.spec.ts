@@ -298,22 +298,26 @@ test("the leading indicators stack beside booking alerts on wide screens", async
     await expect(card).toBeVisible();
     return (await card.boundingBox())!;
   };
-  const first = await cardBox("I1");
-  const actions = await cardBox("I3");
   const pricing = await cardBox("I4");
+  const actions = await cardBox("I3");
+  const master = await cardBox("I1");
   const booking = await cardBox("I2");
-  expect(actions.x).toBeCloseTo(first.x, 0);
-  expect(pricing.x).toBeCloseTo(first.x, 0);
-  expect(actions.y).toBeGreaterThan(first.y + first.height);
-  expect(pricing.y).toBeGreaterThan(actions.y + actions.height);
-  expect(booking.y).toBeCloseTo(first.y, 0);
-  expect(booking.x).toBeGreaterThan(first.x + first.width);
+  expect(actions.x).toBeCloseTo(pricing.x, 0);
+  expect(master.x).toBeCloseTo(pricing.x, 0);
+  expect(actions.y).toBeGreaterThan(pricing.y + pricing.height);
+  expect(master.y).toBeGreaterThan(actions.y + actions.height);
+  expect(booking.y).toBeCloseTo(pricing.y, 0);
+  expect(booking.x).toBeGreaterThan(pricing.x + pricing.width);
 
   await page.setViewportSize({ width: 390, height: 844 });
   const mobilePricing = await cardBox("I4");
+  const mobileActions = await cardBox("I3");
+  const mobileMaster = await cardBox("I1");
   const mobileBooking = await cardBox("I2");
-  expect(mobileBooking.x).toBeCloseTo(mobilePricing.x, 0);
-  expect(mobileBooking.y).toBeGreaterThan(mobilePricing.y + mobilePricing.height);
+  expect(mobileActions.y).toBeGreaterThan(mobilePricing.y + mobilePricing.height);
+  expect(mobileMaster.y).toBeGreaterThan(mobileActions.y + mobileActions.height);
+  expect(mobileBooking.x).toBeCloseTo(mobileMaster.x, 0);
+  expect(mobileBooking.y).toBeGreaterThan(mobileMaster.y + mobileMaster.height);
 });
 
 test("every executive section says what it is for", async ({ page }) => {

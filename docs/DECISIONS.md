@@ -1174,3 +1174,9 @@ build in §8); plan: `docs/superpowers/plans/2026-11-11-executive-view.md`.
   widths, with existing wrapping on smaller screens. Captions, legends and disclosures remain available.
 - **Boundary:** presentation only; target/attainment policy, scores, scenario selection and analytical data do
   not change. The existing freshly rebuilt store is reused; no research recomputation is needed for spacing.
+
+### D-081 · 18 Nov · Swap pricing readiness and unmastered-security modules
+
+- **Decision (user requested):** the leading-indicator stack is Pricing readiness, Corporate action readiness,
+  then Unmastered security rate. Booking alerts stays alongside the stack on wide screens and follows it on
+  narrow screens. Indicator IDs, LI1-LI4 matrix order, values, thresholds and historical breach counts are unchanged.

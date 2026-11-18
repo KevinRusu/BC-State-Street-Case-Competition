@@ -163,7 +163,7 @@ card opens to reveal its supporting details.
 
 **Early Warning Signs (Leading Indicators)**
 
-- Three shorter cards stack beside pre-cutoff booking alerts when space allows.
+- Pricing readiness, corporate action readiness and Unmastered security rate stack in that order beside pre-cutoff booking alerts when space allows.
   Pricing readiness is the Executive View label for fresh, agreed price coverage. The booking alert threshold
   and replay description are in Indicator details. Each chart shows its unit,
   the values at the top and bottom of its range, the first and last dates, and a dashed line at the threshold. The
