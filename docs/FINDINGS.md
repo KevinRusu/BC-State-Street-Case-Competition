@@ -4,8 +4,8 @@
 `notebooks/deliverable.ipynb`, then the script. Full write-ups of the classes we take forward are in
 `docs/DEFECT_CATALOG.md`.*
 
-- Register checksum: `c4f264d9f5ed` (built at commit `8221a43`)
-- Run: config `reconciliation.toml`, snapshot 2026-07-10, shuffle seed 0, 198.7 s
+- Register checksum: `c4f264d9f5ed` (built at commit `8f65da8`)
+- Run: config `reconciliation.toml`, snapshot 2026-07-10, shuffle seed 0, 728.2 s
 - 71 findings: 37 confirmed, 29 unresolved, 5 cleared
 - Denominators: eligible + not evaluable = population (D-027 in `docs/DECISIONS.md`).
 
@@ -99,7 +99,7 @@
 
 *From `outputs/02_scorecard.csv`, `02_kpis.csv` and `02_indicators.csv`. Rule and test rows, accounts, sensitivity and the look-back stay in the CSVs. Scores and coverage are on a 0-100 scale.*
 
-- Scorecard checksum: `d5af528b2bbd`
+- Scorecard checksum: `c5a3749a5d0f`
 
 | Level | Domain | Score | Coverage | Confirmed-only score |
 |---|---|---|---|---|
@@ -114,12 +114,12 @@
 
 | KPI | Name | Value | Target | Met | Status |
 |---|---|---|---|---|---|
-| 1 | Trades with a valid account and security | 99.41 % | 100% | no | computed |
-| 2 | Trades booked before cutoff | 99.57 % | at least 99% | yes | computed |
+| 1 | Trades with a valid account and security | 99.41 % | at least 99.5% | no | computed |
+| 2 | Trades booked before cutoff | 99.57 % | at least 98% | yes | computed |
 | 3 | Duplicate trade rate | 0.30 % | at most 0.01% | no | computed |
-| 4 | Positions matching the custodian | 99.60 % | at least 99.9% | no | computed |
+| 4 | Positions matching the custodian | 99.60 % | at least 99.5% | yes | computed |
 | 5 | Holdings with a fresh, agreed price | 93.13 % | at least 99% | no | computed |
-| 6 | NAV rows that add up | 98.00 % | 100% | no | computed |
+| 6 | NAV rows that add up | 98.00 % | at least 99.5% | no | computed |
 | 7 | Funds released with no serious open issue | not computed | 100% |  | proposed |
 
 | Indicator | Name | Status | Value | Threshold | Breaches | First breach |
@@ -129,7 +129,7 @@
 | I3 | Corporate action readiness | computed | 59.00 % of actions | below 100% once the effective date is reached (brief App. B), judged at the snapshot | 24 | 2026-06-08 |
 | I4 | Fresh, agreed price coverage | computed | 93.13 % of held securities | below KPI 5's target, at least 99% (scripts/framework.json) | 30 | 2026-06-01 |
 | I5 | Position break count | computed | 2398 keys | any break: no materiality has been agreed (open question 5 in docs/STATUS.md) | 1 | 2026-07-10 |
-| I6 | NAV rows that add up | computed | 98.00 % of ledger rows | 100% (KPI 6) | 1 | 2026-07-10 |
+| I6 | NAV rows that add up | computed | 98.00 % of ledger rows | at least 99.5% (KPI 6, aligned with the NAV domain target) | 1 | 2026-07-10 |
 | I7 | NAV restatement rate | proposed |  | any restatement (brief App. B) |  |  |
 | I8 | Defect age to closure | proposed |  | open past 2 business days (scripts/framework.json operating_model: escalated to management) |  |  |
 
@@ -143,8 +143,8 @@ Where the views count differently:
 
 *From `outputs/03_stress_rates.csv`, `outputs/03_stress_impact.csv`, `outputs/03_stress_cases.csv`, `outputs/03_stress_changes.csv`, `outputs/03_stress_members.csv`, `outputs/03_stress_unexplained.csv`, `outputs/03_stress_run.csv`. Per-case rows, the member changes, the unexplained-change list and every fund stay in the CSVs.*
 
-- Stress checksum: `9883cfbb5ccd`
-- Run: config `config/reconciliation.toml`, labels sha256 `c768055d64f3`, seed 20261111, finished at 2026-11-11T18:24:46Z
+- Stress checksum: `7a2c29dc765f`
+- Run: config `config/reconciliation.toml`, labels sha256 `94a22aac51a4`, seed 20261111, finished at 2026-11-16T21:14:12Z
 
 | Role | Level | Cases | Share | Drawn | Wanted |
 |---|---|---|---|---|---|
@@ -171,8 +171,8 @@ Unexplained changes: 0 on untouched securities (false positive), 0 unattributabl
 
 | Deliverable measure | Before | After |
 |---|---|---|
-| platform score | 81.62 | 81.58 |
-| Prices domain score | 94.22 | 93.97 |
+| platform score | 88.50 | 88.46 |
+| Prices domain score | 97.06 | 96.81 |
 | KPI 5 value | 93.13 | 91.63 |
 | I4 value | 93.13 | 91.63 |
 | scale flag: financial_rows (upper bound) | 767 | 8022 |

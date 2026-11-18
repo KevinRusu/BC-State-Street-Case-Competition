@@ -649,8 +649,8 @@ status = "computed"
 calculation = "100 x ledger rows where net_assets / shares_outstanding equals nav_per_share within [nav] tolerance / rows evaluable (section 7, 02_nav_check.csv). A row with a blank or unreadable input, shares_outstanding <= 0 or an unreadable as_of_date is not evaluable."
 unit = "% of ledger rows"
 refresh = "at snapshot"
-threshold = "100% (KPI 6)"
-threshold_value = 100.0
+threshold = "at least 99.5% (KPI 6, aligned with the NAV domain target)"
+threshold_value = 99.5
 owner = "Fund accounting lead"
 decision = "Hold publication of any NAV that fails"
 predicts = "Confirms an arithmetic error in a struck NAV row before it reaches investors"
@@ -688,11 +688,11 @@ inputs_needed = "An issue log with one ticket per defect: record ID, owner, open
 # The seven Check-in 1 KPIs (spec §5.9). Target and direction per KPI, read from scripts/framework.json's `target` text
 # (each number below must appear in that text; checked in the notebook). KPI 7 is proposed and has no target entry.
 [kpis.1]
-target = 100.0
+target = 99.5
 direction = "at least"
 
 [kpis.2]
-target = 99.0
+target = 98.0
 direction = "at least"
 
 [kpis.3]
@@ -700,7 +700,7 @@ target = 0.01
 direction = "at most"
 
 [kpis.4]
-target = 99.9
+target = 99.5
 direction = "at least"
 
 [kpis.5]
@@ -708,5 +708,5 @@ target = 99.0
 direction = "at least"
 
 [kpis.6]
-target = 100.0
+target = 99.5
 direction = "at least"

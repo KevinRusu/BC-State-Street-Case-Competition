@@ -156,7 +156,8 @@ card opens to reveal its supporting details.
   details. A domain's name opens the triage list filtered to that domain. The bars mark the minimum targets, using
   the pilot defaults when the scorecard has no targets, including 99.50 for NAV. The platform and domain tags and bars use green when the
   score meets its target, amber when it is up to 5% below the target, and red when it is more than 5% below.
-  KPI targets are in the KPI table.
+  These domain targets are unchanged. The related office KPI targets now follow them (D-079).
+  Every domain card stacks target, attainment and bar vertically at all widths, including unavailable states.
 
 **Early Warning Signs (Leading Indicators)**
 
@@ -172,7 +173,15 @@ card opens to reveal its supporting details.
 
 **KPIs by Office**
 
-- From `kpis` (`outputs/02_kpis.csv`). Hover over a row for its formula.
+- From `kpis` (`outputs/02_kpis.csv`). Hover over a row for its formula. Targets follow the existing domain
+  minimums: KPI 1 Accounts/Securities, KPI 2 Trades, KPI 4 Positions, KPI 5 Prices, KPI 6 NAV. The duplicate-rate
+  ceiling and proposed release KPI retain their distinct targets. Source policy: `scripts/framework.json` and
+  `config/scorecard.toml`; rerun the notebook and store after a target change.
+  Both sections use Met target, Near target (a miss by up to 5% of the threshold), or Missed target.
+  KPI attainment preserves the saved pass/fail decision and uses exact numerator/denominator counts for the
+  warning band, mirrored for lower-is-better ceilings. Proposed or unavailable values stay Not assessed.
+  Formulas, metric values and defect/release rules are unchanged; target alignment does not make a composite
+  domain score equivalent to an individual KPI.
 
 **Worst Accounts**
 

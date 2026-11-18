@@ -8,7 +8,7 @@ const FIXTURE = path.join(__dirname, "../../tests/runs/dashboard_browser_fixture
 const SHOTS = "../tests/runs/dashboard_browser/shots";
 const runtimeErrors = new WeakMap<Page, string[]>();
 const domainOrder = ["Accounts", "Securities", "Trades", "Corporate Actions", "Positions", "Prices", "NAV"];
-const targetLabels = { ok: "Met target", warn: "Within 5% below target", bad: "Below target" };
+const targetLabels = { ok: "Met target", warn: "Near target", bad: "Missed target" };
 
 async function expectScoreTarget(card: Locator, score: string, minimum: number) {
   const { tone } = scoreTargetStatus(score ? Number(score) : null, minimum);
@@ -130,6 +130,51 @@ test("executive view shows the scorecard's own figures", async ({ page }) => {
   await page.reload();
   await expect(page.getByTestId("tile-platform")).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/executive-dark.png`, fullPage: true });
+});
+
+test("office KPI targets follow the unchanged domain targets and use matching attainment", async ({ page }) => {
+  await page.goto("/executive");
+  const kpis = await csv("02_kpis.csv");
+  const links: Record<string, string> = { "1": "Accounts", "2": "Trades", "4": "Positions", "5": "Prices", "6": "NAV" };
+  for (const kpi of kpis) {
+    if (links[kpi.n]) expect(Number(kpi.target.match(/[0-9.]+/)![0])).toBe(DOMAIN_SCORE_TARGETS.get(links[kpi.n]));
+    const value = Number(kpi.value);
+    const threshold = Number(kpi.target.match(/[0-9.]+/)![0]);
+    const close = kpi.target.startsWith("at most") ? value <= threshold * 1.05 : value >= threshold * 0.95;
+    const expected = kpi.status !== "computed" || !kpi.met ? "Not assessed" : kpi.met === "yes" ? "Met target" : close ? "Near target" : "Missed target";
+    await expect(page.getByTestId(`kpi-${kpi.n}`).getByTestId("target-attainment")).toHaveText(expected);
+  }
+  const nav = page.getByTestId("domain-card").filter({ has: page.getByRole("link", { name: "NAV", exact: true }) });
+  await expect(nav.getByText("Target 99.50", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("kpi-6")).toContainText("at least 99.5%");
+});
+
+test("domain targets and attainment stay stacked and aligned at different widths", async ({ page }) => {
+  await page.goto("/executive");
+  for (const width of [1550, 1100, 760]) {
+    await page.setViewportSize({ width, height: 1100 });
+    await expect(page.getByTestId("domain-card")).toHaveCount(7);
+    await expect(page.getByTestId("domain-card").first()).toBeVisible();
+    const layout = await page.getByTestId("domain-card").evaluateAll((cards) => cards.map((card) => {
+      const bounds = card.getBoundingClientRect();
+      const target = card.querySelector('[data-testid="score-target-minimum"]')!.getBoundingClientRect();
+      const badge = card.querySelector('[data-testid="target-attainment"]')!.getBoundingClientRect();
+      const bar = card.querySelector('[data-testid="score-target-bar"]')!.getBoundingClientRect();
+      return { top: bounds.top, height: bounds.height, targetOffset: target.top - bounds.top,
+        targetBottom: target.bottom, badgeTop: badge.top, badgeBottom: badge.bottom, barTop: bar.top,
+        badgeOffset: badge.top - bounds.top, barOffset: bar.top - bounds.top };
+    }));
+    for (const card of layout) {
+      expect(card.badgeTop).toBeGreaterThan(card.targetBottom);
+      expect(card.barTop).toBeGreaterThan(card.badgeBottom);
+      expect(card.targetOffset).toBeCloseTo(layout[0].targetOffset, 0);
+      expect(card.badgeOffset).toBeCloseTo(layout[0].badgeOffset, 0);
+      expect(card.barOffset).toBeCloseTo(layout[0].barOffset, 0);
+      for (const other of layout.filter((other) => Math.abs(other.top - card.top) < 1)) expect(other.height).toBeCloseTo(card.height, 0);
+    }
+  }
+  await page.setViewportSize({ width: 1550, height: 1100 });
+  await page.locator("#degrading").screenshot({ path: `${SHOTS}/domain-target-alignment.png` });
 });
 
 test("headline disclosures use the same historical indicator and impact results as the outputs", async ({ page }) => {

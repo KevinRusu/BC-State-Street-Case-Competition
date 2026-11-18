@@ -15,7 +15,7 @@ function DomainCard({ domain }: { domain: DomainScore }) {
         {name}
       </Link>
       <span data-testid="score" className="text-3xl leading-none font-semibold tracking-tight tabular-nums">{fmtScore(domain.score)}</span>
-      <ScoreTarget score={domain.score} minimum={domain.target} />
+      <ScoreTarget score={domain.score} minimum={domain.target} stacked />
       <DetailDisclosure label="Score details" accessibleLabel={`Score details for ${name}`} className="mt-auto">
         <dl className="space-y-2 text-sm">
           <div><dt className="text-xs text-muted-foreground">Coverage</dt><dd className="font-mono tabular-nums">{fmtScore(domain.coverage)}</dd></div>

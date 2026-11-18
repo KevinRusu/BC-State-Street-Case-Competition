@@ -348,7 +348,7 @@ export async function getExecutive(): Promise<ExecutiveData> {
     if (await has("kpis", "kpis", "n")) {
       data.kpis = (await rows(con, "SELECT * FROM kpis ORDER BY rowid")).map((r): Kpi => ({
         n: text(r.n), office: text(r.office), kpi: text(r.kpi), formula: text(r.formula), unit: text(r.unit),
-        owner: text(r.owner), target: text(r.target), value: maybe(r.value), met: text(r.met), status: text(r.status),
+        owner: text(r.owner), target: text(r.target), value: maybe(r.value), numerator: maybe(r.numerator), denominator: maybe(r.denominator), met: text(r.met), status: text(r.status),
       }));
     }
     if (await has("accounts", "scorecard_accounts", "account_id")) data.worst = await readWorst(con);

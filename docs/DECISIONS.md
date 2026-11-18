@@ -1148,3 +1148,19 @@ build in §8); plan: `docs/superpowers/plans/2026-11-11-executive-view.md`.
   is second and explicitly linked by `by=score`; domain-card drill-downs still open their filtered rule list.
   The Rank header restores each list's original default criterion (NAV descending or quality score ascending).
 - **Boundary:** no analytical data, formula, scoring treatment or headline selection changes. No deployment.
+
+### D-079 · 18 Nov · Align office KPI targets to the existing domain policy and stack domain attainment
+
+- **Decision (user requested):** keep every domain target unchanged. Align office KPI 1 to the existing
+  Accounts/Securities minimum, KPI 2 to Trades, KPI 4 to Positions, KPI 5 to Prices and KPI 6 to NAV. Change the
+  KPI target text in `scripts/framework.json` and its numeric policy in `config/scorecard.toml`, then regenerate
+  outputs. The lagging NAV indicator follows the revised KPI 6 threshold. The duplicate-rate ceiling and proposed
+  release KPI retain their separate targets; neither is a composite pass-rate score.
+- **Rulings:** preserve the domain policy's relative 5% warning band and apply it to office KPI misses. Green
+  Met target, amber Near target, red Missed target; unavailable or proposed values remain unassessed. Saved
+  pass/fail decisions stay authoritative; the warning band uses exact saved numerator/denominator counts and
+  mirrors the direction for lower-is-better ceilings. Near target still means the target was missed.
+- **Interpretation:** aligning targets does not equate the formulas or populations. Composite scores retain
+  their configured unresolved credit. Domain and KPI values, defect checks and NAV release gates do not change.
+- **Layout (user requested):** every domain card puts target above attainment, then the score bar, with space
+  reserved for unavailable states too. Short shared labels keep the same alignment as available width changes.

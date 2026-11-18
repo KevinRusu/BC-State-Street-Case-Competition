@@ -5,7 +5,7 @@ import {
   BLANK, DOMAIN_SCORE_TARGETS, PAGE_SIZE, PLATFORM_SCORE_TARGET, RESULTS, RESULT_TONE, RUN_FACTS, WORST_ACCOUNTS, accountHref, defaultRuleOrder, drawable,
   executiveHref, fmtBps, fmtCount, fmtNumber, fmtScore, fmtShare, fmtUsd, fmtUsdShort, fmtValue, impactTraceTarget, largestScenario, leadingBreaches,
   navImpactOrder, nearestIndex, noTraceReason, parsePage, parseResult, resultOf, ruleHref, rulePriorityRanks, scenarioHref, scenarioPriorityRanks, seriesAxis, sortRules, sparkline, splitScenarios,
-  scoreTargetStatus, stressState, traceHref, traceTarget,
+  scoreTargetStatus, kpiAttainmentTone, stressState, traceHref, traceTarget,
 } from "@/lib/executive";
 
 const rule = (domain: string, id: string, score: number | null, coverage: number | null, extra: Partial<RuleScore> = {}): RuleScore => ({
@@ -349,6 +349,30 @@ describe("score targets", () => {
     [98, Number.NaN, null, null],
   ])("score %s with minimum %s has target %s and tone %s", (score, minimum, target, tone) => {
     expect(scoreTargetStatus(score, minimum)).toEqual({ target, tone });
+  });
+});
+
+describe("KPI attainment aligned with domain rulings", () => {
+  const sample = { target: "at least 99.5%", numerator: null, denominator: null, value: 98, met: "no", status: "computed" };
+  test("NAV retains the domain target and its warning band", () => {
+    expect(kpiAttainmentTone(sample)).toBe(scoreTargetStatus(98, DOMAIN_SCORE_TARGETS.get("NAV")!).tone);
+    expect(kpiAttainmentTone(sample)).toBe("warn");
+  });
+  test.each([
+    [{ value: 99.5, met: "yes" }, "ok"],
+    [{ value: 90 }, "bad"],
+    [{ value: null }, null],
+    [{ status: "proposed" }, null],
+    [{ met: "" }, null],
+    [{ value: 0.0104, target: "at most 0.01%" }, "warn"],
+    [{ value: 0.3, target: "at most 0.01%" }, "bad"],
+    [{ value: 0, target: "at most 0.01%", met: "yes" }, "ok"],
+  ])("ruling for %j is %s", (extra, tone) => {
+    expect(kpiAttainmentTone({ ...sample, ...extra })).toBe(tone);
+  });
+  test("the warning boundary uses exact counts, not a rate rounded toward the bad side", () => {
+    expect(kpiAttainmentTone({ ...sample, value: 94.52, numerator: 94525, denominator: 100000 })).toBe("warn");
+    expect(kpiAttainmentTone({ ...sample, value: 94.52, numerator: 94524, denominator: 100000 })).toBe("bad");
   });
 });
 
