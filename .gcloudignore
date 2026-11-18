@@ -1,0 +1,47 @@
+# The upload allow-list: the only files that leave this machine for a build. data/ is committed to git, so this is an
+# allow-list (ignore everything, then re-include), not a copy of .gitignore. The same file is deploy/Dockerfile.dockerignore
+# (a local `docker build` reads that one); deploy/check-upload.sh checks the list gcloud makes from it. Change all three
+# together: tests/hosting_test.sh upload checks they agree.
+#
+# Rules are read top to bottom and the last match wins. A folder that is ignored cannot have files re-included, so each
+# re-included folder is re-included whole, then emptied, then the wanted files re-included.
+
+# Everything at the top level, dotfiles included (.git, .env, .venv, data/, docs/, outputs/ ...).
+/*
+
+!/.gcloudignore
+
+# The app's source.
+!/dashboard/
+
+# The store and the register the app reads; no other outputs.
+!/outputs/
+/outputs/*
+!/outputs/store.duckdb
+!/outputs/02_defect_register.csv
+
+# The build files; no other deploy/ script.
+!/deploy/
+/deploy/*
+!/deploy/Dockerfile
+!/deploy/Dockerfile.dockerignore
+!/deploy/cloudbuild.yaml
+
+# Generated or local files inside dashboard/: installed packages, builds, test output, caches, env files, keys, logs.
+/dashboard/node_modules
+/dashboard/**/node_modules
+/dashboard/.next*
+/dashboard/test-results
+/dashboard/playwright-report
+/dashboard/coverage
+/dashboard/out
+/dashboard/build
+/dashboard/.vercel
+/dashboard/.pnp*
+/dashboard/.yarn
+/dashboard/next-env.d.ts
+/dashboard/**/*.tsbuildinfo
+/dashboard/**/*.log
+/dashboard/**/*.pem
+/dashboard/**/.DS_Store
+/dashboard/**/.env*

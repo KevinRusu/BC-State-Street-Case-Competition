@@ -4,8 +4,9 @@ A local web app for the team: how the ten tables join, where the raw keys break,
 and what happens to one record as it moves from capture to NAV. It is the first page of the final dashboard
 (brief §5, Dashboard); the [executive view](#executive-view) is on the same foundation; monitoring comes later.
 
-**Confidential data.** The app serves the raw tables. It listens on `127.0.0.1` only. Never deploy it or put
-`outputs/store.duckdb` anywhere public.
+**Confidential data.** The app serves the raw tables. Locally it listens on `127.0.0.1` only. The only hosted copy is
+the one `deploy/deploy.sh` ships, behind a shared password ([deploy/README.md](../deploy/README.md), D-076); never put
+`outputs/store.duckdb` anywhere else.
 
 ## Run it
 

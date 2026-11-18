@@ -1,0 +1,16 @@
+# Hosting on Google Cloud Run (deploy/deploy.sh; design docs/superpowers/specs/2026-11-17-cloud-run-hosting-design.md).
+[google]
+project = "state-street-case-competition"            # the dashboard's own project ID (not the AI Studio project)
+region = "us-east1"             # every resource lives here
+[service]
+name = "dashboard"
+memory = "2Gi"          # measured in Task 6; change here
+cpu = 1
+max_instances = 1       # the cost ceiling
+min_instances = 0       # judging week: see deploy/README.md
+concurrency = 80
+[registry]
+repository = "dashboard"
+keep_images = 2
+[secret]
+name = "dashboard-password"
