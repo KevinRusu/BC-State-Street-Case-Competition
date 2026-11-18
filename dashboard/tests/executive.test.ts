@@ -4,7 +4,7 @@ import type { Indicator, IndicatorSeries, RuleScore, Scenario, SeriesPoint, Stre
 import {
   BLANK, DOMAIN_SCORE_TARGETS, PAGE_SIZE, PLATFORM_SCORE_TARGET, RESULTS, RESULT_TONE, RUN_FACTS, WORST_ACCOUNTS, accountHref, defaultRuleOrder, drawable,
   executiveHref, fmtBps, fmtCount, fmtNumber, fmtScore, fmtShare, fmtUsd, fmtUsdShort, fmtValue, impactTraceTarget, largestScenario, leadingBreaches,
-  nearestIndex, noTraceReason, parsePage, parseResult, resultOf, ruleHref, scenarioHref, seriesAxis, sortRules, sparkline, splitScenarios,
+  navImpactOrder, nearestIndex, noTraceReason, parsePage, parseResult, resultOf, ruleHref, rulePriorityRanks, scenarioHref, scenarioPriorityRanks, seriesAxis, sortRules, sparkline, splitScenarios,
   scoreTargetStatus, stressState, traceHref, traceTarget,
 } from "@/lib/executive";
 
@@ -225,6 +225,17 @@ describe("rule orders", () => {
     defaultRuleOrder(rules);
     expect(ids(rules)).toEqual(before);
   });
+  test("priority numbers use the full score order, exclude blanks and stay attached after a different sort", () => {
+    const ranks = rulePriorityRanks(rules);
+    expect(ranks.get(rules[4])).toBe(1);
+    expect(ranks.get(rules[2])).toBe(2);
+    expect(ranks.get(rules[5])).toBe(3);
+    expect(ranks.has(rules[0])).toBe(false);
+    const resorted = sortRules(rules, "score", "desc");
+    expect(ranks.get(resorted[0])).toBe(2);
+    const accounts = rules.filter((r) => r.domain === "Accounts");
+    expect([...rulePriorityRanks(accounts).values()]).toEqual([1, 2]);
+  });
   test("a blank number is last in both directions", () => {
     const asc = ids(sortRules(rules, "score", "asc"));
     const desc = ids(sortRules(rules, "score", "desc"));
@@ -281,6 +292,27 @@ describe("scenarios", () => {
     expect(largestScenario(all)?.scenario).toBe("priced big");
     expect(largestScenario([scenario("priced zero", 5, 0), scenario("unknown", 5, null)])).toBeNull();
     expect(largestScenario([])).toBeNull();
+  });
+  test("financial priority follows fund-relative NAV effect while the headline still follows gross dollars", () => {
+    const highNav = { ...scenario("small-dollar high-NAV", 1, 10), maxFundNetBps: 75 };
+    const highGross = { ...scenario("large-dollar low-NAV", 1, 9000), maxFundNetBps: 4 };
+    const zero = { ...scenario("zero effect", 1, 0), maxFundNetBps: 0 };
+    const unknown = scenario("NAV unknown", 1, 200);
+    const input = [highGross, unknown, zero, highNav];
+    expect(names(navImpactOrder(input))).toEqual([highNav.scenario, highGross.scenario, zero.scenario, unknown.scenario]);
+    expect(largestScenario(input)).toBe(highGross);
+    const ranks = scenarioPriorityRanks(input);
+    expect(ranks.get(highNav)).toBe(1);
+    expect(ranks.get(highGross)).toBe(2);
+    expect(ranks.get(zero)).toBe(3);
+    expect(ranks.has(unknown)).toBe(false);
+    expect(input[0]).toBe(highGross);
+  });
+  test("equal NAV impacts use gross USD then name as deterministic tie-breakers", () => {
+    const a = { ...scenario("a", 1, 20), maxFundNetBps: 10 };
+    const b = { ...scenario("b", 1, 20), maxFundNetBps: 10 };
+    const c = { ...scenario("c", 1, 40), maxFundNetBps: 10 };
+    expect(names(navImpactOrder([b, a, c]))).toEqual(["c", "a", "b"]);
   });
 });
 

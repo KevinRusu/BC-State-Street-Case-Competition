@@ -157,6 +157,11 @@ export function defaultRuleOrder(rules: RuleScore[]): RuleScore[] {
   return [...rules].sort(defaultCompare);
 }
 
+/** Fixed ordinal priorities in the selected rule population; unscored rules are not ranked. */
+export function rulePriorityRanks(rules: RuleScore[]): Map<RuleScore, number> {
+  return new Map(defaultRuleOrder(rules).filter((r) => !isBlank(r.score)).map((r, index) => [r, index + 1]));
+}
+
 export type RuleSort = "name" | "domain" | "score" | "coverage" | "confirmedOnly" | "owner";
 
 /**
@@ -196,6 +201,20 @@ export function splitScenarios(s: Scenario[]): { priced: Scenario[]; notPriced: 
 /** The headline scenario: the priced one with the largest gross USD above zero. One scenario, never a total. */
 export function largestScenario(s: Scenario[]): Scenario | null {
   return splitScenarios(s).priced.find((x) => x.grossUsd !== null && x.grossUsd > 0) ?? null;
+}
+
+/** Fund-relative triage only. The headline still selects the largest gross-USD scenario. */
+export function navImpactOrder(scenarios: Scenario[]): Scenario[] {
+  const magnitude = (value: Num): Num => isBlank(value) ? null : -Math.abs(value);
+  return [...scenarios].sort((a, b) =>
+    numberAsc(magnitude(a.maxFundNetBps), magnitude(b.maxFundNetBps))
+    || numberAsc(magnitude(a.grossUsd), magnitude(b.grossUsd))
+    || text(a.scenario, b.scenario));
+}
+
+/** Missing NAV impact remains unranked, not zero and not a low-risk assessment. */
+export function scenarioPriorityRanks(scenarios: Scenario[]): Map<Scenario, number> {
+  return new Map(navImpactOrder(scenarios).filter((s) => !isBlank(s.maxFundNetBps)).map((s, index) => [s, index + 1]));
 }
 
 /** Pilot minimums for the composite scores. Individual KPIs retain their own targets. */

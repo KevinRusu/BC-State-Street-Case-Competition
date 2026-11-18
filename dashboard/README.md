@@ -139,7 +139,15 @@ card opens to reveal its supporting details.
   (`outputs/02_scorecard.csv`). The bar marks the platform target of 95.00.
 - Largest impact scenario: the priced scenario with the largest gross dollar figure, with its share of rows priced
   and its evidence status, from `severity` (`outputs/02_severity.csv`). It is one scenario, never a total.
+  A valuation-coverage bar stays visible before expansion: solid = priced rows, hatched = unpriced rows, with
+  both counts shown. It describes row coverage, not a share of dollar exposure. Unavailable counts show an
+  unavailable message instead of an inferred zero.
 - Early Warning Signs Triggered shows how many computed leading indicators triggered during the reporting period.
+  A 2-by-2 LI1-LI4 matrix is visible before expansion: warning triangle = triggered, check circle = not triggered,
+  question circle = unavailable. The LI labels map to the existing I1-I4 checks; statuses use the same saved
+  reporting-period breach counts as the headline, not only the latest observation. Missing or uncomputed checks
+  remain unavailable rather than appearing to pass.
+  The key always includes both Triggered and Not triggered; Unavailable is added when that state occurs.
   The pre-cutoff booking indicator replays trade-level alerts and plots the daily count for each feed.
   Open the card for the dates and the indicator list. The count comes from `indicators` and the dates come from
   `indicator_series`.
@@ -173,9 +181,15 @@ card opens to reveal its supporting details.
   `scorecard_accounts` (`outputs/02_scorecard_accounts.csv`). Expand the list for the rest of the loaded ranking.
   A lookup opens any account by its ID.
 
-**What to Fix First**
+**Fix Priority**
 
-- Rules and impact scenarios, ranked by score or by dollars (the switch is the `by` address parameter). Each view
+- Rules have numbered priorities, lowest quality score first within the selected domain (or all domains).
+  Existing coverage/domain/rule tie-breakers give a deterministic order; unscored rules remain unranked.
+  The dollar view defaults to highest modeled NAV impact first, with that column immediately before Gross USD.
+  NAV impact is the largest absolute net scenario effect on one fund in basis points, based on priced rows;
+  it is not a verified NAV loss. Gross USD and scenario name break ties. Unpriced or missing-NAV-impact rows
+  remain unranked. Ranks stay fixed when other headers re-sort the list; select Rank to restore priority order.
+  The headline still uses the largest gross-USD scenario. Each view
   shows five rows with a control for revealing the rest. Scenario descriptions open on demand. A rule shows
   its plain name from `scripts/plain_language.json` (here and on the rule page); its units come from
   `score_outcomes` (`outputs/02_score_outcomes.csv`). Scenarios come from `severity` and their keys from

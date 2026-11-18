@@ -113,8 +113,8 @@ async function ExecutiveContent({ searchParams }: Props) {
         </div>
       </ExecutiveSection>
       <ExecutiveSection
-        id="fix-first" title="What to Fix First"
-        intro="Where repair work pays off most: the checks with the lowest scores, or the problems with the largest dollar impact."
+        id="fix-first" title="Fix Priority"
+        intro="Where repair work pays off most: the checks with the lowest scores, or the scenarios with the largest modeled NAV impact."
       >
         <FixFirst
           rules={data.rules} scenarios={data.scenarios} by={by} domain={domain}

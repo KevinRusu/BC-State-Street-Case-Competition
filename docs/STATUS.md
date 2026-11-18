@@ -1,11 +1,32 @@
 # Status
 
-Last updated: 2026-11-18 (first deploy to Google Cloud Run)
+Last updated: 2026-11-18 (Fix Priority rankings)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
 
 ## Where we are
+
+- **Fix Priority ranks (18 Nov, local):** numbered rule priorities use lowest quality score first; the dollar view
+  defaults to largest modeled single-fund NAV impact first. The renamed NAV impact column precedes Gross USD.
+  Ranks stay fixed when other headers sort, and Rank restores priority order. Unscored/unpriced/unknown-NAV
+  rows remain unranked. Gross-USD headline selection and analytical outputs are unchanged. Policy: D-077.
+  - **PR validation:** dashboard unit checks (165), all Executive View browser checks (19) and their isolated
+    production build, TypeScript, changed-file ESLint and the Git whitespace check pass. Branch:
+    "dashboard-executive-priorities". The existing stale Stress test documentation check is noted below.
+
+- **Executive View section label (18 Nov, local):** renamed "What to Fix First" to "Fix Priority". The existing
+  section anchor, filters and ranking behavior are unchanged.
+
+- **Early warning headline cue (18 Nov, local):** the closed Executive View headline shows a compact LI1-LI4
+  status matrix. Warning triangle = triggered during the reporting period; check circle = not triggered;
+  question circle = unavailable. Existing I1-I4 IDs and saved counts are unchanged. The key always includes
+  Triggered and Not triggered. The Largest Impact Scenario now shows a solid/hatched priced/unpriced row-coverage
+  bar with both counts before expansion. This is row coverage, not a percentage of financial exposure; unavailable
+  counts remain unavailable. Scenario ranking and analytical outputs are unchanged.
+  - **Checked:** TypeScript, dashboard unit checks and the focused headline-disclosure browser test pass. The
+    existing documentation check still flags the saved Stress test summary in `FINDINGS.md` as stale against
+    `outputs/03_stress_*.csv`; no stress results were changed for this presentation update.
 
 - **Hosted dashboard (17–18 Nov):** merged in PR #24 (D-076). The dashboard runs on Google Cloud Run behind one shared
   password, deployed with `deploy/deploy.sh` (code and store together, live check, rollback). Project and region are in

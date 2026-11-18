@@ -1119,3 +1119,19 @@ build in §8); plan: `docs/superpowers/plans/2026-11-11-executive-view.md`.
   npm 11 and the Node 22 image ships npm 10. Takedown after judging (date in `deploy/README.md`).
 - **Design and plan:** `docs/superpowers/specs/2026-11-17-cloud-run-hosting-design.md`,
   `docs/superpowers/plans/2026-11-17-cloud-run-hosting.md`. How to use it: `deploy/README.md`.
+
+### D-077 · 18 Nov · Show explicit Fix Priority ranks and order financial triage by NAV impact
+
+- **Decision (user requested):** number the rule list in its existing lowest-score-first order, within the selected
+  domain or all domains. Coverage, domain and rule ID retain the existing deterministic tie-breaks. Unscored rules
+  are unranked. Give financial scenarios ordinal priorities by highest absolute single-fund modeled NAV effect
+  first; gross USD then scenario name break ties. Missing NAV effect stays unranked; unpriced scenarios retain
+  their separate unknown-exposure group. Ranks stay attached to their rows when other headers re-sort the list.
+- **Presentation:** rename Largest fund effect to NAV impact and put it before Gross USD. Its basis remains
+  `max_abs_fund_net_bps_valued_subset` from `outputs/02_severity.csv`: the maximum absolute net modeled fund change
+  divided by that fund's net assets, in basis points, on valued rows. The header explains this definition.
+- **Why:** fund-relative sensitivity highlights concentration without substituting a combined or costed remediation
+  score. Gross USD and valuation coverage remain visible for context. Unknown exposure is not low exposure;
+  these are conditional scenarios, not verified NAV losses. Scenario amounts overlap and are never summed.
+- **Boundary:** this changes presentation order and display ranks only. Analytical CSVs, scoring policy, severity
+  calculations and the headline's largest-gross-USD selection are unchanged. No materiality threshold is added.

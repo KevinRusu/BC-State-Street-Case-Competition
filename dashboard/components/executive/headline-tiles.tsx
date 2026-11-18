@@ -6,6 +6,8 @@ import { BLANK, PLATFORM_SCORE_TARGET, fmtCount, fmtScore, fmtShare, fmtUsd, fmt
 import type { ExecutiveData } from "@/lib/executive-types";
 import { PartMissing } from "./part-missing";
 import { ScoreTarget } from "./score-target";
+import { IndicatorTriggerMatrix } from "./indicator-trigger-matrix";
+import { ScenarioCoverage } from "./scenario-coverage";
 
 function HeadlineCard({ id, title, value, summary, caption, children }: {
   id: string; title: string; value: React.ReactNode; summary?: React.ReactNode; caption?: React.ReactNode; children: React.ReactNode;
@@ -71,6 +73,7 @@ export function HeadlineTiles({ data }: { data: ExecutiveData }) {
           id="tile-impact"
           title="Largest Impact Scenario"
           value={<span title={scenario ? fmtUsd(scenario.grossUsd) : undefined}>{scenario ? fmtUsdShort(scenario.grossUsd) : BLANK}</span>}
+          summary={!missingImpact && scenario && <ScenarioCoverage scenario={scenario} />}
           caption={scenario && (
             <>
               <p className="font-medium">{scenario.scenario}</p>
@@ -94,6 +97,7 @@ export function HeadlineTiles({ data }: { data: ExecutiveData }) {
           id="tile-leading"
           title="Early Warning Signs Triggered"
           value={missingIndicators ? BLANK : `${fmtCount(leading.breaching)} of ${fmtCount(leading.computed)}`}
+          summary={!missingIndicators && <IndicatorTriggerMatrix entries={leading.entries} />}
           caption={!missingIndicators && leading.computed > 0 && "During the reporting period"}
         >
           {missingIndicators ? <PartMissing part="indicators" /> : (
@@ -111,6 +115,7 @@ export function HeadlineTiles({ data }: { data: ExecutiveData }) {
                   {leading.entries.map(({ indicator, recordedBreach }) => (
                     <li key={indicator.id} className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
                       <Link href={`#indicator-${indicator.id}`} className="font-medium text-brand-line underline-offset-2 hover:underline">
+                        {/^I[1-4]$/.test(indicator.id) && <span aria-hidden className="mr-1.5 text-xs text-muted-foreground">L{indicator.id}</span>}
                         {indicator.name}
                       </Link>
                       <span className="text-xs text-muted-foreground">

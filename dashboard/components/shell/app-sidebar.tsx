@@ -8,7 +8,7 @@ import { BrandLogo } from "./brand-logo";
 import { useShell } from "./shell-state";
 
 export const PAGES = [
-  { href: "/executive", label: "Executive view", icon: LayoutDashboard, hint: "scores, cost, what to fix first" },
+  { href: "/executive", label: "Executive view", icon: LayoutDashboard, hint: "scores, cost, fix priority" },
   { href: "/", label: "Data map", icon: Network, hint: "tables, joins, rules" },
   { href: "/trace", label: "Trace a record", icon: Route, hint: "follow one ID end to end" },
 ];
