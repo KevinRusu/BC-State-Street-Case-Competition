@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-18 (Fix Priority rankings)
+Last updated: 2026-11-18 (Fix Priority sort-based ranks and default tab)
 
 *Overwrite this file when the state changes. Choices go in [DECISIONS.md](DECISIONS.md), numbers in
 [FINDINGS.md](FINDINGS.md). Dates and deliverables: brief §7 and §8 (`reference/01_Student_Brief.md`).*
@@ -9,11 +9,14 @@ Last updated: 2026-11-18 (Fix Priority rankings)
 
 - **Fix Priority ranks (18 Nov, local):** numbered rule priorities use lowest quality score first; the dollar view
   defaults to largest modeled single-fund NAV impact first. The renamed NAV impact column precedes Gross USD.
-  Ranks stay fixed when other headers sort, and Rank restores priority order. Unscored/unpriced/unknown-NAV
-  rows remain unranked. Gross-USD headline selection and analytical outputs are unchanged. Policy: D-077.
-  - **PR validation:** dashboard unit checks (165), all Executive View browser checks (19) and their isolated
-    production build, TypeScript, changed-file ESLint and the Git whitespace check pass. Branch:
-    "dashboard-executive-priorities". The existing stale Stress test documentation check is noted below.
+  By dollar impact is now the first and default tab; quality score is second, with explicit links for domain
+  drill-downs. Ranks recalculate from the selected column, direction and filtered population; Rank restores the
+  default criterion. Missing selected values and unpriced exposure stay unranked. Gross-USD headline selection
+  and analytical outputs are unchanged. Policy: D-077, refined by D-078.
+  - **PR validation:** dashboard unit checks (165), all browser checks (57, including 19 Executive View checks),
+    the store contract checks and isolated production builds, TypeScript, changed-file ESLint and the Git
+    whitespace check pass. Branch: "dashboard-executive-priorities", PR #26. The earlier trace-menu failure
+    did not recur in this full run. The existing stale Stress test documentation check is noted below.
 
 - **Executive View section label (18 Nov, local):** renamed "What to Fix First" to "Fix Priority". The existing
   section anchor, filters and ranking behavior are unchanged.

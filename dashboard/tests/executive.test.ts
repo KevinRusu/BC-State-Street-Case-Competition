@@ -95,7 +95,7 @@ test("links round-trip names with : / and spaces", () => {
   expect(new URL(scenarioHref(name), "http://x").searchParams.get("name")).toBe(name);
   expect(new URL(ruleHref("Corporate actions", "CA_TERMS_COMPLETE"), "http://x").searchParams.get("domain")).toBe("Corporate actions");
   expect(new URL(traceHref("A1/S1"), "http://x").searchParams.get("id")).toBe("A1/S1");
-  expect(executiveHref({ domain: "Trades" })).toBe("/executive?domain=Trades#fix-first");
+  expect(executiveHref({ domain: "Trades" })).toBe("/executive?by=score&domain=Trades#fix-first");
 });
 test("page and result parameters are clamped, not trusted", () => {
   expect(parsePage("0", 5)).toBe(1);
@@ -225,16 +225,22 @@ describe("rule orders", () => {
     defaultRuleOrder(rules);
     expect(ids(rules)).toEqual(before);
   });
-  test("priority numbers use the full score order, exclude blanks and stay attached after a different sort", () => {
-    const ranks = rulePriorityRanks(rules);
+  test("ranks follow the selected order and filter, excluding missing selected values", () => {
+    const ranks = rulePriorityRanks(defaultRuleOrder(rules));
     expect(ranks.get(rules[4])).toBe(1);
     expect(ranks.get(rules[2])).toBe(2);
     expect(ranks.get(rules[5])).toBe(3);
     expect(ranks.has(rules[0])).toBe(false);
     const resorted = sortRules(rules, "score", "desc");
-    expect(ranks.get(resorted[0])).toBe(2);
-    const accounts = rules.filter((r) => r.domain === "Accounts");
+    expect(rulePriorityRanks(resorted).get(resorted[0])).toBe(1);
+    const coverageOrder = sortRules(rules, "coverage", "desc");
+    const coverageRanks = rulePriorityRanks(coverageOrder, "coverage");
+    expect(coverageRanks.get(rules[0])).toBe(2); // no score, but a known coverage
+    expect(coverageRanks.has(rules[3])).toBe(false); // missing coverage
+    const accounts = defaultRuleOrder(rules.filter((r) => r.domain === "Accounts"));
     expect([...rulePriorityRanks(accounts).values()]).toEqual([1, 2]);
+    const alphabetic = sortRules(rules, "name", "asc");
+    expect([...rulePriorityRanks(alphabetic, "name").keys()]).toEqual(alphabetic);
   });
   test("a blank number is last in both directions", () => {
     const asc = ids(sortRules(rules, "score", "asc"));
@@ -301,11 +307,19 @@ describe("scenarios", () => {
     const input = [highGross, unknown, zero, highNav];
     expect(names(navImpactOrder(input))).toEqual([highNav.scenario, highGross.scenario, zero.scenario, unknown.scenario]);
     expect(largestScenario(input)).toBe(highGross);
-    const ranks = scenarioPriorityRanks(input);
+    const ranks = scenarioPriorityRanks(navImpactOrder(input));
     expect(ranks.get(highNav)).toBe(1);
     expect(ranks.get(highGross)).toBe(2);
     expect(ranks.get(zero)).toBe(3);
     expect(ranks.has(unknown)).toBe(false);
+    const grossOrder = splitScenarios(input).priced;
+    const grossRanks = scenarioPriorityRanks(grossOrder, "grossUsd");
+    expect(grossRanks.get(highGross)).toBe(1);
+    expect(grossRanks.get(unknown)).toBe(2); // missing NAV does not prevent ranking known dollars
+    expect(grossRanks.get(zero)).toBe(4);
+    const ascendingRanks = scenarioPriorityRanks([...grossOrder].reverse(), "grossUsd");
+    expect(ascendingRanks.get(zero)).toBe(1);
+    expect(scenarioPriorityRanks([scenario("unpriced", 1, null, 20)], "distinctAccounts").size).toBe(0);
     expect(input[0]).toBe(highGross);
   });
   test("equal NAV impacts use gross USD then name as deterministic tie-breakers", () => {
@@ -488,9 +502,9 @@ describe("link builders", () => {
     expect(scenarioHref("S", { page: 2, priced: "no" })).toBe("/executive/scenario?name=S&priced=no&page=2");
     expect(scenarioHref("S", { page: 1 })).toBe("/executive/scenario?name=S");
   });
-  test("the executive page: score is the default order, a domain jumps to the fix-first list", () => {
+  test("the executive page defaults to dollars, with explicit score and domain links", () => {
     expect(executiveHref({})).toBe("/executive");
-    expect(executiveHref({ by: "score" })).toBe("/executive");
+    expect(executiveHref({ by: "score" })).toBe("/executive?by=score");
     expect(executiveHref({ by: "dollars" })).toBe("/executive?by=dollars");
     expect(executiveHref({ by: "dollars", domain: "Corporate actions" })).toBe("/executive?by=dollars&domain=Corporate+actions#fix-first");
   });

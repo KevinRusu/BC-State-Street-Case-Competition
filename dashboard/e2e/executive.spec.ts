@@ -71,6 +71,10 @@ test("executive view shows the scorecard's own figures", async ({ page }) => {
   const platform = (await csv("02_scorecard.csv")).find((r) => r.level === "platform")!;
   await page.goto("/executive");
   await expect(page.getByRole("heading", { level: 1, name: "Executive view" })).toBeVisible();
+  const priorityTabs = page.locator("#fix-first").getByRole("tab");
+  await expect(priorityTabs).toHaveText(["By dollar impact", "By quality score"]);
+  await expect(priorityTabs.first()).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByTestId("scenario-row").first()).toBeVisible();
   await expect(page.getByRole("heading", { level: 2 })).toHaveText([
     "Executive Metrics", "Early Warning Signs (Leading Indicators)", "KPIs by Office", "Worst Accounts",
     "Fix Priority", "Data Integrity Status",
@@ -329,6 +333,8 @@ test("fix first: lowest score on top, and the switch shows dollars", async ({ pa
   const rules = (await csv("02_scorecard.csv")).filter((r) => r.level === "rule");
   const lowest = Math.min(...rules.map((r) => Number(r.score)));
   await page.goto("/executive");
+  await page.getByRole("tab", { name: "By quality score" }).click();
+  await expect(page).toHaveURL(/by=score/);
   const list = page.locator("#fix-first");
   await expandRankedPreview(list, "rule-row", rules.length);
   await expect(page.getByTestId("rule-row").first().getByTestId("score")).toHaveText(lowest.toFixed(2));
@@ -347,13 +353,15 @@ test("fix first: lowest score on top, and the switch shows dollars", async ({ pa
   const headers = (await list.getByRole("table").first().getByRole("columnheader").allTextContents())
     .map((text) => text.replace(/\s*[▲▼]\s*$/, ""));
   expect(headers.slice(0, 5)).toEqual(["Rank", "Scenario", "Evidence", "NAV impact", "Gross USD"]);
-  const scenarioRanks = new Map(await Promise.all((await list.getByTestId("scenario-row").all()).map(async (row) => [
-    await row.getByRole("link").first().getAttribute("href"), await row.getByTestId("priority-rank").innerText(),
-  ] as const)));
   await list.getByRole("button", { name: "Gross USD", exact: true }).click();
   const firstByGross = list.getByTestId("scenario-row").first();
   await expect(firstByGross.getByTestId("scenario-grossUsd")).toHaveText(fmtUsd(Math.max(...priced.map((r) => Number(r.gross_delta_usd_valued_subset)))));
-  await expect(firstByGross.getByTestId("priority-rank")).toHaveText(scenarioRanks.get(await firstByGross.getByRole("link").first().getAttribute("href"))!);
+  await expect(firstByGross.getByTestId("priority-rank")).toHaveText("1");
+  await expect(list.getByRole("table").first().getByTestId("priority-rank")).toHaveText(priced.map((_, index) => String(index + 1)));
+  await expect(list.getByText(/^Ranked by Gross USD, highest first/)).toBeVisible();
+  await list.getByRole("button", { name: "Gross USD", exact: true }).click();
+  await expect(list.getByTestId("scenario-row").first().getByTestId("scenario-grossUsd")).toHaveText(fmtUsd(Math.min(...priced.map((r) => Number(r.gross_delta_usd_valued_subset)))));
+  await expect(list.getByRole("table").first().getByTestId("priority-rank")).toHaveText(priced.map((_, index) => String(index + 1)));
   await list.getByRole("button", { name: "Rank", exact: true }).click();
   await expect(list.getByTestId("scenario-row").first().getByTestId("priority-rank")).toHaveText("1");
   const empty = severity.filter((r) => Number(r.financial_rows) === 0).length;
@@ -371,24 +379,25 @@ test("fix first: a domain filters the list, a header re-sorts it", async ({ page
   await page.goto("/executive");
   await page.getByTestId("domain-card").getByRole("link", { name: "Trades", exact: true }).click();
   await expect(page).toHaveURL(/domain=Trades#fix-first/);
-  await expect(page.getByTestId("rule-row")).toHaveCount(Math.min(5, rules.filter((r) => r.domain === "Trades").length));
+  const filteredCount = Math.min(5, rules.filter((r) => r.domain === "Trades").length);
+  await expect(page.getByTestId("rule-row")).toHaveCount(filteredCount);
+  await expect(page.locator("#fix-first").getByTestId("priority-rank")).toHaveText(Array.from({ length: filteredCount }, (_, index) => String(index + 1)));
   await page.getByRole("link", { name: "Show all domains" }).click();
   // The reader stays at the list, not at the top of the page.
-  await expect(page).toHaveURL(/\/executive#fix-first$/);
+  await expect(page).toHaveURL(/\/executive\?by=score#fix-first$/);
   await expect(page.getByTestId("rule-row")).toHaveCount(Math.min(5, rules.length));
   await expect(page.locator("#fix-first")).toBeInViewport();
   const list = page.locator("#fix-first");
   const scoreSort = list.getByRole("button", { name: "Score", exact: true });
   await expandRankedPreview(list, "rule-row", rules.length);
-  const ranks = new Map(await Promise.all((await list.getByTestId("rule-row").all()).map(async (row) => [
-    await row.getByRole("link").first().getAttribute("href"), await row.getByTestId("priority-rank").innerText(),
-  ] as const)));
   await scoreSort.click();
   await scoreSort.click();
   const highest = Math.max(...rules.map((r) => Number(r.score)));
   await expect(page.getByTestId("rule-row").first().getByTestId("score")).toHaveText(highest.toFixed(2));
   const first = list.getByTestId("rule-row").first();
-  await expect(first.getByTestId("priority-rank")).toHaveText(ranks.get(await first.getByRole("link").first().getAttribute("href"))!);
+  await expect(first.getByTestId("priority-rank")).toHaveText("1");
+  await expect(list.getByTestId("priority-rank")).toHaveText(rules.map((_, index) => String(index + 1)));
+  await expect(list.getByText(/^Ranked by quality score, highest first/)).toBeVisible();
   await list.getByRole("button", { name: "Rank", exact: true }).click();
   await expect(list.getByTestId("rule-row").first().getByTestId("priority-rank")).toHaveText("1");
 });
@@ -397,7 +406,7 @@ test("fix first: the rule, domain and owner headers sort too", async ({ page }) 
   const rules = (await csv("02_scorecard.csv")).filter((r) => r.level === "rule");
   const text = (a: string, b: string) => a.localeCompare(b, "en");
   const list = page.locator("#fix-first");
-  await page.goto("/executive");
+  await page.goto("/executive?by=score");
   const header = (name: string) => list.getByRole("button", { name, exact: true });
   await header("Domain").click();
   await expect(list.getByRole("columnheader", { name: "Domain" })).toHaveAttribute("aria-sort", "ascending");
@@ -423,7 +432,7 @@ test("fix first: a rule with several tests names the test on each what-failed li
   const several = unique.find((r) => testsOf(r).length > 1)!;
   const one = unique.find((r) => testsOf(r).length === 1)!;
   expect(several && one, "the fixture has a rule with several tests and one with one").toBeTruthy();
-  await page.goto("/executive");
+  await page.goto("/executive?by=score");
   await expandRankedPreview(page.locator("#fix-first"), "rule-row", rules.length);
   const lines = (r: Record<string, string>) => page.getByTestId("rule-row")
     .filter({ has: page.getByText(r.rule, { exact: true }) }).getByTestId("what-failed").locator("div");
@@ -438,7 +447,7 @@ test("drill-down: a rule lists its records and one opens in the trace", async ({
   const rule = "TXN_ONE_REVERSAL_PER_ORIGINAL";
   const outcomes = (await csv("02_score_outcomes.csv")).filter((r) => r.rule === rule);
   const rules = (await csv("02_scorecard.csv")).filter((r) => r.level === "rule");
-  await page.goto("/executive");
+  await page.goto("/executive?by=score");
   await expandRankedPreview(page.locator("#fix-first"), "rule-row", rules.length);
   const row = page.getByTestId("rule-row").filter({ has: page.getByText(rule, { exact: true }) });
   await row.getByRole("link").first().click();

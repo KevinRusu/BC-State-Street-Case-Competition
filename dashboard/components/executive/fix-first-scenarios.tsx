@@ -4,13 +4,13 @@ import { useId, useState } from "react";
 import Link from "next/link";
 import { RegisterStatus } from "@/components/common";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { BLANK, fmtBps, fmtCount, fmtShare, fmtUsd, navImpactOrder, scenarioHref, scenarioPriorityRanks, splitScenarios } from "@/lib/executive";
+import { BLANK, fmtBps, fmtCount, fmtShare, fmtUsd, navImpactOrder, scenarioHref, scenarioPriorityRanks, splitScenarios, type ScenarioSort } from "@/lib/executive";
 import type { Num, Scenario } from "@/lib/executive-types";
 import { DetailDisclosure } from "./detail-disclosure";
 import { RANKED_PREVIEW_ROWS, RankedListToggle } from "./ranked-list-toggle";
 import { ScenarioCaption } from "./scenario-caption";
 
-type Key = "grossUsd" | "signedUsd" | "maxFundNetBps" | "valuationCoverage" | "distinctAccounts" | "affectedFunds";
+type Key = ScenarioSort;
 type Sort = { by: Key; direction: "asc" | "desc" };
 const COLUMNS: { key: Key; label: string; show: (s: Scenario) => string }[] = [
   { key: "maxFundNetBps", label: "NAV impact", show: (s) => fmtBps(s.maxFundNetBps) },
@@ -96,11 +96,12 @@ export function FixFirstScenarios({ scenarios }: { scenarios: Scenario[] }) {
   const listId = useId();
   const { priced, notPriced, noRecords } = splitScenarios(scenarios);
   const priorityOrder = navImpactOrder(priced);
-  const ranks = scenarioPriorityRanks(priced);
   const activeSort: Sort = sort ?? { by: "maxFundNetBps", direction: "desc" };
   const pricedRows = sort
     ? [...priorityOrder].sort((a, b) => compare(a[sort.by], b[sort.by], sort.direction))
     : priorityOrder;
+  const ranks = scenarioPriorityRanks(pricedRows, activeSort.by);
+  const rankLabel = COLUMNS.find((column) => column.key === activeSort.by)!.label;
   const limit = expanded ? scenarios.length : RANKED_PREVIEW_ROWS;
   const shownPriced = pricedRows.slice(0, limit);
   const shownNotPriced = notPriced.slice(0, limit - shownPriced.length);
@@ -116,7 +117,7 @@ export function FixFirstScenarios({ scenarios }: { scenarios: Scenario[] }) {
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        Rank 1 is the largest modeled NAV impact on a single fund, based on priced rows. Ranks stay fixed when sorting other columns.
+        Ranked by {rankLabel}, {activeSort.direction === "desc" ? "highest first" : "lowest first"}, based on priced rows. Ranks update with the selected column and direction; unavailable values are unranked.
       </p>
       <div id={listId} className="space-y-4">
         {shownPriced.length > 0 && <ScenarioTable rows={shownPriced} ranks={ranks} sort={activeSort} onSort={changeSort} onRank={() => setSort(null)} />}

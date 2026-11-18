@@ -1135,3 +1135,16 @@ build in §8); plan: `docs/superpowers/plans/2026-11-11-executive-view.md`.
   these are conditional scenarios, not verified NAV losses. Scenario amounts overlap and are never summed.
 - **Boundary:** this changes presentation order and display ranks only. Analytical CSVs, scoring policy, severity
   calculations and the headline's largest-gross-USD selection are unchanged. No materiality threshold is added.
+
+### D-078 · 18 Nov · Rank the selected Fix Priority order and default to dollar impact
+
+- **Decision (user requested, refines D-077):** keep the Rank column in place and recalculate its ordinal numbers
+  from the selected sort column and direction, within the filtered population. Number before preview slicing,
+  so expanding the list preserves its order and ranks. Ties retain the existing deterministic tie-breakers.
+- **Missing values:** no rank when the selected criterion is unavailable; a known zero is ranked. A priced
+  scenario with no NAV denominator can rank by known gross dollars. Unpriced scenarios remain in their separate
+  unranked review group under every criterion. Ranks describe the selected order, not an immutable risk rating.
+- **Navigation:** By dollar impact is first and defaults on an unqualified Executive View URL. By quality score
+  is second and explicitly linked by `by=score`; domain-card drill-downs still open their filtered rule list.
+  The Rank header restores each list's original default criterion (NAV descending or quality score ascending).
+- **Boundary:** no analytical data, formula, scoring treatment or headline selection changes. No deployment.

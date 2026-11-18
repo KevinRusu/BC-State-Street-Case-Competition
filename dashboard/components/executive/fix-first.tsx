@@ -13,8 +13,8 @@ export function FixFirst({ rules, scenarios, by, domain, impactMissing, scorecar
   rules: RuleScore[]; scenarios: Scenario[]; by: "score" | "dollars"; domain?: string; impactMissing: boolean; scorecardMissing: boolean;
 }) {
   const tabs = [
-    { by: "score", label: "By quality score" },
     { by: "dollars", label: "By dollar impact" },
+    { by: "score", label: "By quality score" },
   ] as const;
   return (
     <div className="space-y-3">

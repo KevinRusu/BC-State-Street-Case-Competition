@@ -183,12 +183,16 @@ card opens to reveal its supporting details.
 
 **Fix Priority**
 
-- Rules have numbered priorities, lowest quality score first within the selected domain (or all domains).
-  Existing coverage/domain/rule tie-breakers give a deterministic order; unscored rules remain unranked.
+- By dollar impact is the first and default tab; By quality score is second. Explicit `by=score` links select
+  quality scores, including domain-card drill-downs. Rules initially use lowest quality score first within the
+  selected domain (or all domains), with existing deterministic coverage/domain/rule tie-breakers.
   The dollar view defaults to highest modeled NAV impact first, with that column immediately before Gross USD.
   NAV impact is the largest absolute net scenario effect on one fund in basis points, based on priced rows;
-  it is not a verified NAV loss. Gross USD and scenario name break ties. Unpriced or missing-NAV-impact rows
-  remain unranked. Ranks stay fixed when other headers re-sort the list; select Rank to restore priority order.
+  it is not a verified NAV loss. Gross USD and scenario name break ties in the default order. Rank numbers
+  are recalculated from the selected column, direction and filtered population before the five-row preview.
+  For example, Gross USD descending gives the largest dollar scenario rank 1. A missing value in the selected
+  column remains unranked; a known zero is ranked. Unpriced exposure stays in its separate unranked group.
+  Select Rank to restore the default priority criterion.
   The headline still uses the largest gross-USD scenario. Each view
   shows five rows with a control for revealing the rest. Scenario descriptions open on demand. A rule shows
   its plain name from `scripts/plain_language.json` (here and on the rule page); its units come from

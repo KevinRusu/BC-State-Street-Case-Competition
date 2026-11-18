@@ -157,9 +157,12 @@ export function defaultRuleOrder(rules: RuleScore[]): RuleScore[] {
   return [...rules].sort(defaultCompare);
 }
 
-/** Fixed ordinal priorities in the selected rule population; unscored rules are not ranked. */
-export function rulePriorityRanks(rules: RuleScore[]): Map<RuleScore, number> {
-  return new Map(defaultRuleOrder(rules).filter((r) => !isBlank(r.score)).map((r, index) => [r, index + 1]));
+/** Number the already sorted, filtered rules; a missing value in the selected column is unranked. */
+export function rulePriorityRanks(orderedRules: RuleScore[], by: RuleSort = "score"): Map<RuleScore, number> {
+  return new Map(orderedRules.filter((r) => {
+    const value = r[by];
+    return typeof value === "string" ? value.trim() !== "" : !isBlank(value);
+  }).map((r, index) => [r, index + 1]));
 }
 
 export type RuleSort = "name" | "domain" | "score" | "coverage" | "confirmedOnly" | "owner";
@@ -212,9 +215,12 @@ export function navImpactOrder(scenarios: Scenario[]): Scenario[] {
     || text(a.scenario, b.scenario));
 }
 
-/** Missing NAV impact remains unranked, not zero and not a low-risk assessment. */
-export function scenarioPriorityRanks(scenarios: Scenario[]): Map<Scenario, number> {
-  return new Map(navImpactOrder(scenarios).filter((s) => !isBlank(s.maxFundNetBps)).map((s, index) => [s, index + 1]));
+export type ScenarioSort = "grossUsd" | "signedUsd" | "maxFundNetBps" | "valuationCoverage" | "distinctAccounts" | "affectedFunds";
+
+/** Number the already sorted priced scenarios; unknown selected values and unpriced exposure stay unranked. */
+export function scenarioPriorityRanks(orderedScenarios: Scenario[], by: ScenarioSort = "maxFundNetBps"): Map<Scenario, number> {
+  return new Map(orderedScenarios.filter((s) => s.financialRows !== null && s.financialRows > 0
+    && !isBlank(s.grossUsd) && !isBlank(s[by])).map((s, index) => [s, index + 1]));
 }
 
 /** Pilot minimums for the composite scores. Individual KPIs retain their own targets. */
@@ -387,8 +393,8 @@ export function scenarioHref(name: string, filter?: { priced?: "yes" | "no"; pag
   return href("/executive/scenario", [["name", name], ["priced", filter?.priced], ["page", filter?.page]]);
 }
 
-/** The executive page; score is the default order and is left out. A domain filter jumps to the fix-first list. */
+/** The executive page defaults to dollars. A domain drill-down explicitly opens its quality-score list. */
 export function executiveHref(q: { by?: "score" | "dollars"; domain?: string }): string {
-  const base = href("/executive", [["by", q.by === "dollars" ? "dollars" : undefined], ["domain", q.domain]]);
+  const base = href("/executive", [["by", q.by ?? (q.domain ? "score" : undefined)], ["domain", q.domain]]);
   return q.domain ? `${base}#fix-first` : base;
 }

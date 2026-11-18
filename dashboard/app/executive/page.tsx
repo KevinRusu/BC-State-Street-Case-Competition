@@ -73,7 +73,7 @@ function ExecutiveSection({ id, title, intro, collapsible = false, children }: {
 async function ExecutiveContent({ searchParams }: Props) {
   const q = await searchParams;
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-  const by = one(q.by) === "dollars" ? "dollars" : "score";
+  const by = one(q.by) === "score" ? "score" : "dollars";
   const domain = one(q.domain) || undefined;
   const result = await loadExecutive();
   if (!result.ok) return <StoreMissing file={result.file} />;

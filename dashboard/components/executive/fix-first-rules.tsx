@@ -44,14 +44,18 @@ export function FixFirstRules({ rules, by, domain }: { rules: RuleScore[]; by: "
   const [expanded, setExpanded] = useState(false);
   const tableId = useId();
   const filtered = domain ? rules.filter((r) => r.domain === domain) : rules;
-  const ranks = rulePriorityRanks(filtered);
   const rows = sort ? sortRules(filtered, sort.by, sort.direction) : defaultRuleOrder(filtered);
+  const rankBy = sort?.by ?? "score";
+  const ranks = rulePriorityRanks(rows, rankBy);
+  const rankLabel = { name: "rule name", domain: "domain", score: "quality score", coverage: "coverage", confirmedOnly: "confirmed-only score", owner: "owner" }[rankBy];
+  const textSort = rankBy === "name" || rankBy === "domain" || rankBy === "owner";
+  const rankDirection = textSort ? (sort?.direction === "desc" ? "Z to A" : "A to Z") : (sort?.direction === "desc" ? "highest first" : "lowest first");
   const click = (key: RuleSort) =>
     setSort((s) => (s && s.by === key ? { by: key, direction: s.direction === "asc" ? "desc" : "asc" } : { by: key, direction: "asc" }));
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        Rank 1 is the lowest quality score{domain ? " in this domain" : ""}. Ranks stay fixed when sorting other columns.
+        Ranked by {rankLabel}, {rankDirection}{domain ? " in this domain" : ""}. Ranks update with the selected column and direction; unavailable values are unranked.
       </p>
       {domain && (
         <p className="text-sm text-muted-foreground">
