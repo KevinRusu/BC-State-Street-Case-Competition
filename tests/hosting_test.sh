@@ -99,7 +99,8 @@ $bad"
 # check, as Google's front end may; otherwise it behaves like the hosted app. FAKE_MODE breaks one thing at a time.
 write_front_end() { # write_front_end <file>
   cat > "$1" <<'PY'
-import base64, os
+import base64, os, posixpath
+from urllib.parse import unquote
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 MODE = os.environ["FAKE_MODE"]
@@ -122,7 +123,16 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = self.path
         if ".." in path or "%2e%2e" in path.lower():
+            clean = posixpath.normpath(unquote(path))
+            if MODE == "front_end_302":  # what Google's front end did on 18 Nov: redirect to the tidied path
+                return self.answer(302, headers=[("Location", "http://127.0.0.1:%s%s" % (os.environ["FAKE_PORT"], clean))])
+            if MODE == "redirect_offsite":
+                return self.answer(302, headers=[("Location", "http://made-up.invalid" + clean)])
+            if MODE == "redirect_to_file":
+                return self.answer(302, headers=[("Location", "/made-up-open-file")])
             return self.answer(400)
+        if MODE == "redirect_to_file" and path == "/made-up-open-file":
+            return self.answer(200, b"made-up")
         if MODE == "page_400" and path == "/executive" and self.headers.get("Authorization") != GOOD:
             return self.answer(400)
         if MODE == "leak" and path == "/outputs/02_defect_register.csv":
@@ -173,6 +183,24 @@ test_live() {
   printf '%s\n' "$out" | grep -qxF 'PASS  /../outputs/store.duckdb without password: 400, 401 or 404 (got 400)' \
     || { echo "$out"; fail "live: the traversal probe without the password did not accept 400"; }
   pass "live: 400 from the front end on /../ and /%2e%2e/ counts as refused, with and without the password"
+
+  live_case front_end_302
+  [ "$code" = 0 ] || { echo "$out"; fail "live: a same-site redirect to the tidied path should pass (exit $code)"; }
+  printf '%s\n' "$out" | grep -qxF 'PASS  /../outputs/store.duckdb without password: 400, 401 or 404 (got 302 to /outputs/store.duckdb, then 401)' \
+    || { echo "$out"; fail "live: the same-site redirect was not followed and checked"; }
+  pass "live: a 302 from the front end to the tidied path on the same site is followed and must be refused there"
+
+  live_case redirect_offsite
+  [ "$code" = 1 ] || { echo "$out"; fail "live: a redirect off the site should fail (exit $code)"; }
+  printf '%s\n' "$out" | grep -qF 'FAIL  /../outputs/store.duckdb without password' \
+    || { echo "$out"; fail "live: the off-site redirect was not reported"; }
+  pass "live: a redirect to another site fails the check"
+
+  live_case redirect_to_file
+  [ "$code" = 1 ] || { echo "$out"; fail "live: a redirect to a file served without the password should fail (exit $code)"; }
+  printf '%s\n' "$out" | grep -qxF 'FAIL  /../outputs/store.duckdb without password: 400, 401 or 404 (got 302 to /made-up-open-file, then 200)' \
+    || { echo "$out"; fail "live: the redirect to an open file was not reported"; }
+  pass "live: a redirect that ends at a file served without the password fails the check"
 
   live_case page_400
   [ "$code" = 1 ] || { echo "$out"; fail "live: a page answering 400 without the password should fail (exit $code)"; }
